@@ -1,8 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Rol, Usuario } from '../../core/models/usuario.model';
+import { Rol, Usuario, UsuarioRequest, UsuarioUpdate } from '../../core/models/usuario.model';
 import { AuthService } from '../../core/services/auth.service';
 import { UsuarioService } from '../../core/services/usuario.service';
 
@@ -20,19 +20,31 @@ interface Feedback {
 
 @Component({
   selector: 'app-usuarios',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, ReactiveFormsModule, DatePipe],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 class="text-2xl font-bold text-slate-800">Usuarios</h1>
           <p class="text-sm text-slate-500">
-            Gestiona cuentas: cambia roles o desactiva usuarios.
+            Gestiona cuentas: crea, edita, cambia roles o desactiva usuarios.
           </p>
         </div>
-        @if (!loading() && !loadError()) {
-          <span class="text-sm text-slate-500">{{ filtered().length }} de {{ usuarios().length }}</span>
-        }
+        <div class="flex items-center gap-3">
+          @if (!loading() && !loadError()) {
+            <span class="text-sm text-slate-500">{{ filtered().length }} de {{ usuarios().length }}</span>
+          }
+          <button
+            type="button"
+            (click)="abrirCrear()"
+            class="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Nuevo usuario
+          </button>
+        </div>
       </div>
 
       <!-- Feedback de acciones -->
@@ -135,9 +147,17 @@ interface Feedback {
                       <div class="flex items-center justify-end gap-2">
                         @if (busyId() === u.idUsuario) {
                           <span class="text-xs text-slate-400">Procesando…</span>
-                        } @else if (esYo(u)) {
-                          <span class="text-xs text-slate-300">Cuenta actual</span>
                         } @else {
+                          <button
+                            type="button"
+                            (click)="abrirEditar(u)"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                          >
+                            Editar
+                          </button>
+                          @if (esYo(u)) {
+                            <span class="text-xs text-slate-300">Cuenta actual</span>
+                          } @else {
                           @if (u.rol === 'USER') {
                             <button
                               type="button"
@@ -162,6 +182,7 @@ interface Feedback {
                           >
                             Desactivar
                           </button>
+                          }
                         }
                       </div>
                     </td>
@@ -173,6 +194,111 @@ interface Feedback {
         }
       </div>
     </div>
+
+    <!-- Modal: crear / editar usuario -->
+    @if (formOpen()) {
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
+        <form
+          [formGroup]="form"
+          (ngSubmit)="guardar()"
+          class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+        >
+          <h2 class="text-lg font-semibold text-slate-800">
+            {{ editando() ? 'Editar usuario' : 'Nuevo usuario' }}
+          </h2>
+          @if (!editando()) {
+            <p class="mt-1 text-xs text-slate-500">
+              La cuenta se crea con rol USER; podrás cambiarle el rol desde el listado.
+            </p>
+          }
+
+          @if (formError()) {
+            <div class="mt-4 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+              {{ formError() }}
+            </div>
+          }
+
+          <div class="mt-5 space-y-4">
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">Nombre</label>
+              <input
+                type="text"
+                formControlName="nombre"
+                placeholder="Nombre y apellidos"
+                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              @if (invalidCampo('nombre')) {
+                <p class="mt-1 text-xs text-red-600">El nombre es obligatorio.</p>
+              }
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+              <input
+                type="email"
+                formControlName="email"
+                placeholder="cliente@email.com"
+                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              @if (invalidCampo('email')) {
+                <p class="mt-1 text-xs text-red-600">Introduce un email válido.</p>
+              }
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">
+                Teléfono <span class="text-slate-400">(opcional)</span>
+              </label>
+              <input
+                type="tel"
+                formControlName="telefono"
+                placeholder="600123456"
+                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              @if (invalidCampo('telefono')) {
+                <p class="mt-1 text-xs text-red-600">El teléfono debe tener entre 9 y 15 caracteres.</p>
+              }
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">
+                {{ editando() ? 'Nueva contraseña' : 'Contraseña' }}
+                @if (editando()) {
+                  <span class="text-slate-400">(en blanco para no cambiarla)</span>
+                }
+              </label>
+              <input
+                type="password"
+                formControlName="password"
+                placeholder="Mínimo 6 caracteres"
+                autocomplete="new-password"
+                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+              @if (invalidCampo('password')) {
+                <p class="mt-1 text-xs text-red-600">La contraseña debe tener al menos 6 caracteres.</p>
+              }
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="formOpen.set(false)"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              [disabled]="saving()"
+              class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {{ saving() ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
 
     <!-- Modal de confirmación -->
     @if (pending(); as p) {
@@ -205,6 +331,7 @@ interface Feedback {
 export class Usuarios implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly auth = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
 
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly loading = signal(true);
@@ -213,6 +340,18 @@ export class Usuarios implements OnInit {
   protected readonly pending = signal<PendingAction | null>(null);
   protected readonly busyId = signal<number | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
+
+  protected readonly formOpen = signal(false);
+  protected readonly editando = signal<Usuario | null>(null);
+  protected readonly saving = signal(false);
+  protected readonly formError = signal<string | null>(null);
+
+  protected readonly form = this.fb.group({
+    nombre: ['', [Validators.required]],
+    email: ['', [Validators.required, Validators.email]],
+    telefono: ['', [Validators.minLength(9), Validators.maxLength(15)]],
+    password: [''],
+  });
 
   private readonly miEmail = computed(() => this.auth.user()?.email ?? null);
 
@@ -251,6 +390,89 @@ export class Usuarios implements OnInit {
   protected iniciales(nombre: string): string {
     const parts = nombre.trim().split(/\s+/);
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+  }
+
+  protected invalidCampo(control: 'nombre' | 'email' | 'telefono' | 'password'): boolean {
+    const c = this.form.controls[control];
+    return c.invalid && (c.dirty || c.touched);
+  }
+
+  protected abrirCrear(): void {
+    this.feedback.set(null);
+    this.formError.set(null);
+    this.editando.set(null);
+    this.form.controls.password.setValidators([Validators.required, Validators.minLength(6)]);
+    this.form.reset({ nombre: '', email: '', telefono: '', password: '' });
+    this.formOpen.set(true);
+  }
+
+  protected abrirEditar(u: Usuario): void {
+    this.feedback.set(null);
+    this.formError.set(null);
+    this.editando.set(u);
+    this.form.controls.password.setValidators([Validators.minLength(6)]);
+    this.form.reset({
+      nombre: u.nombre,
+      email: u.email,
+      telefono: u.telefono ?? '',
+      password: '',
+    });
+    this.formOpen.set(true);
+  }
+
+  protected guardar(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const v = this.form.getRawValue();
+    const editando = this.editando();
+    this.saving.set(true);
+    this.formError.set(null);
+
+    if (editando) {
+      const payload: UsuarioUpdate = {
+        nombre: v.nombre!.trim(),
+        email: v.email!.trim(),
+        telefono: v.telefono?.trim() || undefined,
+        password: v.password?.trim() || undefined,
+      };
+      this.usuarioService.actualizar(editando.idUsuario, payload).subscribe({
+        next: (actualizado) => {
+          this.saving.set(false);
+          this.formOpen.set(false);
+          this.usuarios.update((list) =>
+            list.map((u) => (u.idUsuario === actualizado.idUsuario ? actualizado : u)),
+          );
+          this.feedback.set({ type: 'success', text: `${actualizado.nombre} fue actualizado.` });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.saving.set(false);
+          this.formError.set(this.extraerError(err) ?? 'No se pudo guardar el usuario.');
+        },
+      });
+      return;
+    }
+
+    const payload: UsuarioRequest = {
+      nombre: v.nombre!.trim(),
+      email: v.email!.trim(),
+      telefono: v.telefono?.trim() || undefined,
+      password: v.password!,
+    };
+    this.usuarioService.crear(payload).subscribe({
+      next: (creado) => {
+        this.saving.set(false);
+        this.formOpen.set(false);
+        this.usuarios.update((list) => [creado, ...list]);
+        this.feedback.set({ type: 'success', text: `${creado.nombre} fue creado con rol USER.` });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.formError.set(this.extraerError(err) ?? 'No se pudo crear el usuario.');
+      },
+    });
   }
 
   protected pedirConfirmacion(type: PendingType, usuario: Usuario): void {
@@ -322,7 +544,17 @@ export class Usuarios implements OnInit {
     this.busyId.set(null);
     this.feedback.set({
       type: 'error',
-      text: err.error?.error ?? 'Ocurrió un error al procesar la acción.',
+      text: this.extraerError(err) ?? 'Ocurrió un error al procesar la acción.',
     });
+  }
+
+  /** El backend devuelve {error: "..."} o, en validaciones de campos, {campo: "mensaje"}. */
+  private extraerError(err: HttpErrorResponse): string | null {
+    const body = err.error;
+    if (!body) return null;
+    if (typeof body === 'string') return body;
+    if (body.error) return body.error;
+    const valores = Object.values(body);
+    return valores.length ? String(valores[0]) : null;
   }
 }
