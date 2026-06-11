@@ -1,3 +1,39 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import "tailwindcss";
+
+/*
+ * Paleta "Grafito y Cobre" (tema oscuro).
+ * Tokens semánticos expuestos como colores de Tailwind 4: generan utilities
+ * tipo bg-surface, text-main, text-muted, bg-primary, border-line, etc.
+ * (incluidas variantes de opacidad como bg-primary/15).
+ */
+@theme {
+  --color-base: #121212; /* Fondo principal de la app */
+  --color-surface: #1e1e1e; /* Tarjetas, sidebar, modales, topbar */
+  --color-elevated: #2a2a2a; /* Hover sobre surface, skeletons, badges neutros */
+  --color-line: #353535; /* Bordes y separadores */
+
+  --color-primary: #e07a5f; /* Cobre: CTAs, login, acentos */
+  --color-primary-hover: #cf6a50;
+  --color-secondary: #81b29a; /* Verde salvia: secundarios, bordes activos */
+  --color-secondary-hover: #6f9d86;
+
+  --color-main: #f4f1de; /* Texto principal (crema) */
+  --color-muted: #9ca3af; /* Texto secundario, placeholders */
+
+  --color-success: #4ade80; /* Éxito */
+  --color-warning: #e8b04b; /* Aviso / estado pendiente */
+  --color-error: #f87171; /* Error / peligro */
+}
+
+/* color-scheme: dark hace que inputs nativos (date, time), scrollbars y
+   autofill se rendericen en oscuro de forma coherente. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-base);
+  color: var(--color-main);
+}

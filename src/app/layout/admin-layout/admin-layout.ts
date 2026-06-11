@@ -12,28 +12,28 @@ interface NavItem {
   selector: 'app-admin-layout',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="flex min-h-screen bg-slate-50 text-slate-800">
+    <div class="flex min-h-screen bg-base text-main">
       <!-- Backdrop (móvil) -->
       @if (sidebarOpen()) {
         <div
-          class="fixed inset-0 z-20 bg-slate-900/50 lg:hidden"
+          class="fixed inset-0 z-20 bg-black/60 lg:hidden"
           (click)="closeSidebar()"
         ></div>
       }
 
       <!-- Sidebar -->
       <aside
-        class="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-slate-900 text-slate-300 transition-transform duration-200 lg:static lg:translate-x-0"
+        class="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-line bg-surface text-muted transition-transform duration-200 lg:static lg:translate-x-0"
         [class.-translate-x-full]="!sidebarOpen()"
       >
-        <div class="flex h-16 items-center gap-3 border-b border-slate-800 px-6">
+        <div class="flex h-16 items-center gap-3 border-b border-line px-6">
           <span
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-white"
             >LS</span
           >
           <div class="leading-tight">
             <p class="text-sm font-semibold text-white">Lalo Segovia</p>
-            <p class="text-xs text-slate-400">Panel Admin</p>
+            <p class="text-xs text-muted">Panel Admin</p>
           </div>
         </div>
 
@@ -41,9 +41,9 @@ interface NavItem {
           @for (item of navItems; track item.path) {
             <a
               [routerLink]="item.path"
-              routerLinkActive="bg-indigo-500/10 text-white"
+              routerLinkActive="bg-primary/15 text-main"
               (click)="closeSidebar()"
-              class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-800 hover:text-white"
+              class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-elevated hover:text-main"
             >
               <svg
                 class="h-5 w-5 shrink-0"
@@ -59,11 +59,11 @@ interface NavItem {
           }
         </nav>
 
-        <div class="border-t border-slate-800 p-3">
+        <div class="border-t border-line p-3">
           <button
             type="button"
             (click)="logout()"
-            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-elevated hover:text-main"
           >
             <svg
               class="h-5 w-5 shrink-0"
@@ -86,12 +86,12 @@ interface NavItem {
       <!-- Contenido -->
       <div class="flex flex-1 flex-col lg:pl-0">
         <header
-          class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6"
+          class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-line bg-surface px-4 sm:px-6"
         >
           <button
             type="button"
             (click)="toggleSidebar()"
-            class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
+            class="rounded-lg p-2 text-muted hover:bg-elevated lg:hidden"
             aria-label="Abrir menú"
           >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
@@ -101,11 +101,11 @@ interface NavItem {
 
           <div class="ml-auto flex items-center gap-3">
             <div class="text-right leading-tight">
-              <p class="text-sm font-semibold text-slate-800">{{ nombre() }}</p>
-              <p class="text-xs text-slate-500">{{ email() }}</p>
+              <p class="text-sm font-semibold text-main">{{ nombre() }}</p>
+              <p class="text-xs text-muted">{{ email() }}</p>
             </div>
             <span
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700"
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary"
               >{{ iniciales() }}</span
             >
           </div>

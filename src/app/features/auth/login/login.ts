@@ -8,39 +8,39 @@ import { AuthService } from '../../../core/services/auth.service';
   selector: 'app-login',
   imports: [ReactiveFormsModule],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+    <div class="flex min-h-screen items-center justify-center bg-base p-4">
       <div class="w-full max-w-sm">
         <div class="mb-8 text-center">
           <span
-            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-500 text-xl font-bold text-white"
+            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-xl font-bold text-white"
             >LS</span
           >
-          <h1 class="text-2xl font-bold text-slate-800">Peluquería Lalo Segovia</h1>
-          <p class="text-sm text-slate-500">Panel de administración</p>
+          <h1 class="text-2xl font-bold text-main">Peluquería Lalo Segovia</h1>
+          <p class="text-sm text-muted">Panel de administración</p>
         </div>
 
         <form
           [formGroup]="form"
           (ngSubmit)="onSubmit()"
-          class="space-y-5 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200"
+          class="space-y-5 rounded-2xl bg-surface p-8 shadow-sm ring-1 ring-line"
         >
           <div>
-            <label for="email" class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+            <label for="email" class="mb-1.5 block text-sm font-medium text-main">Email</label>
             <input
               id="email"
               type="email"
               formControlName="email"
               autocomplete="username"
               placeholder="admin@peluqueria.com"
-              class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
             />
             @if (showError('email')) {
-              <p class="mt-1 text-xs text-red-600">Introduce un email válido.</p>
+              <p class="mt-1 text-xs text-error">Introduce un email válido.</p>
             }
           </div>
 
           <div>
-            <label for="password" class="mb-1.5 block text-sm font-medium text-slate-700"
+            <label for="password" class="mb-1.5 block text-sm font-medium text-main"
               >Contraseña</label
             >
             <div class="relative">
@@ -50,13 +50,13 @@ import { AuthService } from '../../../core/services/auth.service';
                 formControlName="password"
                 autocomplete="current-password"
                 placeholder="••••••••"
-                class="w-full rounded-lg border border-slate-300 py-2.5 pl-3.5 pr-10 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                class="w-full rounded-lg border border-line bg-base py-2.5 pl-3.5 pr-10 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               <button
                 type="button"
                 (click)="verPassword.set(!verPassword())"
                 [attr.aria-label]="verPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted transition hover:text-main"
               >
                 @if (verPassword()) {
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
@@ -71,12 +71,12 @@ import { AuthService } from '../../../core/services/auth.service';
               </button>
             </div>
             @if (showError('password')) {
-              <p class="mt-1 text-xs text-red-600">La contraseña es obligatoria.</p>
+              <p class="mt-1 text-xs text-error">La contraseña es obligatoria.</p>
             }
           </div>
 
           @if (errorMsg()) {
-            <div class="rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+            <div class="rounded-lg bg-error/15 px-3.5 py-2.5 text-sm text-error">
               {{ errorMsg() }}
             </div>
           }
@@ -84,7 +84,7 @@ import { AuthService } from '../../../core/services/auth.service';
           <button
             type="submit"
             [disabled]="loading()"
-            class="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             @if (loading()) {
               <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">

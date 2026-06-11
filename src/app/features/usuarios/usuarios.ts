@@ -25,28 +25,28 @@ interface Feedback {
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">Usuarios</h1>
-          <p class="text-sm text-slate-500">
+          <h1 class="text-2xl font-bold text-main">Usuarios</h1>
+          <p class="text-sm text-muted">
             Gestiona cuentas: crea, edita, cambia roles o desactiva usuarios.
           </p>
         </div>
         <div class="flex items-center gap-3">
           @if (!loading() && !loadError()) {
-            <span class="text-sm text-slate-500">{{ totalElements() }} usuario(s)</span>
+            <span class="text-sm text-muted">{{ totalElements() }} usuario(s)</span>
           }
-          <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+          <label class="flex cursor-pointer items-center gap-2 text-sm text-main">
             <input
               type="checkbox"
               [checked]="incluirInactivos()"
               (change)="toggleInactivos()"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              class="h-4 w-4 rounded border-line text-primary focus:ring-primary"
             />
             Mostrar desactivados
           </label>
           <button
             type="button"
             (click)="abrirCrear()"
-            class="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
           >
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -60,7 +60,7 @@ interface Feedback {
       @if (feedback(); as fb) {
         <div
           class="flex items-start justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-          [class]="fb.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'"
+          [class]="fb.type === 'success' ? 'bg-success/15 text-success' : 'bg-error/15 text-error'"
         >
           <span>{{ fb.text }}</span>
           <button type="button" (click)="feedback.set(null)" class="font-medium hover:opacity-70">✕</button>
@@ -70,7 +70,7 @@ interface Feedback {
       <!-- Buscador -->
       <div class="relative max-w-sm">
         <svg
-          class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-slate-400"
+          class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-muted"
           fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -80,30 +80,30 @@ interface Feedback {
           [ngModel]="search()"
           (ngModelChange)="onSearchChange($event)"
           placeholder="Buscar por nombre o email…"
-          class="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          class="w-full rounded-lg border border-line bg-base py-2 pl-10 pr-3 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
         />
       </div>
 
-      <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div class="rounded-xl bg-surface shadow-sm ring-1 ring-line">
         @if (loading()) {
           <div class="p-5 space-y-3">
             @for (i of [1, 2, 3, 4, 5]; track i) {
-              <div class="h-10 animate-pulse rounded bg-slate-100"></div>
+              <div class="h-10 animate-pulse rounded bg-elevated"></div>
             }
           </div>
         } @else if (loadError()) {
           <div class="p-8 text-center">
-            <p class="text-sm text-red-600">{{ loadError() }}</p>
+            <p class="text-sm text-error">{{ loadError() }}</p>
             <button
               type="button"
               (click)="cargar()"
-              class="mt-3 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+              class="mt-3 rounded-lg bg-elevated px-4 py-2 text-sm font-medium text-main hover:bg-line"
             >
               Reintentar
             </button>
           </div>
         } @else if (usuarios().length === 0) {
-          <div class="p-8 text-center text-sm text-slate-400">
+          <div class="p-8 text-center text-sm text-muted">
             @if (search().trim()) {
               No se encontraron usuarios para «{{ search() }}».
             } @else {
@@ -113,7 +113,7 @@ interface Feedback {
         } @else {
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
-              <thead class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+              <thead class="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th class="px-5 py-3 font-medium">Usuario</th>
                   <th class="px-5 py-3 font-medium">Teléfono</th>
@@ -122,48 +122,48 @@ interface Feedback {
                   <th class="px-5 py-3 text-right font-medium">Acciones</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100">
+              <tbody class="divide-y divide-line">
                 @for (u of usuarios(); track u.idUsuario) {
-                  <tr class="hover:bg-slate-50">
+                  <tr class="hover:bg-elevated">
                     <td class="px-5 py-3">
                       <div class="flex items-center gap-3">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-elevated text-xs font-bold text-main">
                           {{ iniciales(u.nombre) }}
                         </span>
                         <div class="leading-tight">
-                          <p class="font-medium text-slate-700">
+                          <p class="font-medium text-main">
                             {{ u.nombre }}
                             @if (esYo(u)) {
-                              <span class="ml-1 text-xs font-normal text-slate-400">(tú)</span>
+                              <span class="ml-1 text-xs font-normal text-muted">(tú)</span>
                             }
                             @if (esInactivo(u)) {
-                              <span class="ml-1.5 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-500">Inactivo</span>
+                              <span class="ml-1.5 inline-flex rounded-full bg-elevated px-2 py-0.5 text-xs font-semibold text-muted">Inactivo</span>
                             }
                           </p>
-                          <p class="text-xs text-slate-500">{{ u.email }}</p>
+                          <p class="text-xs text-muted">{{ u.email }}</p>
                         </div>
                       </div>
                     </td>
-                    <td class="px-5 py-3 text-slate-600">{{ u.telefono || '—' }}</td>
-                    <td class="px-5 py-3 text-slate-600">
+                    <td class="px-5 py-3 text-main">{{ u.telefono || '—' }}</td>
+                    <td class="px-5 py-3 text-main">
                       {{ u.fechaRegistro ? (u.fechaRegistro | date: 'dd/MM/yyyy') : '—' }}
                     </td>
                     <td class="px-5 py-3">
                       <span
                         class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                        [class]="u.rol === 'ADMIN' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'"
+                        [class]="u.rol === 'ADMIN' ? 'bg-primary/15 text-primary' : 'bg-elevated text-main'"
                         >{{ u.rol }}</span
                       >
                     </td>
                     <td class="px-5 py-3">
                       <div class="flex items-center justify-end gap-2">
                         @if (busyId() === u.idUsuario) {
-                          <span class="text-xs text-slate-400">Procesando…</span>
+                          <span class="text-xs text-muted">Procesando…</span>
                         } @else if (esInactivo(u)) {
                           <button
                             type="button"
                             (click)="pedirConfirmacion('activate', u)"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-success hover:bg-success/10"
                           >
                             Reactivar
                           </button>
@@ -171,18 +171,18 @@ interface Feedback {
                           <button
                             type="button"
                             (click)="abrirEditar(u)"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
                           >
                             Editar
                           </button>
                           @if (esYo(u)) {
-                            <span class="text-xs text-slate-300">Cuenta actual</span>
+                            <span class="text-xs text-muted">Cuenta actual</span>
                           } @else {
                           @if (u.rol === 'USER') {
                             <button
                               type="button"
                               (click)="pedirConfirmacion('promote', u)"
-                              class="rounded-md px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
                             >
                               Hacer admin
                             </button>
@@ -190,7 +190,7 @@ interface Feedback {
                             <button
                               type="button"
                               (click)="pedirConfirmacion('demote', u)"
-                              class="rounded-md px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning/10"
                             >
                               Quitar admin
                             </button>
@@ -198,7 +198,7 @@ interface Feedback {
                           <button
                             type="button"
                             (click)="pedirConfirmacion('deactivate', u)"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
                           >
                             Desactivar
                           </button>
@@ -216,14 +216,14 @@ interface Feedback {
 
       <!-- Paginación -->
       @if (!loading() && !loadError() && totalPages() > 1) {
-        <div class="flex items-center justify-between text-sm text-slate-600">
+        <div class="flex items-center justify-between text-sm text-main">
           <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
           <div class="flex items-center gap-1">
             <button
               type="button"
               (click)="irPagina(page() - 1)"
               [disabled]="page() === 0"
-              class="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+              class="rounded-md border border-line px-3 py-1.5 font-medium text-main transition hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
             >
               Anterior
             </button>
@@ -231,7 +231,7 @@ interface Feedback {
               type="button"
               (click)="irPagina(page() + 1)"
               [disabled]="page() + 1 >= totalPages()"
-              class="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+              class="rounded-md border border-line px-3 py-1.5 font-medium text-main transition hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-40"
             >
               Siguiente
             </button>
@@ -242,74 +242,74 @@ interface Feedback {
 
     <!-- Modal: crear / editar usuario -->
     @if (formOpen()) {
-      <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
         <form
           [formGroup]="form"
           (ngSubmit)="guardar()"
-          class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+          class="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-xl"
         >
-          <h2 class="text-lg font-semibold text-slate-800">
+          <h2 class="text-lg font-semibold text-main">
             {{ editando() ? 'Editar usuario' : 'Nuevo usuario' }}
           </h2>
           @if (!editando()) {
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-1 text-xs text-muted">
               La cuenta se crea con rol USER; podrás cambiarle el rol desde el listado.
             </p>
           }
 
           @if (formError()) {
-            <div class="mt-4 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+            <div class="mt-4 rounded-lg bg-error/15 px-3.5 py-2.5 text-sm text-error">
               {{ formError() }}
             </div>
           }
 
           <div class="mt-5 space-y-4">
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">Nombre</label>
+              <label class="mb-1.5 block text-sm font-medium text-main">Nombre</label>
               <input
                 type="text"
                 formControlName="nombre"
                 placeholder="Nombre y apellidos"
-                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               @if (invalidCampo('nombre')) {
-                <p class="mt-1 text-xs text-red-600">El nombre es obligatorio.</p>
+                <p class="mt-1 text-xs text-error">El nombre es obligatorio.</p>
               }
             </div>
 
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+              <label class="mb-1.5 block text-sm font-medium text-main">Email</label>
               <input
                 type="email"
                 formControlName="email"
                 placeholder="cliente@email.com"
-                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               @if (invalidCampo('email')) {
-                <p class="mt-1 text-xs text-red-600">Introduce un email válido.</p>
+                <p class="mt-1 text-xs text-error">Introduce un email válido.</p>
               }
             </div>
 
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">
-                Teléfono <span class="text-slate-400">(opcional)</span>
+              <label class="mb-1.5 block text-sm font-medium text-main">
+                Teléfono <span class="text-muted">(opcional)</span>
               </label>
               <input
                 type="tel"
                 formControlName="telefono"
                 placeholder="600123456"
-                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               @if (invalidCampo('telefono')) {
-                <p class="mt-1 text-xs text-red-600">El teléfono debe tener entre 9 y 15 caracteres.</p>
+                <p class="mt-1 text-xs text-error">El teléfono debe tener entre 9 y 15 caracteres.</p>
               }
             </div>
 
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">
+              <label class="mb-1.5 block text-sm font-medium text-main">
                 {{ editando() ? 'Nueva contraseña' : 'Contraseña' }}
                 @if (editando()) {
-                  <span class="text-slate-400">(en blanco para no cambiarla)</span>
+                  <span class="text-muted">(en blanco para no cambiarla)</span>
                 }
               </label>
               <div class="relative">
@@ -318,13 +318,13 @@ interface Feedback {
                   formControlName="password"
                   placeholder="Mínimo 6 caracteres"
                   autocomplete="new-password"
-                  class="w-full rounded-lg border border-slate-300 py-2.5 pl-3.5 pr-10 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  class="w-full rounded-lg border border-line bg-base py-2.5 pl-3.5 pr-10 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
                 />
                 <button
                   type="button"
                   (click)="verPassword.set(!verPassword())"
                   [attr.aria-label]="verPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted transition hover:text-main"
                 >
                   @if (verPassword()) {
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
@@ -339,7 +339,7 @@ interface Feedback {
                 </button>
               </div>
               @if (invalidCampo('password')) {
-                <p class="mt-1 text-xs text-red-600">La contraseña debe tener al menos 6 caracteres.</p>
+                <p class="mt-1 text-xs text-error">La contraseña debe tener al menos 6 caracteres.</p>
               }
             </div>
           </div>
@@ -348,14 +348,14 @@ interface Feedback {
             <button
               type="button"
               (click)="formOpen.set(false)"
-              class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
               Cancelar
             </button>
             <button
               type="submit"
               [disabled]="saving()"
-              class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+              class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
               {{ saving() ? 'Guardando…' : 'Guardar' }}
             </button>
@@ -366,15 +366,15 @@ interface Feedback {
 
     <!-- Modal de confirmación -->
     @if (pending(); as p) {
-      <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
-        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-          <h2 class="text-lg font-semibold text-slate-800">{{ confirmTitulo(p) }}</h2>
-          <p class="mt-2 text-sm text-slate-600">{{ confirmMensaje(p) }}</p>
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">{{ confirmTitulo(p) }}</h2>
+          <p class="mt-2 text-sm text-main">{{ confirmMensaje(p) }}</p>
           <div class="mt-6 flex justify-end gap-3">
             <button
               type="button"
               (click)="pending.set(null)"
-              class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
               Cancelar
             </button>
@@ -382,7 +382,7 @@ interface Feedback {
               type="button"
               (click)="confirmar(p)"
               class="rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              [class]="p.type === 'deactivate' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'"
+              [class]="p.type === 'deactivate' ? 'bg-error hover:bg-error/80' : 'bg-primary hover:bg-primary-hover'"
             >
               {{ confirmAccion(p) }}
             </button>
