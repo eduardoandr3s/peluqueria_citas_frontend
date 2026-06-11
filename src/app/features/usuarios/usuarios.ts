@@ -6,7 +6,7 @@ import { Rol, Usuario, UsuarioRequest, UsuarioUpdate } from '../../core/models/u
 import { AuthService } from '../../core/services/auth.service';
 import { UsuarioService } from '../../core/services/usuario.service';
 
-type PendingType = 'promote' | 'demote' | 'deactivate';
+type PendingType = 'promote' | 'demote' | 'deactivate' | 'activate';
 
 interface PendingAction {
   type: PendingType;
@@ -32,8 +32,17 @@ interface Feedback {
         </div>
         <div class="flex items-center gap-3">
           @if (!loading() && !loadError()) {
-            <span class="text-sm text-slate-500">{{ filtered().length }} de {{ usuarios().length }}</span>
+            <span class="text-sm text-slate-500">{{ totalElements() }} usuario(s)</span>
           }
+          <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              [checked]="incluirInactivos()"
+              (change)="toggleInactivos()"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Mostrar desactivados
+          </label>
           <button
             type="button"
             (click)="abrirCrear()"
@@ -69,7 +78,7 @@ interface Feedback {
         <input
           type="text"
           [ngModel]="search()"
-          (ngModelChange)="search.set($event)"
+          (ngModelChange)="onSearchChange($event)"
           placeholder="Buscar por nombre o email…"
           class="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
         />
@@ -93,12 +102,12 @@ interface Feedback {
               Reintentar
             </button>
           </div>
-        } @else if (filtered().length === 0) {
+        } @else if (usuarios().length === 0) {
           <div class="p-8 text-center text-sm text-slate-400">
-            @if (usuarios().length === 0) {
-              No hay usuarios registrados.
-            } @else {
+            @if (search().trim()) {
               No se encontraron usuarios para «{{ search() }}».
+            } @else {
+              No hay usuarios registrados.
             }
           </div>
         } @else {
@@ -114,7 +123,7 @@ interface Feedback {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
-                @for (u of filtered(); track u.idUsuario) {
+                @for (u of usuarios(); track u.idUsuario) {
                   <tr class="hover:bg-slate-50">
                     <td class="px-5 py-3">
                       <div class="flex items-center gap-3">
@@ -126,6 +135,9 @@ interface Feedback {
                             {{ u.nombre }}
                             @if (esYo(u)) {
                               <span class="ml-1 text-xs font-normal text-slate-400">(tú)</span>
+                            }
+                            @if (esInactivo(u)) {
+                              <span class="ml-1.5 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-500">Inactivo</span>
                             }
                           </p>
                           <p class="text-xs text-slate-500">{{ u.email }}</p>
@@ -147,6 +159,14 @@ interface Feedback {
                       <div class="flex items-center justify-end gap-2">
                         @if (busyId() === u.idUsuario) {
                           <span class="text-xs text-slate-400">Procesando…</span>
+                        } @else if (esInactivo(u)) {
+                          <button
+                            type="button"
+                            (click)="pedirConfirmacion('activate', u)"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
+                          >
+                            Reactivar
+                          </button>
                         } @else {
                           <button
                             type="button"
@@ -193,6 +213,31 @@ interface Feedback {
           </div>
         }
       </div>
+
+      <!-- Paginación -->
+      @if (!loading() && !loadError() && totalPages() > 1) {
+        <div class="flex items-center justify-between text-sm text-slate-600">
+          <span>Página {{ page() + 1 }} de {{ totalPages() }}</span>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              (click)="irPagina(page() - 1)"
+              [disabled]="page() === 0"
+              class="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              (click)="irPagina(page() + 1)"
+              [disabled]="page() + 1 >= totalPages()"
+              class="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- Modal: crear / editar usuario -->
@@ -360,6 +405,13 @@ export class Usuarios implements OnInit {
   protected readonly busyId = signal<number | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
 
+  // Paginación (server-side, Page<> de Spring Data)
+  protected readonly page = signal(0); // 0-based
+  protected readonly totalPages = signal(0);
+  protected readonly totalElements = signal(0);
+  protected readonly incluirInactivos = signal(false);
+  private readonly size = 20;
+
   protected readonly formOpen = signal(false);
   protected readonly editando = signal<Usuario | null>(null);
   protected readonly saving = signal(false);
@@ -375,32 +427,68 @@ export class Usuarios implements OnInit {
 
   private readonly miEmail = computed(() => this.auth.user()?.email ?? null);
 
-  protected readonly filtered = computed(() => {
-    const q = this.search().trim().toLowerCase();
-    const lista = this.usuarios();
-    if (!q) return lista;
-    return lista.filter(
-      (u) => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
-    );
-  });
+  // Debounce para no lanzar una petición por cada tecla.
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.cargar();
   }
 
+  protected onSearchChange(value: string): void {
+    this.search.set(value);
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
+    this.searchTimer = setTimeout(() => {
+      this.page.set(0); // toda búsqueda nueva arranca en la primera página
+      this.cargar();
+    }, 350);
+  }
+
   protected cargar(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.usuarioService.listar().subscribe({
-      next: (data) => {
-        this.usuarios.set(data);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loadError.set('No se pudieron cargar los usuarios.');
-        this.loading.set(false);
-      },
-    });
+    this.usuarioService
+      .listar({
+        page: this.page(),
+        size: this.size,
+        incluirInactivos: this.incluirInactivos(),
+        search: this.search(),
+      })
+      .subscribe({
+        next: (p) => {
+          this.usuarios.set(p.content);
+          this.totalPages.set(p.totalPages);
+          this.totalElements.set(p.totalElements);
+          // Si la página actual quedó fuera de rango (p. ej. tras desactivar el último de la página).
+          if (this.page() > 0 && this.page() >= p.totalPages) {
+            this.page.set(Math.max(0, p.totalPages - 1));
+            this.cargar();
+            return;
+          }
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loadError.set('No se pudieron cargar los usuarios.');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  protected irPagina(n: number): void {
+    if (n < 0 || n >= this.totalPages() || n === this.page()) return;
+    this.page.set(n);
+    this.cargar();
+  }
+
+  protected toggleInactivos(): void {
+    this.incluirInactivos.update((v) => !v);
+    this.page.set(0);
+    this.cargar();
+  }
+
+  protected esInactivo(u: Usuario): boolean {
+    return u.activo === false;
   }
 
   protected esYo(u: Usuario): boolean {
@@ -487,7 +575,8 @@ export class Usuarios implements OnInit {
       next: (creado) => {
         this.saving.set(false);
         this.formOpen.set(false);
-        this.usuarios.update((list) => [creado, ...list]);
+        // El listado va paginado y ordenado por nombre: recargamos para colocarlo donde corresponde.
+        this.cargar();
         this.feedback.set({ type: 'success', text: `${creado.nombre} fue creado con rol USER.` });
       },
       error: (err: HttpErrorResponse) => {
@@ -510,6 +599,8 @@ export class Usuarios implements OnInit {
         return 'Quitar permisos de administrador';
       case 'deactivate':
         return 'Desactivar usuario';
+      case 'activate':
+        return 'Reactivar usuario';
     }
   }
 
@@ -522,11 +613,20 @@ export class Usuarios implements OnInit {
         return `${n} dejará de tener acceso de administrador y pasará a ser un usuario normal.`;
       case 'deactivate':
         return `${n} dejará de tener acceso y no aparecerá en el listado. Esta acción es un borrado lógico.`;
+      case 'activate':
+        return `${n} volverá a tener acceso y aparecerá de nuevo en el listado de usuarios activos.`;
     }
   }
 
   protected confirmAccion(p: PendingAction): string {
-    return p.type === 'deactivate' ? 'Desactivar' : 'Confirmar';
+    switch (p.type) {
+      case 'deactivate':
+        return 'Desactivar';
+      case 'activate':
+        return 'Reactivar';
+      default:
+        return 'Confirmar';
+    }
   }
 
   protected confirmar(p: PendingAction): void {
@@ -537,9 +637,31 @@ export class Usuarios implements OnInit {
     if (p.type === 'deactivate') {
       this.usuarioService.eliminar(id).subscribe({
         next: () => {
-          this.usuarios.update((list) => list.filter((u) => u.idUsuario !== id));
+          if (this.incluirInactivos()) {
+            // El toggle muestra inactivos: lo dejamos visible marcado como inactivo.
+            this.usuarios.update((list) =>
+              list.map((u) => (u.idUsuario === id ? { ...u, activo: false } : u)),
+            );
+          } else {
+            this.usuarios.update((list) => list.filter((u) => u.idUsuario !== id));
+            this.totalElements.update((n) => Math.max(0, n - 1));
+          }
           this.busyId.set(null);
           this.feedback.set({ type: 'success', text: `${p.usuario.nombre} fue desactivado.` });
+        },
+        error: (err) => this.onError(err),
+      });
+      return;
+    }
+
+    if (p.type === 'activate') {
+      this.usuarioService.activar(id).subscribe({
+        next: (actualizado) => {
+          this.usuarios.update((list) =>
+            list.map((u) => (u.idUsuario === id ? actualizado : u)),
+          );
+          this.busyId.set(null);
+          this.feedback.set({ type: 'success', text: `${actualizado.nombre} fue reactivado.` });
         },
         error: (err) => this.onError(err),
       });

@@ -1,16 +1,24 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { Cita, CitaRequest, CitaUpdate } from '../models/cita.model';
+import { Page } from '../models/usuario.model';
 
 @Injectable({ providedIn: 'root' })
 export class CitaService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/citas`;
 
+  /**
+   * GET /api/citas devuelve un Page<Cita> (paginado). La tabla muestra y filtra
+   * todas las citas en cliente, así que pedimos un size alto y devolvemos solo el
+   * content como array plano.
+   */
   listar(): Observable<Cita[]> {
-    return this.http.get<Cita[]>(this.apiUrl);
+    const params = new HttpParams().set('size', '2000');
+    return this.http.get<Page<Cita>>(this.apiUrl, { params }).pipe(map((p) => p.content));
   }
 
   obtener(id: number): Observable<Cita> {

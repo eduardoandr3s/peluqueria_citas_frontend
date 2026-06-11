@@ -429,7 +429,7 @@ export class Citas implements OnInit {
     this.loadError.set(null);
     forkJoin({
       citas: this.citaService.listar(),
-      usuarios: this.usuarioService.listar(),
+      usuarios: this.usuarioService.listarTodos(),
       servicios: this.servicioService.listar(),
     }).subscribe({
       next: ({ citas, usuarios, servicios }) => {

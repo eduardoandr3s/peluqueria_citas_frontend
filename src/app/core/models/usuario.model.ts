@@ -8,6 +8,18 @@ export interface Usuario {
   telefono?: string;
   fechaRegistro?: string; // ISO date (LocalDate)
   rol: Rol;
+  activo?: boolean;
+}
+
+/** Página de Spring Data (Page<T>). GET /api/usuarios devuelve esta forma. */
+export interface Page<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number; // página actual (0-based)
+  size: number;
+  first: boolean;
+  last: boolean;
 }
 
 /** Cuerpo de PATCH /api/usuarios/{id}/rol (CambiarRolRequestDTO). */

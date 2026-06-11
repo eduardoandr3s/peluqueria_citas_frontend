@@ -157,7 +157,7 @@ export class Dashboard implements OnInit {
     forkJoin({
       citas: this.citaService.listar(),
       servicios: this.servicioService.listar(),
-      usuarios: this.usuarioService.listar(),
+      usuarios: this.usuarioService.listarTodos(),
     }).subscribe({
       next: ({ citas, servicios, usuarios }) => {
         this.citas.set(citas);
