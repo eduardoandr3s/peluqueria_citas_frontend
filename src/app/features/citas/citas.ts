@@ -236,6 +236,7 @@ interface Feedback {
               <label class="mb-1.5 block text-sm font-medium text-slate-700">Servicio</label>
               <select
                 formControlName="servicioId"
+                (change)="onContextoSlotsCambio()"
                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               >
                 <option [ngValue]="null" disabled>Selecciona un servicio…</option>
@@ -249,15 +250,53 @@ interface Feedback {
             </div>
 
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">Fecha y hora</label>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">Fecha</label>
               <input
-                type="datetime-local"
-                formControlName="fechaHora"
-                [min]="minFechaHora"
+                type="date"
+                formControlName="fecha"
+                [min]="minFecha"
+                (change)="onContextoSlotsCambio()"
                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               />
-              @if (invalid('fechaHora')) {
-                <p class="mt-1 text-xs text-red-600">Indica la fecha y hora.</p>
+              @if (invalid('fecha')) {
+                <p class="mt-1 text-xs text-red-600">Indica la fecha.</p>
+              }
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">Hora</label>
+              @if (!form.controls.servicioId.value || !form.controls.fecha.value) {
+                <p class="text-xs text-slate-400">Elige servicio y fecha para ver las horas libres.</p>
+              } @else if (slotsLoading()) {
+                <p class="text-xs text-slate-400">Cargando horas libres…</p>
+              } @else if (slotsError()) {
+                <p class="text-xs text-red-600">{{ slotsError() }}</p>
+              } @else if (slotsMostrados().length === 0) {
+                <p class="text-xs text-slate-400">
+                  No hay horas libres ese día (puede estar completo o cerrado).
+                </p>
+              } @else {
+                <div class="flex flex-wrap gap-2">
+                  @for (s of slotsMostrados(); track s) {
+                    <button
+                      type="button"
+                      (click)="seleccionarHora(s)"
+                      class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition"
+                      [class]="
+                        form.controls.hora.value === s
+                          ? 'bg-indigo-600 text-white ring-indigo-600'
+                          : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                      "
+                    >
+                      {{ s }}@if (esHoraActual(s)) {
+                        <span class="ml-1 text-xs opacity-70">(actual)</span>
+                      }
+                    </button>
+                  }
+                </div>
+              }
+              @if (invalid('hora')) {
+                <p class="mt-1 text-xs text-red-600">Selecciona una hora.</p>
               }
             </div>
           </div>
@@ -371,7 +410,12 @@ export class Citas implements OnInit {
   protected readonly pendingAnular = signal<Cita | null>(null);
   protected readonly pendingDelete = signal<Cita | null>(null);
 
-  protected readonly minFechaHora = this.calcularMin();
+  // Disponibilidad: horas libres para el servicio + fecha elegidos en el modal.
+  protected readonly slots = signal<string[]>([]);
+  protected readonly slotsLoading = signal(false);
+  protected readonly slotsError = signal<string | null>(null);
+
+  protected readonly minFecha = this.calcularMinFecha();
 
   protected readonly filtros: { value: EstadoFiltro; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
@@ -383,7 +427,8 @@ export class Citas implements OnInit {
   protected readonly form = this.fb.group({
     usuarioId: [null as number | null, [Validators.required]],
     servicioId: [null as number | null, [Validators.required]],
-    fechaHora: ['', [Validators.required]],
+    fecha: ['', [Validators.required]],
+    hora: ['', [Validators.required]],
   });
 
   /** Usuarios para el select; si se reprograma una cita de un usuario desactivado, lo incluye. */
@@ -404,6 +449,22 @@ export class Citas implements OnInit {
       return [e.servicio, ...lista];
     }
     return lista;
+  });
+
+  /**
+   * Horas a mostrar como botones: las libres del backend y, al reprogramar, también
+   * la hora actual de la cita (que el backend ve como ocupada por ella misma).
+   */
+  protected readonly slotsMostrados = computed<string[]>(() => {
+    const libres = this.slots();
+    const e = this.editando();
+    if (e) {
+      const horaActual = e.fechaHora.slice(11, 16);
+      if (!libres.includes(horaActual)) {
+        return [...libres, horaActual].sort();
+      }
+    }
+    return libres;
   });
 
   protected readonly filtered = computed(() => {
@@ -467,7 +528,7 @@ export class Citas implements OnInit {
     }
   }
 
-  protected invalid(control: 'usuarioId' | 'servicioId' | 'fechaHora'): boolean {
+  protected invalid(control: 'usuarioId' | 'servicioId' | 'fecha' | 'hora'): boolean {
     const c = this.form.controls[control];
     return c.invalid && (c.dirty || c.touched);
   }
@@ -476,20 +537,65 @@ export class Citas implements OnInit {
     this.feedback.set(null);
     this.formError.set(null);
     this.editando.set(null);
-    this.form.reset({ usuarioId: null, servicioId: null, fechaHora: '' });
+    this.slots.set([]);
+    this.slotsError.set(null);
+    this.form.reset({ usuarioId: null, servicioId: null, fecha: '', hora: '' });
     this.formOpen.set(true);
   }
 
   protected abrirEditar(c: Cita): void {
     this.feedback.set(null);
     this.formError.set(null);
+    this.slots.set([]);
+    this.slotsError.set(null);
     this.editando.set(c);
     this.form.reset({
       usuarioId: c.usuario.idUsuario,
       servicioId: c.servicio.idServicio,
-      fechaHora: c.fechaHora.slice(0, 16), // ISO LocalDateTime -> valor de datetime-local
+      fecha: c.fechaHora.slice(0, 10), // ISO LocalDateTime -> "YYYY-MM-DD"
+      hora: c.fechaHora.slice(11, 16), // -> "HH:mm"
     });
     this.formOpen.set(true);
+    this.cargarSlots();
+  }
+
+  /** Recarga las horas libres y limpia la hora elegida (cambió servicio o fecha). */
+  protected onContextoSlotsCambio(): void {
+    this.form.controls.hora.setValue('');
+    this.cargarSlots();
+  }
+
+  protected seleccionarHora(hora: string): void {
+    this.form.controls.hora.setValue(hora);
+    this.form.controls.hora.markAsTouched();
+  }
+
+  protected esHoraActual(hora: string): boolean {
+    const e = this.editando();
+    return !!e && e.fechaHora.slice(11, 16) === hora;
+  }
+
+  private cargarSlots(): void {
+    const servicioId = this.form.controls.servicioId.value;
+    const fecha = this.form.controls.fecha.value;
+    if (!servicioId || !fecha) {
+      this.slots.set([]);
+      this.slotsError.set(null);
+      return;
+    }
+    this.slotsLoading.set(true);
+    this.slotsError.set(null);
+    this.citaService.disponibilidad(fecha, servicioId).subscribe({
+      next: (horas) => {
+        this.slots.set(horas);
+        this.slotsLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.slots.set([]);
+        this.slotsError.set(this.extraerError(err) ?? 'No se pudieron cargar las horas libres.');
+        this.slotsLoading.set(false);
+      },
+    });
   }
 
   protected guardar(): void {
@@ -502,12 +608,15 @@ export class Citas implements OnInit {
     this.saving.set(true);
     this.formError.set(null);
 
+    // fecha ("YYYY-MM-DD") + hora ("HH:mm") -> ISO LocalDateTime que espera el backend.
+    const fechaHora = `${v.fecha}T${v.hora}:00`;
+
     const editando = this.editando();
     if (editando) {
       const payload: CitaUpdate = {
         usuarioId: v.usuarioId!,
         servicioId: v.servicioId!,
-        fechaHora: v.fechaHora!,
+        fechaHora,
       };
       this.citaService.actualizar(editando.idCita, payload).subscribe({
         next: (actualizada) => {
@@ -532,7 +641,7 @@ export class Citas implements OnInit {
     const payload: CitaRequest = {
       usuarioId: v.usuarioId!,
       servicioId: v.servicioId!,
-      fechaHora: v.fechaHora!,
+      fechaHora,
     };
     this.citaService.agendar(payload).subscribe({
       next: (cita) => {
@@ -601,9 +710,9 @@ export class Citas implements OnInit {
     return valores.length ? String(valores[0]) : null;
   }
 
-  private calcularMin(): string {
+  private calcularMinFecha(): string {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
 }

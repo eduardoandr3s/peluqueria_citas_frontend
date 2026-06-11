@@ -21,6 +21,15 @@ export class CitaService {
     return this.http.get<Page<Cita>>(this.apiUrl, { params }).pipe(map((p) => p.content));
   }
 
+  /**
+   * Horas libres (slots de 30 min, formato "HH:mm") para una fecha y servicio.
+   * El backend ya descuenta citas existentes, duración, horario laboral y domingos.
+   */
+  disponibilidad(fecha: string, idServicio: number): Observable<string[]> {
+    const params = new HttpParams().set('fecha', fecha).set('idServicio', String(idServicio));
+    return this.http.get<string[]>(`${this.apiUrl}/disponibilidad`, { params });
+  }
+
   obtener(id: number): Observable<Cita> {
     return this.http.get<Cita>(`${this.apiUrl}/${id}`);
   }
