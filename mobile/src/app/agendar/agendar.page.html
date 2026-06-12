@@ -1,0 +1,88 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/servicios" text="Volver"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Agendar cita</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (exito()) {
+    <div class="exito-msg">
+      <div class="exito-icon">✓</div>
+      <p>¡Cita agendada!</p>
+      <p class="exito-sub">Redirigiendo a tus citas…</p>
+    </div>
+  } @else {
+    <!-- Selector de servicio -->
+    <ion-item>
+      <ion-select
+        label="Servicio"
+        labelPlacement="floating"
+        [value]="servicioId()"
+        (ionChange)="onServicioChange($event.detail.value)"
+        interface="action-sheet"
+      >
+        @for (s of servicios(); track s.idServicio) {
+          <ion-select-option [value]="s.idServicio">
+            {{ s.nombre }} — ${{ s.precio }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
+
+    <!-- Selector de fecha -->
+    <ion-item>
+      <ion-input
+        label="Fecha"
+        labelPlacement="floating"
+        type="date"
+        [min]="minFecha"
+        [value]="fecha()"
+        (ionChange)="onFechaChange($event.detail.value)"
+      ></ion-input>
+    </ion-item>
+
+    <!-- Slots disponibles -->
+    @if (loadingSlots()) {
+      <div class="slots-loading">
+        <ion-spinner name="dots"></ion-spinner>
+        <span>Buscando horarios…</span>
+      </div>
+    } @else if (slots().length > 0) {
+      <div class="slots-section">
+        <ion-label class="slots-label">Horarios disponibles</ion-label>
+        <div class="slots-grid">
+          @for (slot of slots(); track slot) {
+            <ion-chip
+              [color]="slotSeleccionado() === slot ? 'primary' : 'default'"
+              (click)="slotSeleccionado.set(slot)"
+            >
+              {{ slot }}
+            </ion-chip>
+          }
+        </div>
+      </div>
+    } @else if (fecha() && servicioId() && !loadingSlots()) {
+      <p class="no-slots">No hay horarios disponibles para esta fecha.</p>
+    }
+
+    @if (error()) {
+      <ion-note color="danger" class="error-note">{{ error() }}</ion-note>
+    }
+
+    <ion-button
+      expand="block"
+      class="confirm-btn"
+      [disabled]="!servicioId() || !fecha() || !slotSeleccionado() || loadingSubmit()"
+      (click)="confirmar()"
+    >
+      @if (loadingSubmit()) {
+        <ion-spinner name="crescent"></ion-spinner>
+      } @else {
+        Confirmar cita
+      }
+    </ion-button>
+  }
+</ion-content>

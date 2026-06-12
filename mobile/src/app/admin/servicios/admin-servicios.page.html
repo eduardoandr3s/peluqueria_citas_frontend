@@ -1,0 +1,103 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Servicios</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
+  } @else if (servicios().length === 0) {
+    <p class="empty">No hay servicios. Crea el primero con el botón +.</p>
+  } @else {
+    <ion-list>
+      @for (s of servicios(); track s.idServicio) {
+        <ion-item button detail="false" (click)="abrirAcciones(s)" [class.inactivo]="!s.activo">
+          <ion-label>
+            <h2>{{ s.nombre }}</h2>
+            @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
+            <p>${{ s.precio }} · {{ s.duracion }} min</p>
+          </ion-label>
+          @if (!s.activo) {
+            <ion-badge slot="end" color="medium">Inactivo</ion-badge>
+          }
+          <ion-icon slot="end" name="ellipsis-vertical-outline" aria-hidden="true"></ion-icon>
+        </ion-item>
+      }
+    </ion-list>
+  }
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button (click)="abrirCrear()">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+<ion-modal [isOpen]="formOpen()" (didDismiss)="cerrarModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ editando() ? 'Editar servicio' : 'Nuevo servicio' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="cerrarModal()">Cerrar</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <ion-item>
+        <ion-input
+          label="Nombre"
+          labelPlacement="floating"
+          [value]="fNombre()"
+          (ionInput)="fNombre.set($any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-textarea
+          label="Descripción (opcional)"
+          labelPlacement="floating"
+          autoGrow
+          [value]="fDescripcion()"
+          (ionInput)="fDescripcion.set($any($event.target).value)"
+        ></ion-textarea>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          label="Precio"
+          labelPlacement="floating"
+          type="number"
+          inputmode="decimal"
+          [value]="fPrecio()"
+          (ionInput)="fPrecio.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          label="Duración (minutos)"
+          labelPlacement="floating"
+          type="number"
+          inputmode="numeric"
+          [value]="fDuracion()"
+          (ionInput)="fDuracion.set($any($event.target).value === '' ? null : +$any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+
+      @if (formError()) {
+        <p class="form-error">{{ formError() }}</p>
+      }
+
+      <ion-button expand="block" class="save-btn" [disabled]="saving()" (click)="guardar()">
+        @if (saving()) {
+          <ion-spinner name="crescent"></ion-spinner>
+        } @else {
+          {{ editando() ? 'Guardar cambios' : 'Crear servicio' }}
+        }
+      </ion-button>
+    </ion-content>
+  </ng-template>
+</ion-modal>

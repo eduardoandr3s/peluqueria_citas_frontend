@@ -1,0 +1,122 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Usuarios</ion-title>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar
+      placeholder="Buscar por nombre o email"
+      debounce="350"
+      [value]="search()"
+      (ionInput)="onSearch($any($event.target).value)"
+    ></ion-searchbar>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-item lines="none">
+      <ion-toggle
+        [checked]="incluirInactivos()"
+        (ionChange)="onToggleInactivos($event.detail.checked)"
+      >
+        Incluir inactivos
+      </ion-toggle>
+    </ion-item>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  @if (loading()) {
+    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
+  } @else if (usuarios().length === 0) {
+    <p class="empty">No hay usuarios que coincidan.</p>
+  } @else {
+    <ion-list>
+      @for (u of usuarios(); track u.idUsuario) {
+        <ion-item button detail="false" (click)="abrirAcciones(u)" [class.inactivo]="u.activo === false">
+          <ion-label>
+            <h2>{{ u.nombre }}</h2>
+            <p>{{ u.email }}</p>
+            @if (u.telefono) { <p>{{ u.telefono }}</p> }
+          </ion-label>
+          @if (u.rol === 'ADMIN') {
+            <ion-badge slot="end" color="primary">ADMIN</ion-badge>
+          }
+          @if (u.activo === false) {
+            <ion-badge slot="end" color="medium">Inactivo</ion-badge>
+          }
+          <ion-icon slot="end" name="ellipsis-vertical-outline" aria-hidden="true"></ion-icon>
+        </ion-item>
+      }
+    </ion-list>
+
+    <ion-infinite-scroll (ionInfinite)="cargarMas($event)" [disabled]="last()">
+      <ion-infinite-scroll-content loadingText="Cargando más…"></ion-infinite-scroll-content>
+    </ion-infinite-scroll>
+  }
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button (click)="abrirCrear()">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+<ion-modal [isOpen]="formOpen()" (didDismiss)="cerrarModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ editando() ? 'Editar usuario' : 'Nuevo usuario' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="cerrarModal()">Cerrar</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <ion-item>
+        <ion-input
+          label="Nombre"
+          labelPlacement="floating"
+          [value]="fNombre()"
+          (ionInput)="fNombre.set($any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          label="Email"
+          labelPlacement="floating"
+          type="email"
+          [value]="fEmail()"
+          (ionInput)="fEmail.set($any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          label="Teléfono (opcional)"
+          labelPlacement="floating"
+          type="tel"
+          [value]="fTelefono()"
+          (ionInput)="fTelefono.set($any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          [label]="editando() ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña (mín. 6)'"
+          labelPlacement="floating"
+          type="password"
+          [value]="fPassword()"
+          (ionInput)="fPassword.set($any($event.target).value)"
+        ></ion-input>
+      </ion-item>
+
+      @if (formError()) {
+        <p class="form-error">{{ formError() }}</p>
+      }
+
+      <ion-button expand="block" class="save-btn" [disabled]="saving()" (click)="guardar()">
+        @if (saving()) {
+          <ion-spinner name="crescent"></ion-spinner>
+        } @else {
+          {{ editando() ? 'Guardar cambios' : 'Crear usuario' }}
+        }
+      </ion-button>
+    </ion-content>
+  </ng-template>
+</ion-modal>

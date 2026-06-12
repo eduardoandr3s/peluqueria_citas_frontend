@@ -1,0 +1,53 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Mis citas</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="loading-center">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  } @else if (citas().length === 0) {
+    <div class="empty-state">
+      <p>No tienes citas aún.</p>
+      <ion-button (click)="irAgendar()">Agendar ahora</ion-button>
+    </div>
+  } @else {
+    <ion-list>
+      @for (cita of citas(); track cita.idCita) {
+        <ion-item lines="full">
+          <ion-label>
+            <h2>{{ cita.servicio.nombre }}</h2>
+            <p>{{ cita.fechaHora | date: 'EEEE d MMM, HH:mm' }}</p>
+          </ion-label>
+          <ion-badge slot="end" [color]="colorEstado(cita.estado)">
+            {{ labelEstado(cita.estado) }}
+          </ion-badge>
+          @if (cita.estado !== 'ANULADA') {
+            <ion-button
+              slot="end"
+              fill="clear"
+              color="danger"
+              size="small"
+              (click)="confirmarAnular(cita)"
+            >
+              Anular
+            </ion-button>
+          }
+        </ion-item>
+      }
+    </ion-list>
+  }
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button (click)="irAgendar()">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>

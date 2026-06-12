@@ -1,0 +1,38 @@
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 64px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--ion-placeholder-color);
+  padding: 48px 24px;
+}
+
+ion-item h2 {
+  font-weight: 600;
+}
+
+ion-item p {
+  font-size: 13px;
+  color: var(--ion-placeholder-color);
+}
+
+ion-item.inactivo {
+  opacity: 0.55;
+}
+
+ion-badge {
+  margin-right: 6px;
+}
+
+.form-error {
+  color: var(--ion-color-danger);
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.save-btn {
+  margin-top: 20px;
+}

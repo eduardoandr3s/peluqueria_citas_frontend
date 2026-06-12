@@ -1,0 +1,52 @@
+.servicios-grid {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.servicio-card {
+  --background: var(--ion-card-background);
+  border-radius: 12px;
+  margin: 0;
+
+  ion-card-title {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  ion-card-subtitle {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+}
+
+.servicio-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  .precio {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+  }
+
+  .duracion {
+    font-size: 13px;
+    color: var(--ion-placeholder-color);
+  }
+}
+
+.skeleton-item {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin: 12px;
+}
+
+.empty-msg {
+  text-align: center;
+  color: var(--ion-placeholder-color);
+  padding: 48px 24px;
+}
