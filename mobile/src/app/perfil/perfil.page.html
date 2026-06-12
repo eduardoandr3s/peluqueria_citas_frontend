@@ -1,0 +1,36 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Perfil</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  @if (user(); as u) {
+    <div class="avatar-area">
+      <div class="avatar">{{ u.nombre.charAt(0).toUpperCase() }}</div>
+      <h2>{{ u.nombre }}</h2>
+      <p>{{ u.email }}</p>
+    </div>
+
+    <ion-list>
+      <ion-item>
+        <ion-label>
+          <p>Nombre</p>
+          <h3>{{ u.nombre }}</h3>
+        </ion-label>
+      </ion-item>
+      <ion-item>
+        <ion-label>
+          <p>Email</p>
+          <h3>{{ u.email }}</h3>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  }
+
+  <div class="logout-area">
+    <ion-button expand="block" fill="outline" color="danger" (click)="confirmarLogout()">
+      Cerrar sesión
+    </ion-button>
+  </div>
+</ion-content>

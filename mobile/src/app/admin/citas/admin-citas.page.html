@@ -1,0 +1,150 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Citas</ion-title>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-segment
+      scrollable
+      [value]="estadoFiltro()"
+      (ionChange)="estadoFiltro.set($any($event.detail.value))"
+    >
+      @for (f of filtros; track f.value) {
+        <ion-segment-button [value]="f.value">
+          <ion-label>{{ f.label }} ({{ contar(f.value) }})</ion-label>
+        </ion-segment-button>
+      }
+    </ion-segment>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar
+      placeholder="Buscar cliente o servicio"
+      [value]="search()"
+      (ionInput)="search.set($any($event.target).value)"
+    ></ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
+  } @else if (filtered().length === 0) {
+    <p class="empty">No hay citas que coincidan.</p>
+  } @else {
+    <ion-list>
+      @for (c of filtered(); track c.idCita) {
+        <ion-item button detail="false" (click)="abrirAcciones(c)">
+          <ion-label>
+            <h2>{{ c.usuario.nombre }}</h2>
+            <p>{{ c.servicio.nombre }} · {{ c.servicio.duracion }} min</p>
+            <p>{{ c.fechaHora | date: 'EEE d MMM, HH:mm' }}</p>
+          </ion-label>
+          <ion-badge slot="end" [color]="colorEstado(c.estado)">{{ c.estado }}</ion-badge>
+          <ion-icon slot="end" name="ellipsis-vertical-outline" aria-hidden="true"></ion-icon>
+        </ion-item>
+      }
+    </ion-list>
+  }
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button (click)="abrirAgendar()">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+<!-- Modal agendar / reprogramar -->
+<ion-modal [isOpen]="formOpen()" (didDismiss)="cerrarModal()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ editando() ? 'Reprogramar cita' : 'Agendar cita' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="cerrarModal()">Cerrar</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <ion-item>
+        <ion-select
+          label="Cliente"
+          labelPlacement="floating"
+          [value]="fUsuarioId()"
+          (ionChange)="fUsuarioId.set($event.detail.value)"
+          interface="action-sheet"
+        >
+          @for (u of usuariosForm(); track u.idUsuario) {
+            <ion-select-option [value]="u.idUsuario">{{ u.nombre }} — {{ u.email }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
+          label="Servicio"
+          labelPlacement="floating"
+          [value]="fServicioId()"
+          (ionChange)="fServicioId.set($event.detail.value); onContextoCambio()"
+          interface="action-sheet"
+        >
+          @for (s of serviciosForm(); track s.idServicio) {
+            <ion-select-option [value]="s.idServicio">{{ s.nombre }} ({{ s.duracion }} min)</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="Fecha"
+          labelPlacement="floating"
+          type="date"
+          [min]="minFecha"
+          [value]="fFecha()"
+          (ionChange)="fFecha.set($any($event.detail.value) ?? ''); onContextoCambio()"
+        ></ion-input>
+      </ion-item>
+
+      <div class="slots">
+        @if (!fServicioId() || !fFecha()) {
+          <p class="hint">Elige servicio y fecha para ver las horas libres.</p>
+        } @else if (slotsLoading()) {
+          <div class="center-row"><ion-spinner name="dots"></ion-spinner> Cargando horas…</div>
+        } @else if (slotsMostrados().length === 0) {
+          <p class="hint">No hay horas libres ese día.</p>
+        } @else {
+          <ion-label class="slots-label">Hora</ion-label>
+          <div class="chips">
+            @for (s of slotsMostrados(); track s) {
+              <ion-chip
+                [color]="fHora() === s ? 'primary' : 'medium'"
+                (click)="fHora.set(s)"
+              >
+                {{ s }}@if (esHoraActual(s)) { <span class="actual">(actual)</span> }
+              </ion-chip>
+            }
+          </div>
+        }
+      </div>
+
+      @if (formError()) {
+        <p class="form-error">{{ formError() }}</p>
+      }
+
+      <ion-button
+        expand="block"
+        class="save-btn"
+        [disabled]="saving()"
+        (click)="guardar()"
+      >
+        @if (saving()) {
+          <ion-spinner name="crescent"></ion-spinner>
+        } @else {
+          {{ editando() ? 'Guardar cambios' : 'Agendar' }}
+        }
+      </ion-button>
+    </ion-content>
+  </ng-template>
+</ion-modal>

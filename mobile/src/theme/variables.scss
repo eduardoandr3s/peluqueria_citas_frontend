@@ -1,2 +1,86 @@
-// For information on how to create your own theme, please refer to:
-// https://ionicframework.com/docs/theming/
+// Paleta "Grafito y Cobre" mapeada a variables de Ionic.
+// Mismos hex que el panel admin (src/styles.css @theme), sin Tailwind.
+// La app es siempre tema oscuro — no hay toggle claro/oscuro.
+
+:root {
+  // ── Fondos ──────────────────────────────────────────────────────────────
+  --ion-background-color:           #121212;
+  --ion-background-color-rgb:       18, 18, 18;
+
+  --ion-item-background:            #1e1e1e;
+  --ion-card-background:            #1e1e1e;
+  --ion-toolbar-background:         #1e1e1e;
+  --ion-tab-bar-background:         #1e1e1e;
+  --ion-tab-bar-border-color:       #353535;
+
+  // ── Texto ────────────────────────────────────────────────────────────────
+  --ion-text-color:                 #f4f1de;   // crema — texto principal
+  --ion-text-color-rgb:             244, 241, 222;
+  --ion-placeholder-color:          #9ca3af;   // muted
+
+  // ── Bordes ───────────────────────────────────────────────────────────────
+  --ion-border-color:               #353535;
+
+  // ── Primary: Cobre (#e07a5f) — CTAs, botones, acentos ───────────────────
+  --ion-color-primary:              #e07a5f;
+  --ion-color-primary-rgb:          224, 122, 95;
+  --ion-color-primary-contrast:     #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade:        #cf6a50;
+  --ion-color-primary-tint:         #e3876e;
+
+  // ── Secondary: Verde salvia (#81b29a) — secundarios, bordes activos ──────
+  --ion-color-secondary:              #81b29a;
+  --ion-color-secondary-rgb:          129, 178, 154;
+  --ion-color-secondary-contrast:     #121212;
+  --ion-color-secondary-contrast-rgb: 18, 18, 18;
+  --ion-color-secondary-shade:        #6f9d86;
+  --ion-color-secondary-tint:         #8fbba3;
+
+  // ── Tertiary: Grafito elevado (#2a2a2a) ──────────────────────────────────
+  --ion-color-tertiary:              #2a2a2a;
+  --ion-color-tertiary-rgb:          42, 42, 42;
+  --ion-color-tertiary-contrast:     #f4f1de;
+  --ion-color-tertiary-contrast-rgb: 244, 241, 222;
+  --ion-color-tertiary-shade:        #222222;
+  --ion-color-tertiary-tint:         #333333;
+
+  // ── Success ───────────────────────────────────────────────────────────────
+  --ion-color-success:              #4ade80;
+  --ion-color-success-rgb:          74, 222, 128;
+  --ion-color-success-contrast:     #121212;
+  --ion-color-success-contrast-rgb: 18, 18, 18;
+  --ion-color-success-shade:        #41c871;
+  --ion-color-success-tint:         #5ce18e;
+
+  // ── Warning ───────────────────────────────────────────────────────────────
+  --ion-color-warning:              #e8b04b;
+  --ion-color-warning-rgb:          232, 176, 75;
+  --ion-color-warning-contrast:     #121212;
+  --ion-color-warning-contrast-rgb: 18, 18, 18;
+  --ion-color-warning-shade:        #d09e43;
+  --ion-color-warning-tint:         #eab85d;
+
+  // ── Danger (error) ────────────────────────────────────────────────────────
+  --ion-color-danger:              #f87171;
+  --ion-color-danger-rgb:          248, 113, 113;
+  --ion-color-danger-contrast:     #121212;
+  --ion-color-danger-contrast-rgb: 18, 18, 18;
+  --ion-color-danger-shade:        #f65f5f;
+  --ion-color-danger-tint:         #f97f7f;
+
+  // ── Dark / Light (usados por ion-badge, chips, etc.) ─────────────────────
+  --ion-color-dark:              #1e1e1e;
+  --ion-color-dark-rgb:          30, 30, 30;
+  --ion-color-dark-contrast:     #f4f1de;
+  --ion-color-dark-contrast-rgb: 244, 241, 222;
+  --ion-color-dark-shade:        #121212;
+  --ion-color-dark-tint:         #2a2a2a;
+
+  --ion-color-light:              #353535;
+  --ion-color-light-rgb:          53, 53, 53;
+  --ion-color-light-contrast:     #f4f1de;
+  --ion-color-light-contrast-rgb: 244, 241, 222;
+  --ion-color-light-shade:        #2a2a2a;
+  --ion-color-light-tint:         #3e3e3e;
+}
