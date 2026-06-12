@@ -22,7 +22,8 @@
   },
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "mobile"
   ],
   "packageManager": "npm@11.6.2",
   "dependencies": {
