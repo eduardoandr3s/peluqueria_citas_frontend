@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { API_URL } from '../api.config';
 import { AuthResponse, LoginRequest, SessionUser } from '../models/auth.model';
 import { UsuarioRequest } from '../models/usuario.model';
 
@@ -11,7 +11,7 @@ const USER_KEY = 'peluqueria_user';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/auth`;
+  private readonly apiUrl = `${inject(API_URL)}/auth`;
 
   private readonly _user = signal<SessionUser | null>(this.loadUser());
 

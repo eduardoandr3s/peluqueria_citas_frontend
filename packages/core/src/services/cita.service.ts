@@ -2,14 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
+import { API_URL } from '../api.config';
 import { Cita, CitaRequest, CitaUpdate } from '../models/cita.model';
 import { Page } from '../models/usuario.model';
 
 @Injectable({ providedIn: 'root' })
 export class CitaService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/citas`;
+  private readonly apiUrl = `${inject(API_URL)}/citas`;
 
   /**
    * GET /api/citas devuelve un Page<Cita> (paginado). La tabla muestra y filtra

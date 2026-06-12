@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
+import { API_URL } from '../api.config';
 import { CambiarRolRequest, Page, Rol, Usuario, UsuarioRequest, UsuarioUpdate } from '../models/usuario.model';
 
 export interface ListarUsuariosOpts {
@@ -15,7 +15,7 @@ export interface ListarUsuariosOpts {
 @Injectable({ providedIn: 'root' })
 export class UsuarioService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/usuarios`;
+  private readonly apiUrl = `${inject(API_URL)}/usuarios`;
 
   /** Listado paginado (Page<Usuario>). Solo ADMIN. */
   listar(opts: ListarUsuariosOpts = {}): Observable<Page<Usuario>> {

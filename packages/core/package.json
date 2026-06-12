@@ -1,0 +1,21 @@
+{
+  "name": "@peluqueria/core",
+  "version": "0.0.0",
+  "description": "Modelos, servicios HTTP, guards e interceptor compartidos (sin dependencias de UI).",
+  "private": true,
+  "type": "module",
+  "main": "./src/public-api.ts",
+  "types": "./src/public-api.ts",
+  "exports": {
+    ".": {
+      "types": "./src/public-api.ts",
+      "default": "./src/public-api.ts"
+    }
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@angular/router": ">=17.0.0",
+    "rxjs": ">=7.0.0"
+  }
+}

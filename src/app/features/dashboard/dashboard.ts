@@ -2,10 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { Cita, EstadoCita } from '../../core/models/cita.model';
-import { CitaService } from '../../core/services/cita.service';
-import { ServicioService } from '../../core/services/servicio.service';
-import { UsuarioService } from '../../core/services/usuario.service';
+import { Cita, EstadoCita, CitaService, ServicioService, UsuarioService } from '@peluqueria/core';
 
 interface MetricCard {
   label: string;
