@@ -1,13 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { API_URL } from '../api.config';
 import { Servicio, ServicioRequest, ServicioUpdate } from '../models/servicio.model';
 
 @Injectable({ providedIn: 'root' })
 export class ServicioService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/servicios`;
+  private readonly apiUrl = `${inject(API_URL)}/servicios`;
 
   listar(): Observable<Servicio[]> {
     return this.http.get<Servicio[]>(this.apiUrl);

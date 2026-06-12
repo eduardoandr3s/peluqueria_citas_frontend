@@ -2,9 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Rol, Usuario, UsuarioRequest, UsuarioUpdate } from '../../core/models/usuario.model';
-import { AuthService } from '../../core/services/auth.service';
-import { UsuarioService } from '../../core/services/usuario.service';
+import { Rol, Usuario, UsuarioRequest, UsuarioUpdate, AuthService, UsuarioService } from '@peluqueria/core';
 
 type PendingType = 'promote' | 'demote' | 'deactivate' | 'activate';
 

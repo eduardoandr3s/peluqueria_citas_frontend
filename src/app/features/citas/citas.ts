@@ -3,12 +3,17 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
-import { Cita, CitaRequest, CitaUpdate, EstadoCita } from '../../core/models/cita.model';
-import { Servicio } from '../../core/models/servicio.model';
-import { Usuario } from '../../core/models/usuario.model';
-import { CitaService } from '../../core/services/cita.service';
-import { ServicioService } from '../../core/services/servicio.service';
-import { UsuarioService } from '../../core/services/usuario.service';
+import {
+  Cita,
+  CitaRequest,
+  CitaUpdate,
+  EstadoCita,
+  Servicio,
+  Usuario,
+  CitaService,
+  ServicioService,
+  UsuarioService,
+} from '@peluqueria/core';
 
 type EstadoFiltro = 'TODAS' | EstadoCita;
 

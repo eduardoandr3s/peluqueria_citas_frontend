@@ -2,8 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Servicio, ServicioRequest } from '../../core/models/servicio.model';
-import { ServicioService } from '../../core/services/servicio.service';
+import { Servicio, ServicioRequest, ServicioService } from '@peluqueria/core';
 
 interface Feedback {
   type: 'success' | 'error';
