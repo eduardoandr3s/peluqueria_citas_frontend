@@ -23,9 +23,9 @@ export interface Cita {
 
 /** Cuerpo de POST /api/citas (CitaRequestDTO). */
 export interface CitaRequest {
-  usuarioId: number;
+  usuarioId?: number; // opcional: el backend usa la identidad del token para rol USER
   servicioId: number;
-  fechaHora: string; // ISO LocalDateTime
+  fechaHora: string; // ISO LocalDateTime, ej. "2026-05-29T14:30:00"
 }
 
 /** Cuerpo de PUT /api/citas/{id} (CitaUpdateDTO). Todos opcionales. */
