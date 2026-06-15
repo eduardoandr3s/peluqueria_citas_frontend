@@ -32,6 +32,19 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/registro`, data);
   }
 
+  /**
+   * Solicita el envío del correo de recuperación. El backend responde siempre 200
+   * (anti-enumeración), por lo que la UI no debe revelar si el email existe.
+   */
+  recuperarPassword(email: string): Observable<unknown> {
+    return this.http.post(`${this.apiUrl}/recuperar`, { email });
+  }
+
+  /** Restablece la contraseña con el token recibido por correo. */
+  resetPassword(token: string, password: string): Observable<unknown> {
+    return this.http.post(`${this.apiUrl}/reset`, { token, password });
+  }
+
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

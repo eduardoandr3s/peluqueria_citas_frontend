@@ -1,12 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '@peluqueria/core';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-base p-4">
       <div class="w-full max-w-sm">
@@ -96,6 +96,12 @@ import { AuthService } from '@peluqueria/core';
               Iniciar sesión
             }
           </button>
+
+          <p class="text-center text-sm">
+            <a routerLink="/recuperar" class="font-medium text-primary hover:underline">
+              ¿Olvidaste tu contraseña?
+            </a>
+          </p>
         </form>
       </div>
     </div>

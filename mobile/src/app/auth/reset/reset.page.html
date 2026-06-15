@@ -1,0 +1,73 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/auth/login" text="Volver"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Nueva contraseña</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (!token) {
+    <div class="mensaje-error">
+      <ion-text>
+        <p>El enlace no es válido. Solicita uno nuevo desde "¿Olvidaste tu contraseña?".</p>
+      </ion-text>
+    </div>
+    <ion-button expand="block" routerLink="/auth/recuperar" class="submit-btn">
+      Solicitar enlace
+    </ion-button>
+  } @else if (completado()) {
+    <div class="mensaje-ok">
+      <ion-text>
+        <p>Tu contraseña se ha actualizado. Ya puedes iniciar sesión con ella.</p>
+      </ion-text>
+    </div>
+    <ion-button expand="block" (click)="irALogin()" class="submit-btn">
+      Iniciar sesión
+    </ion-button>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="reset()">
+      <ion-item>
+        <ion-input
+          label="Nueva contraseña (mín. 6 caracteres)"
+          labelPlacement="floating"
+          type="password"
+          formControlName="password"
+          autocomplete="new-password"
+        ></ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="Repite la contraseña"
+          labelPlacement="floating"
+          type="password"
+          formControlName="confirmar"
+          autocomplete="new-password"
+        ></ion-input>
+      </ion-item>
+
+      @if (form.hasError('noCoincide') && form.controls.confirmar.touched) {
+        <ion-note color="danger" class="error-note">Las contraseñas no coinciden.</ion-note>
+      }
+
+      @if (error()) {
+        <ion-note color="danger" class="error-note">{{ error() }}</ion-note>
+      }
+
+      <ion-button
+        expand="block"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+        class="submit-btn"
+      >
+        @if (loading()) {
+          <ion-spinner name="crescent"></ion-spinner>
+        } @else {
+          Cambiar contraseña
+        }
+      </ion-button>
+    </form>
+  }
+</ion-content>
