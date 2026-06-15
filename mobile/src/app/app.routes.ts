@@ -14,6 +14,15 @@ export const routes: Routes = [
         path: 'register',
         loadComponent: () => import('./auth/register/register.page').then((m) => m.RegisterPage),
       },
+      {
+        path: 'recuperar',
+        loadComponent: () =>
+          import('./auth/recuperar/recuperar.page').then((m) => m.RecuperarPage),
+      },
+      {
+        path: 'reset',
+        loadComponent: () => import('./auth/reset/reset.page').then((m) => m.ResetPage),
+      },
     ],
   },
   {

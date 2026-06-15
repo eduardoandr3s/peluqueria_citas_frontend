@@ -7,6 +7,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
   },
   {
+    path: 'recuperar',
+    loadComponent: () =>
+      import('./features/auth/recuperar/recuperar').then((m) => m.Recuperar),
+  },
+  {
+    path: 'reset',
+    loadComponent: () => import('./features/auth/reset/reset').then((m) => m.Reset),
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./layout/admin-layout/admin-layout').then((m) => m.AdminLayout),

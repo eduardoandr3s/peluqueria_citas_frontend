@@ -1,0 +1,61 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/auth/login" text="Volver"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Recuperar contraseña</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (enviado()) {
+    <div class="mensaje-ok">
+      <ion-text>
+        <p>
+          Si el email está registrado, recibirás un correo con instrucciones para
+          restablecer tu contraseña. Revisa también la carpeta de spam.
+        </p>
+      </ion-text>
+    </div>
+    <ion-button expand="block" routerLink="/auth/login" class="submit-btn">
+      Volver a iniciar sesión
+    </ion-button>
+  } @else {
+    <ion-text>
+      <p class="intro">Introduce tu email y te enviaremos un enlace para restablecer la contraseña.</p>
+    </ion-text>
+
+    <form [formGroup]="form" (ngSubmit)="recuperar()">
+      <ion-item>
+        <ion-input
+          label="Email"
+          labelPlacement="floating"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+        ></ion-input>
+      </ion-item>
+
+      @if (error()) {
+        <ion-note color="danger" class="error-note">{{ error() }}</ion-note>
+      }
+
+      <ion-button
+        expand="block"
+        type="submit"
+        [disabled]="form.invalid || loading()"
+        class="submit-btn"
+      >
+        @if (loading()) {
+          <ion-spinner name="crescent"></ion-spinner>
+        } @else {
+          Enviar enlace
+        }
+      </ion-button>
+    </form>
+
+    <p class="login-link">
+      <a routerLink="/auth/login">Volver a iniciar sesión</a>
+    </p>
+  }
+</ion-content>

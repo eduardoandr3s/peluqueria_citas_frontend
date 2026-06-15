@@ -20,3 +20,14 @@ export interface SessionUser {
   nombre: string;
   rol: Rol;
 }
+
+/** Cuerpo de POST /api/auth/recuperar. */
+export interface RecuperarPasswordRequest {
+  email: string;
+}
+
+/** Cuerpo de POST /api/auth/reset. */
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
