@@ -72,7 +72,14 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "include": [
+              "**/*.spec.ts",
+              "../packages/core/src/**/*.spec.ts"
+            ]
+          }
         }
       }
     }
