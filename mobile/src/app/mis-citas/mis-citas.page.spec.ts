@@ -1,0 +1,93 @@
+import { TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
+import { AlertController } from '@ionic/angular/standalone';
+import { Cita, CitaService, EstadoCita, Servicio } from '@peluqueria/core';
+import { of, throwError } from 'rxjs';
+import { MisCitasPage } from './mis-citas.page';
+
+const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
+
+function cita(id: number, fechaHora: string, estado: EstadoCita): Cita {
+  return {
+    idCita: id,
+    usuario: { idUsuario: 1, nombre: 'Ana', email: 'ana@b.com' },
+    servicio: SERVICIO,
+    fechaHora,
+    estado,
+  };
+}
+
+function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
+  const citaSvc = {
+    listar: vi.fn().mockReturnValue(of([])),
+    actualizar: vi.fn().mockReturnValue(of({})),
+    ...cita$,
+  };
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter([]),
+      { provide: CitaService, useValue: citaSvc },
+      { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
+    ],
+  });
+  const router = TestBed.inject(Router);
+  const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+  const c = TestBed.runInInjectionContext(() => new MisCitasPage()) as any;
+  return { c, nav, citaSvc };
+}
+
+describe('MisCitasPage', () => {
+  it('cargar ordena pendientes/confirmadas antes que anuladas y por fecha desc dentro del grupo', () => {
+    const lista = [
+      cita(1, '2026-07-01T10:00:00', 'PENDIENTE'),
+      cita(2, '2026-07-05T10:00:00', 'ANULADA'),
+      cita(3, '2026-07-02T10:00:00', 'CONFIRMADA'),
+      cita(4, '2026-07-10T10:00:00', 'PENDIENTE'),
+    ];
+    const { c } = setup({ listar: vi.fn().mockReturnValue(of(lista)) });
+    c.cargar();
+    expect(c.citas().map((x: Cita) => x.idCita)).toEqual([4, 1, 3, 2]);
+    expect(c.loading()).toBe(false);
+  });
+
+  it('si falla la carga apaga el loading', () => {
+    const { c } = setup({ listar: vi.fn().mockReturnValue(throwError(() => new Error('x'))) });
+    c.cargar();
+    expect(c.loading()).toBe(false);
+  });
+
+  it('anular actualiza la cita de forma optimista y llama al backend', () => {
+    const actualizar = vi.fn().mockReturnValue(of({}));
+    const { c } = setup({ listar: vi.fn().mockReturnValue(of([cita(1, '2026-07-01T10:00:00', 'PENDIENTE')])), actualizar });
+    c.cargar();
+    c.anular(1);
+    expect(c.citas().find((x: Cita) => x.idCita === 1).estado).toBe('ANULADA');
+    expect(actualizar).toHaveBeenCalledWith(1, { estado: 'ANULADA' });
+  });
+
+  it('si la anulación falla, recarga la lista para revertir', () => {
+    const listar = vi.fn()
+      .mockReturnValueOnce(of([cita(1, '2026-07-01T10:00:00', 'PENDIENTE')]))
+      .mockReturnValueOnce(of([cita(1, '2026-07-01T10:00:00', 'PENDIENTE')]));
+    const actualizar = vi.fn().mockReturnValue(throwError(() => new Error('x')));
+    const { c } = setup({ listar, actualizar });
+    c.cargar();
+    c.anular(1);
+    expect(listar).toHaveBeenCalledTimes(2); // carga inicial + recarga al fallar
+  });
+
+  it('irAgendar navega a la pantalla de agendar', () => {
+    const { c, nav } = setup();
+    c.irAgendar();
+    expect(nav).toHaveBeenCalledWith(['/tabs/agendar']);
+  });
+
+  it('colorEstado y labelEstado mapean cada estado', () => {
+    const { c } = setup();
+    expect(c.colorEstado('PENDIENTE')).toBe('warning');
+    expect(c.colorEstado('CONFIRMADA')).toBe('success');
+    expect(c.colorEstado('ANULADA')).toBe('medium');
+    expect(c.labelEstado('PENDIENTE')).toBe('Pendiente');
+    expect(c.labelEstado('ANULADA')).toBe('Anulada');
+  });
+});
