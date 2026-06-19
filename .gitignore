@@ -46,3 +46,6 @@ Thumbs.db
 
 # AI Tools context
 .claude/
+
+# Firebase deploy cache
+.firebase/
