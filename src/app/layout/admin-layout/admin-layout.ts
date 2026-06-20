@@ -26,15 +26,12 @@ interface NavItem {
         class="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-line bg-surface text-muted transition-transform duration-200 lg:static lg:translate-x-0"
         [class.-translate-x-full]="!sidebarOpen()"
       >
-        <div class="flex h-16 items-center gap-3 border-b border-line px-6">
-          <span
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-white"
-            >LS</span
-          >
-          <div class="leading-tight">
-            <p class="text-sm font-semibold text-white">Lalo Segovia</p>
-            <p class="text-xs text-muted">Panel Admin</p>
-          </div>
+        <div class="flex h-16 items-center justify-center border-b border-line px-4">
+          <img
+            src="logo.png"
+            alt="Lalo Segovia · Panel Admin"
+            class="h-12 w-auto max-w-full object-contain"
+          />
         </div>
 
         <nav class="flex-1 space-y-1 px-3 py-4">

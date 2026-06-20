@@ -6,10 +6,12 @@
   text-align: center;
   padding: 48px 0 32px;
 
-  .logo-icon {
-    font-size: 48px;
-    color: var(--ion-color-primary);
-    margin-bottom: 8px;
+  .logo-img {
+    display: block;
+    width: 240px;
+    max-width: 75%;
+    height: auto;
+    margin: 0 auto;
   }
 
   h1 {

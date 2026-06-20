@@ -11,11 +11,11 @@ import { AuthService } from '@peluqueria/core';
     <div class="flex min-h-screen items-center justify-center bg-base p-4">
       <div class="w-full max-w-sm">
         <div class="mb-8 text-center">
-          <span
-            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-xl font-bold text-white"
-            >LS</span
-          >
-          <h1 class="text-2xl font-bold text-main">Peluquería Lalo Segovia</h1>
+          <img
+            src="logo.png"
+            alt="Peluquería Lalo Segovia"
+            class="mx-auto mb-3 h-auto w-60 max-w-full object-contain"
+          />
           <p class="text-sm text-muted">Panel de administración</p>
         </div>
 
