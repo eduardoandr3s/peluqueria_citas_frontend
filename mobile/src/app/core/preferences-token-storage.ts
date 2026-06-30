@@ -11,7 +11,7 @@ import { STORAGE_KEYS, TokenStorage } from '@peluqueria/core';
  * segundo plano sin bloquear.
  */
 export class PreferencesTokenStorage implements TokenStorage {
-  private readonly cache = new Map<string, string>();
+  protected readonly cache = new Map<string, string>();
 
   async init(): Promise<void> {
     for (const key of Object.values(STORAGE_KEYS)) {

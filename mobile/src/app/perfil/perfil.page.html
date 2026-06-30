@@ -26,6 +26,22 @@
         </ion-label>
       </ion-item>
     </ion-list>
+
+    @if (biometriaDisponible()) {
+      <ion-list>
+        <ion-item>
+          <ion-toggle
+            [checked]="biometriaActiva()"
+            (ionChange)="onToggleBiometria($event)"
+          >
+            <ion-label>
+              <h3>Acceso con biometría</h3>
+              <p>Entra con huella o rostro</p>
+            </ion-label>
+          </ion-toggle>
+        </ion-item>
+      </ion-list>
+    }
   }
 
   <div class="logout-area">

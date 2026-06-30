@@ -10,7 +10,8 @@ import { API_URL, AuthService, TOKEN_STORAGE, jwtInterceptor } from '@peluqueria
 import { routes } from './app/app.routes';
 import { AppComponent } from './app/app.component';
 import { environment } from './environments/environment';
-import { PreferencesTokenStorage } from './app/core/preferences-token-storage';
+import { BiometricTokenStorage } from './app/core/biometric-token-storage';
+import { BiometricService } from './app/core/biometric.service';
 
 // Datos de locale español: necesarios para DatePipe con formato 'es'.
 registerLocaleData(localeEs);
@@ -23,14 +24,21 @@ bootstrapApplication(AppComponent, {
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([jwtInterceptor])),
     { provide: API_URL, useValue: environment.apiUrl },
-    // En móvil la sesión vive en el almacén nativo (@capacitor/preferences).
-    { provide: TOKEN_STORAGE, useClass: PreferencesTokenStorage },
-    // Precarga el almacén (async) y rehidrata el usuario antes de arrancar.
+    // En móvil la sesión vive en el almacén nativo (@capacitor/preferences) y el
+    // refresh, si la biometría está activa, en el keystore seguro del sistema.
+    { provide: TOKEN_STORAGE, useClass: BiometricTokenStorage },
+    // Al arrancar: precarga el almacén. Si hay biometría activa, pide desbloqueo
+    // (huella/Face ID) para restaurar la sesión; si no, rehidrata directamente.
     provideAppInitializer(async () => {
       const storage = inject(TOKEN_STORAGE);
       const auth = inject(AuthService);
+      const biometric = inject(BiometricService);
       await storage.init();
-      auth.restoreSession();
+      if (biometric.isEnabled()) {
+        await biometric.unlock();
+      } else {
+        auth.restoreSession();
+      }
     }),
   ],
 });
