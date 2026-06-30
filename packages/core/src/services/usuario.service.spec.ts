@@ -78,6 +78,13 @@ describe('UsuarioService', () => {
     req.flush({});
   });
 
+  it('me hace GET /usuarios/me', () => {
+    service.me().subscribe();
+    const req = http.expectOne(`${API}/usuarios/me`);
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+
   it('crear hace POST con el body', () => {
     const body = { nombre: 'N', email: 'n@b.com', password: 'p' };
     service.crear(body).subscribe();

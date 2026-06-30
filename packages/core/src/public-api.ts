@@ -15,6 +15,7 @@ export * from './models/usuario.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
+export * from './services/token-storage';
 export * from './services/cita.service';
 export * from './services/servicio.service';
 export * from './services/usuario.service';

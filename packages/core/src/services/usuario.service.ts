@@ -41,6 +41,11 @@ export class UsuarioService {
     return this.listar({ page: 0, size: 2000, incluirInactivos }).pipe(map((p) => p.content));
   }
 
+  /** Datos del usuario autenticado (GET /api/usuarios/me). */
+  me(): Observable<Usuario> {
+    return this.http.get<Usuario>(`${this.apiUrl}/me`);
+  }
+
   obtener(id: number): Observable<Usuario> {
     return this.http.get<Usuario>(`${this.apiUrl}/${id}`);
   }
