@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "peluqueria-citas-prod"
+  },
+  "targets": {
+    "peluqueria-citas-prod": {
+      "hosting": {
+        "admin": ["peluqueria-citas-prod"],
+        "app": ["peluqueria-citas-app"]
+      }
+    }
+  }
+}
