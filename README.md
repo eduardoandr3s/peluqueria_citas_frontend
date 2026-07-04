@@ -1,59 +1,67 @@
 # PeluqueriaFrontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.
+Monorepo frontend para la peluquería "Lalo Segovia". Consume la API REST del backend [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas).
 
-## Development server
+## Estructura
 
-To start a local development server, run:
-
-```bash
-ng serve
+```
+peluqueria_citas_frontend/
+├── src/                    # Aplicación admin (Angular 21 + Tailwind v4)
+│   └── app/features/       # Módulos funcionales del panel admin
+├── mobile/                 # App móvil clientes (Ionic 8 + Angular)
+│   └── src/app/
+│       ├── pago/           # Página de pago con Stripe Payment Element
+│       └── mis-citas/      # Listado de citas del cliente
+├── packages/core/          # Librería compartida (modelos, servicios HTTP)
+│   ├── models/             # Interfaces TypeScript (Cita, Servicio, Pago, Usuario)
+│   └── services/           # Servicios HTTP (CitaService, PagoService, AuthService, etc.)
+└── package.json            # npm workspaces (packages/*, mobile)
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Apps
 
-## Code scaffolding
+### Admin (`ng serve` → puerto 4200)
+Panel de gestión para el administrador:
+- CRUD de servicios, usuarios y citas
+- Gestión de pagos: registro manual (efectivo/transferencia) y reembolsos
+- Calendario de citas con filtros y paginación
+- Roles y permisos (USER / ADMIN)
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### Mobile (`ionic serve` → puerto 8100)
+App para clientes:
+- Registro e inicio de sesión
+- Agendar citas seleccionando servicio y horario
+- Pago online con tarjeta (Stripe Payment Element) con polling de verificación
+- Historial de citas con estados y badges de pago
 
-```bash
-ng generate component component-name
-```
+## Core (`packages/core`)
+Librería compartida entre admin y mobile:
+- `models/`: interfaces `Cita`, `Servicio`, `Usuario`, `PagoResponse`, `PaymentIntentResponse` y enums (`EstadoCita`, `EstadoPago`, `MetodoPago`)
+- `services/`: servicios HTTP que consumen la API REST (`CitaService`, `PagoService`, `UsuarioService`, `AuthService`)
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Scripts
 
 ```bash
-ng test
+ng serve              # Iniciar admin en localhost:4200
+ng build              # Build producción del admin
+ng test               # Tests unitarios (Vitest)
+
+cd mobile && npx @ionic/cli serve --port 8100   # Iniciar app móvil
 ```
 
-## Running end-to-end tests
+## Tests
 
-For end-to-end (e2e) testing, run:
+| Proyecto | Archivo | Tests |
+|----------|---------|-------|
+| Core | `pago.service.spec.ts` | 5 (crear intent, consultar, manual, reembolso, errores) |
+| Admin | `citas.spec.ts` | 5 (modal pago, estados, reembolso, carga pagos) |
+| Mobile | `mis-citas.page.spec.ts` | Mock PagoService + API_URL |
 
-```bash
-ng e2e
-```
+Ejecutar: `ng test` (admin) o `ng test` dentro de `mobile/`.
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Variables de entorno
 
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+| Variable | Descripción |
+|----------|-------------|
+| `stripePublishableKey` | Clave publicable de Stripe (test mode: `pk_test_...`) |
+| `apiUrl` | URL base de la API REST (default `http://localhost:8080/api`) |
