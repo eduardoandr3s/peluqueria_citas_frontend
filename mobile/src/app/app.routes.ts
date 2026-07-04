@@ -75,5 +75,9 @@ export const routes: Routes = [
       { path: '', redirectTo: 'servicios', pathMatch: 'full' },
     ],
   },
+  {
+    path: 'pago/:citaId',
+    loadComponent: () => import('./pago/pago.page').then((m) => m.PagoPage),
+  },
   { path: '**', redirectTo: '/auth/login' },
 ];

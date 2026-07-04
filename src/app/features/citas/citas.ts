@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -13,6 +13,8 @@ import {
   CitaService,
   ServicioService,
   UsuarioService,
+  PagoService,
+  PagoResponse,
 } from '@peluqueria/core';
 
 type EstadoFiltro = 'TODAS' | EstadoCita;
@@ -24,7 +26,7 @@ interface Feedback {
 
 @Component({
   selector: 'app-citas',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, DecimalPipe],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -124,7 +126,7 @@ interface Feedback {
                   <th class="px-5 py-3 font-medium">Cliente</th>
                   <th class="px-5 py-3 font-medium">Servicio</th>
                   <th class="px-5 py-3 font-medium">Fecha y hora</th>
-                  <th class="px-5 py-3 font-medium">Estado</th>
+                  <th class="px-5 py-3 font-medium">Estado / Pago</th>
                   <th class="px-5 py-3 text-right font-medium">Acciones</th>
                 </tr>
               </thead>
@@ -144,11 +146,20 @@ interface Feedback {
                       <p class="text-xs text-muted">{{ c.fechaHora | date: 'HH:mm' }} – {{ horaFin(c) }}</p>
                     </td>
                     <td class="px-5 py-3">
-                      <span
-                        class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                        [class]="estadoClass(c.estado)"
-                        >{{ c.estado }}</span
-                      >
+                      <div class="flex flex-col gap-1">
+                        <span
+                          class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                          [class]="estadoClass(c.estado)"
+                          >{{ c.estado }}</span
+                        >
+                        @if (pagos()[c.idCita]; as pago) {
+                          <span
+                            class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            [class]="pagoClass(pago.estadoPago)"
+                            >{{ labelPago(pago) }}</span
+                          >
+                        }
+                      </div>
                     </td>
                     <td class="px-5 py-3">
                       <div class="flex items-center justify-end gap-2">
@@ -165,6 +176,24 @@ interface Feedback {
                             </button>
                           }
                           @if (c.estado !== 'ANULADA') {
+                            @if (puedePagoManual(c)) {
+                              <button
+                                type="button"
+                                (click)="abrirPagoManual(c)"
+                                class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                              >
+                                Pago manual
+                              </button>
+                            }
+                            @if (puedeReembolsar(c)) {
+                              <button
+                                type="button"
+                                (click)="pendingReembolso.set(c)"
+                                class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
+                              >
+                                Reembolsar
+                              </button>
+                            }
                             <button
                               type="button"
                               (click)="abrirEditar(c)"
@@ -330,60 +359,96 @@ interface Feedback {
       </div>
     }
 
-    <!-- Modal: anular -->
-    @if (pendingAnular(); as c) {
+    <!-- Modal: pago manual -->
+    @if (pendingPagoManual(); as c) {
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
-          <h2 class="text-lg font-semibold text-main">Anular cita</h2>
+          <h2 class="text-lg font-semibold text-main">Registrar pago manual</h2>
           <p class="mt-2 text-sm text-main">
-            La cita de {{ c.usuario.nombre }} ({{ c.servicio.nombre }},
-            {{ c.fechaHora | date: 'dd/MM/yyyy HH:mm' }}) pasará a estado ANULADA. El horario
-            quedará libre.
+            Cita de {{ c.usuario.nombre }} — {{ c.servicio.nombre }} ({{ c.servicio.precio | number:'1.2-2' }} €)
           </p>
+          <div class="mt-4 space-y-3">
+            <label class="mb-1.5 block text-sm font-medium text-main">Método de pago</label>
+            <div class="flex gap-3">
+              <button
+                type="button"
+                (click)="metodoPagoManual.set('EFECTIVO')"
+                class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
+                [class]="metodoPagoManual() === 'EFECTIVO' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                (click)="metodoPagoManual.set('TRANSFERENCIA')"
+                class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
+                [class]="metodoPagoManual() === 'TRANSFERENCIA' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
+              >
+                Transferencia
+              </button>
+            </div>
+          </div>
+          @if (pagoManualError()) {
+            <p class="mt-3 text-sm text-error">{{ pagoManualError() }}</p>
+          }
           <div class="mt-6 flex justify-end gap-3">
             <button
               type="button"
-              (click)="pendingAnular.set(null)"
+              (click)="cerrarPagoManual()"
               class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
               Cancelar
             </button>
             <button
               type="button"
-              (click)="anular(c)"
-              class="rounded-lg bg-warning px-4 py-2 text-sm font-semibold text-[#121212] hover:bg-warning/80"
+              [disabled]="pagoManualSaving()"
+              (click)="registrarPagoManual(c)"
+              class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
-              Anular cita
+              @if (pagoManualSaving()) {
+                Registrando…
+              } @else {
+                Confirmar pago
+              }
             </button>
           </div>
         </div>
       </div>
     }
 
-    <!-- Modal: eliminar -->
-    @if (pendingDelete(); as c) {
+    <!-- Modal: reembolsar -->
+    @if (pendingReembolso(); as c) {
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
-          <h2 class="text-lg font-semibold text-main">Eliminar cita</h2>
+          <h2 class="text-lg font-semibold text-main">Reembolsar pago</h2>
           <p class="mt-2 text-sm text-main">
-            Se eliminará permanentemente la cita de {{ c.usuario.nombre }}
-            ({{ c.fechaHora | date: 'dd/MM/yyyy HH:mm' }}). Esta acción no se puede deshacer.
-            Si solo quieres cancelarla, usa «Anular».
+            Se reembolsará el pago de {{ c.servicio.nombre }} ({{ c.servicio.precio | number:'1.2-2' }} €) de {{ c.usuario.nombre }}.
           </p>
+          <p class="mt-2 text-sm text-warning font-medium">
+            El reembolso no anula la cita; anúlala aparte si procede.
+          </p>
+          @if (reembolsoError()) {
+            <p class="mt-3 text-sm text-error">{{ reembolsoError() }}</p>
+          }
           <div class="mt-6 flex justify-end gap-3">
             <button
               type="button"
-              (click)="pendingDelete.set(null)"
+              (click)="pendingReembolso.set(null); reembolsoError.set(null)"
               class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
               Cancelar
             </button>
             <button
               type="button"
-              (click)="eliminar(c)"
-              class="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white hover:bg-error/80"
+              [disabled]="reembolsoSaving()"
+              (click)="reembolsar(c)"
+              class="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white transition hover:bg-error/80 disabled:opacity-60"
             >
-              Eliminar
+              @if (reembolsoSaving()) {
+                Reembolsando…
+              } @else {
+                Reembolsar
+              }
             </button>
           </div>
         </div>
@@ -395,11 +460,13 @@ export class Citas implements OnInit {
   private readonly citaService = inject(CitaService);
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
+  private readonly pagoService = inject(PagoService);
   private readonly fb = inject(FormBuilder);
 
   protected readonly citas = signal<Cita[]>([]);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly servicios = signal<Servicio[]>([]);
+  protected readonly pagos = signal<Record<number, PagoResponse | null>>({});
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
 
@@ -414,6 +481,17 @@ export class Citas implements OnInit {
   protected readonly formError = signal<string | null>(null);
   protected readonly pendingAnular = signal<Cita | null>(null);
   protected readonly pendingDelete = signal<Cita | null>(null);
+
+  // Pago manual
+  protected readonly pendingPagoManual = signal<Cita | null>(null);
+  protected readonly metodoPagoManual = signal<string>('EFECTIVO');
+  protected readonly pagoManualSaving = signal(false);
+  protected readonly pagoManualError = signal<string | null>(null);
+
+  // Reembolso
+  protected readonly pendingReembolso = signal<Cita | null>(null);
+  protected readonly reembolsoSaving = signal(false);
+  protected readonly reembolsoError = signal<string | null>(null);
 
   // Disponibilidad: horas libres para el servicio + fecha elegidos en el modal.
   protected readonly slots = signal<string[]>([]);
@@ -503,12 +581,112 @@ export class Citas implements OnInit {
         this.usuarios.set(usuarios);
         this.servicios.set(servicios);
         this.loading.set(false);
+        this.cargarPagos(citas);
       },
       error: () => {
         this.loadError.set('No se pudieron cargar las citas.');
         this.loading.set(false);
       },
     });
+  }
+
+  private cargarPagos(citas: Cita[]): void {
+    citas
+      .filter((c) => c.estado !== 'ANULADA')
+      .forEach((c) => {
+        this.pagoService.obtenerPorCita(c.idCita).subscribe({
+          next: (pago) => {
+            this.pagos.update((m) => ({ ...m, [c.idCita]: pago }));
+          },
+          error: () => {},
+        });
+      });
+  }
+
+  protected puedePagoManual(c: Cita): boolean {
+    const pago = this.pagos()[c.idCita];
+    return !pago || (pago.estadoPago !== 'PAGADO' && pago.estadoPago !== 'REEMBOLSADO');
+  }
+
+  protected puedeReembolsar(c: Cita): boolean {
+    const pago = this.pagos()[c.idCita];
+    return !!pago && pago.estadoPago === 'PAGADO';
+  }
+
+  protected abrirPagoManual(c: Cita): void {
+    this.pendingPagoManual.set(c);
+    this.metodoPagoManual.set('EFECTIVO');
+    this.pagoManualError.set(null);
+  }
+
+  protected cerrarPagoManual(): void {
+    this.pendingPagoManual.set(null);
+    this.pagoManualError.set(null);
+  }
+
+  protected registrarPagoManual(c: Cita): void {
+    this.pagoManualSaving.set(true);
+    this.pagoManualError.set(null);
+    this.pagoService.registrarManual(c.idCita, this.metodoPagoManual()).subscribe({
+      next: (pago) => {
+        this.pagos.update((m) => ({ ...m, [c.idCita]: pago }));
+        this.citas.update((list) =>
+          list.map((x) =>
+            x.idCita === c.idCita ? { ...x, estado: 'CONFIRMADA' as EstadoCita } : x,
+          ),
+        );
+        this.pagoManualSaving.set(false);
+        this.pendingPagoManual.set(null);
+        this.feedback.set({ type: 'success', text: 'Pago registrado y cita confirmada.' });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.pagoManualSaving.set(false);
+        this.pagoManualError.set(this.extraerError(err) ?? 'No se pudo registrar el pago.');
+      },
+    });
+  }
+
+  protected reembolsar(c: Cita): void {
+    this.reembolsoSaving.set(true);
+    this.reembolsoError.set(null);
+    this.pagoService.reembolsar(c.idCita).subscribe({
+      next: () => {
+        const pago = this.pagos()[c.idCita];
+        if (pago) {
+          this.pagos.update((m) => ({
+            ...m,
+            [c.idCita]: { ...pago, estadoPago: 'REEMBOLSADO' as const },
+          }));
+        }
+        this.reembolsoSaving.set(false);
+        this.pendingReembolso.set(null);
+        this.feedback.set({ type: 'success', text: 'Pago reembolsado.' });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.reembolsoSaving.set(false);
+        this.reembolsoError.set(this.extraerError(err) ?? 'No se pudo reembolsar.');
+      },
+    });
+  }
+
+  protected labelPago(pago: PagoResponse): string {
+    switch (pago.estadoPago) {
+      case 'PENDIENTE': return 'Pago pendiente';
+      case 'PAGADO': return `${pago.monto} € pagado`;
+      case 'REEMBOLSADO': return `${pago.monto} € reembolsado`;
+      case 'CANCELADO': return 'Pago cancelado';
+      default: return pago.estadoPago;
+    }
+  }
+
+  protected pagoClass(estado: string): string {
+    switch (estado) {
+      case 'PAGADO': return 'bg-success/15 text-success';
+      case 'PENDIENTE': return 'bg-warning/15 text-warning';
+      case 'REEMBOLSADO': return 'bg-elevated text-muted';
+      case 'CANCELADO': return 'bg-elevated text-muted';
+      default: return 'bg-elevated text-muted';
+    }
   }
 
   protected contar(filtro: EstadoFiltro): number {
@@ -557,8 +735,8 @@ export class Citas implements OnInit {
     this.form.reset({
       usuarioId: c.usuario.idUsuario,
       servicioId: c.servicio.idServicio,
-      fecha: c.fechaHora.slice(0, 10), // ISO LocalDateTime -> "YYYY-MM-DD"
-      hora: c.fechaHora.slice(11, 16), // -> "HH:mm"
+      fecha: c.fechaHora.slice(0, 10),
+      hora: c.fechaHora.slice(11, 16),
     });
     this.formOpen.set(true);
     this.cargarSlots();
@@ -613,7 +791,6 @@ export class Citas implements OnInit {
     this.saving.set(true);
     this.formError.set(null);
 
-    // fecha ("YYYY-MM-DD") + hora ("HH:mm") -> ISO LocalDateTime que espera el backend.
     const fechaHora = `${v.fecha}T${v.hora}:00`;
 
     const editando = this.editando();
@@ -705,7 +882,6 @@ export class Citas implements OnInit {
     });
   }
 
-  /** El backend devuelve {error: "..."} o, en validaciones de campos, {campo: "mensaje"}. */
   private extraerError(err: HttpErrorResponse): string | null {
     const body = err.error;
     if (!body) return null;

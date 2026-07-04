@@ -23,6 +23,7 @@
     "@capgo/capacitor-native-biometric": "^8.4.11",
     "@ionic/angular": "^8.0.0",
     "@peluqueria/core": "*",
+    "@stripe/stripe-js": "^9.9.0",
     "ionicons": "^7.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

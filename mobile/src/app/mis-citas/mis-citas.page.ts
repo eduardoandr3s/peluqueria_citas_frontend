@@ -21,7 +21,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addOutline } from 'ionicons/icons';
-import { CitaService, Cita, EstadoCita } from '@peluqueria/core';
+import { CitaService, Cita, EstadoCita, PagoService, PagoResponse } from '@peluqueria/core';
 
 @Component({
   selector: 'app-mis-citas',
@@ -37,29 +37,26 @@ import { CitaService, Cita, EstadoCita } from '@peluqueria/core';
 })
 export class MisCitasPage {
   private readonly citaService = inject(CitaService);
+  private readonly pagoService = inject(PagoService);
   private readonly router = inject(Router);
   private readonly alertCtrl = inject(AlertController);
 
   readonly citas = signal<Cita[]>([]);
+  readonly pagos = signal<Record<number, PagoResponse | null>>({});
   readonly loading = signal(true);
 
   constructor() {
     addIcons({ addOutline });
   }
 
-  // ionViewWillEnter se dispara en CADA entrada a la vista (Ionic cachea la
-  // página y no re-ejecuta ngOnInit), así que la lista se refresca al volver
-  // de agendar una cita.
   ionViewWillEnter(): void {
     this.cargar();
   }
 
   cargar(event?: CustomEvent): void {
-    // Spinner solo en la primera carga; las recargas (al volver a la vista) son silenciosas.
     if (this.citas().length === 0) this.loading.set(true);
     this.citaService.listar().subscribe({
       next: (data) => {
-        // Ordena: pendientes/confirmadas primero, luego anuladas; dentro de cada grupo por fecha desc
         const orden: Record<EstadoCita, number> = { PENDIENTE: 0, CONFIRMADA: 1, ANULADA: 2 };
         this.citas.set(
           [...data].sort((a, b) => {
@@ -69,11 +66,27 @@ export class MisCitasPage {
         );
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
+        this.cargarPagos(data);
       },
       error: () => {
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
       },
+    });
+  }
+
+  private cargarPagos(citas: Cita[]): void {
+    const idsConPosiblePago = citas
+      .filter((c) => c.estado !== 'ANULADA')
+      .map((c) => c.idCita);
+
+    idsConPosiblePago.forEach((id) => {
+      this.pagoService.obtenerPorCita(id).subscribe({
+        next: (pago) => {
+          this.pagos.update((m) => ({ ...m, [id]: pago }));
+        },
+        error: () => {},
+      });
     });
   }
 
@@ -94,17 +107,20 @@ export class MisCitasPage {
   }
 
   private anular(id: number): void {
-    // Actualiza estado localmente de inmediato (optimistic update)
     this.citas.update((list) =>
       list.map((c) => (c.idCita === id ? { ...c, estado: 'ANULADA' as EstadoCita } : c))
     );
     this.citaService.actualizar(id, { estado: 'ANULADA' }).subscribe({
-      error: () => this.cargar(), // revert on error
+      error: () => this.cargar(),
     });
   }
 
   irAgendar(): void {
     this.router.navigate(['/tabs/agendar']);
+  }
+
+  irPagar(citaId: number): void {
+    this.router.navigate(['/pago', citaId]);
   }
 
   colorEstado(estado: EstadoCita): string {
@@ -123,5 +139,25 @@ export class MisCitasPage {
       ANULADA: 'Anulada',
     };
     return map[estado];
+  }
+
+  colorPago(estado: string): string {
+    const map: Record<string, string> = {
+      PENDIENTE: 'warning',
+      PAGADO: 'success',
+      REEMBOLSADO: 'medium',
+      CANCELADO: 'medium',
+    };
+    return map[estado] ?? 'medium';
+  }
+
+  labelPago(estado: string): string {
+    const map: Record<string, string> = {
+      PENDIENTE: 'Pago pendiente',
+      PAGADO: 'Pagado',
+      REEMBOLSADO: 'Reembolsado',
+      CANCELADO: 'Cancelado',
+    };
+    return map[estado] ?? estado;
   }
 }

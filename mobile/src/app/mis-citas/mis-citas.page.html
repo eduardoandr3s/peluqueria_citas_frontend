@@ -29,6 +29,22 @@
           <ion-badge slot="end" [color]="colorEstado(cita.estado)">
             {{ labelEstado(cita.estado) }}
           </ion-badge>
+          @if (pagos()[cita.idCita]; as pago) {
+            <ion-badge slot="end" [color]="colorPago(pago.estadoPago)">
+              {{ labelPago(pago.estadoPago) }}
+            </ion-badge>
+          }
+          @if (cita.estado === 'PENDIENTE' && (!pagos()[cita.idCita] || pagos()[cita.idCita]!.estadoPago === 'PENDIENTE')) {
+            <ion-button
+              slot="end"
+              fill="solid"
+              color="primary"
+              size="small"
+              (click)="irPagar(cita.idCita)"
+            >
+              Pagar
+            </ion-button>
+          }
           @if (cita.estado !== 'ANULADA') {
             <ion-button
               slot="end"

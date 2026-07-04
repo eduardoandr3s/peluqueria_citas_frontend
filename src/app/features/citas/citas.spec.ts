@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import {
   Cita,
   CitaService,
+  PagoService,
   Servicio,
   ServicioService,
   Usuario,
@@ -32,6 +33,7 @@ const CITAS: Cita[] = [
 function setup(overrides: {
   cita?: Partial<Record<keyof CitaService, unknown>>;
   failLoad?: boolean;
+  pago?: Partial<Record<keyof PagoService, unknown>>;
 }) {
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
@@ -41,10 +43,17 @@ function setup(overrides: {
     eliminar: vi.fn(),
     ...overrides.cita,
   };
+  const pagoSvc = {
+    obtenerPorCita: vi.fn().mockReturnValue(throwError(() => ({ status: 404 }))),
+    registrarManual: vi.fn(),
+    reembolsar: vi.fn(),
+    ...overrides.pago,
+  };
   TestBed.configureTestingModule({
     imports: [Citas],
     providers: [
       { provide: CitaService, useValue: citaSvc },
+      { provide: PagoService, useValue: pagoSvc },
       { provide: UsuarioService, useValue: { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) } },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
     ],
@@ -173,5 +182,89 @@ describe('Citas', () => {
     c.eliminar(CITAS[0]);
     expect(c.feedback()).toEqual({ type: 'error', text: 'Boom' });
     expect(c.busyId()).toBeNull();
+  });
+
+  // ── Pagos ─────────────────────────────────────────────────────────────
+
+  it('puedePagoManual true sin pago o con pago pendiente', () => {
+    const { c } = setup({});
+    expect(c.puedePagoManual(CITAS[0])).toBe(true);
+  });
+
+  it('puedePagoManual false con pago PAGADO', () => {
+    const pago = {
+      obtenerPorCita: vi.fn().mockReturnValue(of({
+        idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
+        estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
+      })),
+    };
+    const { c } = setup({ pago });
+    c.cargar();
+    expect(c.puedePagoManual(CITAS[0])).toBe(false);
+  });
+
+  it('puedeReembolsar true con pago PAGADO', () => {
+    const pago = {
+      obtenerPorCita: vi.fn().mockReturnValue(of({
+        idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
+        estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
+      })),
+    };
+    const { c } = setup({ pago });
+    c.cargar();
+    expect(c.puedeReembolsar(CITAS[0])).toBe(true);
+  });
+
+  it('registrarPagoManual llama al servicio, actualiza pago y cita, y muestra feedback', () => {
+    const pagoResp = {
+      idPago: 2, citaId: 1, monto: 15, metodoPago: 'EFECTIVO',
+      estadoPago: 'PAGADO', referenciaExterna: null, fechaCreacion: '', fechaPago: '',
+    };
+    const registrarManual = vi.fn().mockReturnValue(of(pagoResp));
+    const { c } = setup({ pago: { registrarManual } });
+
+    c.abrirPagoManual(CITAS[0]);
+    expect(c.pendingPagoManual()).toEqual(CITAS[0]);
+
+    c.registrarPagoManual(CITAS[0]);
+    expect(registrarManual).toHaveBeenCalledWith(1, 'EFECTIVO');
+    expect(c.pagos()[1]).toEqual(pagoResp);
+    expect(c.citas().find((x: Cita) => x.idCita === 1)?.estado).toBe('CONFIRMADA');
+    expect(c.feedback().type).toBe('success');
+  });
+
+  it('reembolsar llama al servicio y actualiza estado del pago', () => {
+    const pagoExistente = {
+      idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
+      estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
+    };
+    const pago = {
+      obtenerPorCita: vi.fn().mockReturnValue(of(pagoExistente)),
+      reembolsar: vi.fn().mockReturnValue(of(undefined)),
+    };
+    const { c } = setup({ pago });
+    c.cargar();
+
+    c.reembolsar(CITAS[0]);
+    expect(pago.reembolsar).toHaveBeenCalledWith(1);
+    expect(c.pagos()[1].estadoPago).toBe('REEMBOLSADO');
+    expect(c.feedback().type).toBe('success');
+  });
+
+  it('reembolsar con error muestra mensaje de error', () => {
+    const pagoExistente = {
+      idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
+      estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
+    };
+    const pago = {
+      obtenerPorCita: vi.fn().mockReturnValue(of(pagoExistente)),
+      reembolsar: vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'No se puede reembolsar' } }))),
+    };
+    const { c } = setup({ pago });
+    c.cargar();
+
+    c.reembolsar(CITAS[0]);
+    expect(c.reembolsoError()).toBe('No se puede reembolsar');
+    expect(c.reembolsoSaving()).toBe(false);
   });
 });

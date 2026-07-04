@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AlertController } from '@ionic/angular/standalone';
-import { Cita, CitaService, EstadoCita, Servicio } from '@peluqueria/core';
+import { API_URL, Cita, CitaService, PagoService, EstadoCita, Servicio } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { MisCitasPage } from './mis-citas.page';
 
@@ -23,10 +23,18 @@ function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
     actualizar: vi.fn().mockReturnValue(of({})),
     ...cita$,
   };
+  const pagoSvc = {
+    obtenerPorCita: vi.fn().mockReturnValue(throwError(() => ({ status: 404 }))),
+    crearIntent: vi.fn(),
+    registrarManual: vi.fn(),
+    reembolsar: vi.fn(),
+  };
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      { provide: API_URL, useValue: 'http://test/api' },
       { provide: CitaService, useValue: citaSvc },
+      { provide: PagoService, useValue: pagoSvc },
       { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
     ],
   });

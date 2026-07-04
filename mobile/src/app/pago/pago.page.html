@@ -1,0 +1,62 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/mis-citas"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Pagar cita</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  @if (estado() === 'cargando') {
+    <div class="loading-center">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p class="ion-margin-top">Preparando el pago…</p>
+    </div>
+  } @else if (estado() === 'error-inicial') {
+    <div class="empty-state">
+      <p>{{ mensajeError() }}</p>
+      <ion-button (click)="ionViewWillEnter()">Reintentar</ion-button>
+    </div>
+  } @else if (estado() === 'listo' && cita()) {
+    <div class="pago-container ion-padding">
+      <div class="resumen-card">
+        <h2>{{ cita()!.servicio.nombre }}</h2>
+        <p>{{ cita()!.fechaHora | date: 'EEEE d MMM, HH:mm' }}</p>
+        <p class="precio">{{ cita()!.servicio.precio | number:'1.2-2' }} €</p>
+      </div>
+
+      <div id="payment-element" class="payment-element"></div>
+
+      <ion-button
+        expand="block"
+        [disabled]="pagoProcesando()"
+        (click)="confirmarPago()"
+        class="ion-margin-top"
+      >
+        @if (pagoProcesando()) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+          Procesando…
+        } @else {
+          Pagar {{ cita()!.servicio.precio | number:'1.2-2' }} €
+        }
+      </ion-button>
+
+      @if (errorPago()) {
+        <p class="error-text ion-margin-top">{{ errorPago() }}</p>
+      }
+    </div>
+  } @else if (estado() === 'verificando') {
+    <div class="loading-center">
+      <ion-spinner name="crescent"></ion-spinner>
+      <h2>Verificando pago…</h2>
+      <p class="ion-margin-top">Esperando la confirmación de tu banco.</p>
+    </div>
+  } @else if (estado() === 'timeout') {
+    <div class="empty-state">
+      <h2>Pago en proceso</h2>
+      <p>El pago se está procesando; tu cita se confirmará en breve.</p>
+      <ion-button (click)="volver()">Volver a mis citas</ion-button>
+    </div>
+  }
+</ion-content>
