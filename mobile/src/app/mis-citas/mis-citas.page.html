@@ -25,15 +25,17 @@
           <ion-label>
             <h2>{{ cita.servicio.nombre }}</h2>
             <p>{{ cita.fechaHora | date: 'EEEE d MMM, HH:mm' }}</p>
+            <div class="badges">
+              <ion-badge [color]="colorEstado(cita.estado)">
+                {{ labelEstado(cita.estado) }}
+              </ion-badge>
+              @if (pagos()[cita.idCita]; as pago) {
+                <ion-badge [color]="colorPago(pago.estadoPago)">
+                  {{ labelPago(pago.estadoPago) }}
+                </ion-badge>
+              }
+            </div>
           </ion-label>
-          <ion-badge slot="end" [color]="colorEstado(cita.estado)">
-            {{ labelEstado(cita.estado) }}
-          </ion-badge>
-          @if (pagos()[cita.idCita]; as pago) {
-            <ion-badge slot="end" [color]="colorPago(pago.estadoPago)">
-              {{ labelPago(pago.estadoPago) }}
-            </ion-badge>
-          }
           @if (cita.estado === 'PENDIENTE' && (!pagos()[cita.idCita] || pagos()[cita.idCita]!.estadoPago === 'PENDIENTE')) {
             <ion-button
               slot="end"

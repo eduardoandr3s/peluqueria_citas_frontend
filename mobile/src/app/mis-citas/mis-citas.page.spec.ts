@@ -31,7 +31,10 @@ function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
   };
   TestBed.configureTestingModule({
     providers: [
-      provideRouter([]),
+      provideRouter([
+        { path: 'tabs/mis-citas', children: [] },
+        { path: '**', children: [] },
+      ]),
       { provide: API_URL, useValue: 'http://test/api' },
       { provide: CitaService, useValue: citaSvc },
       { provide: PagoService, useValue: pagoSvc },
@@ -82,6 +85,20 @@ describe('MisCitasPage', () => {
     c.cargar();
     c.anular(1);
     expect(listar).toHaveBeenCalledTimes(2); // carga inicial + recarga al fallar
+  });
+
+  it('recarga la lista al navegar a /tabs/mis-citas (p. ej. al volver de la pagina de pago)', async () => {
+    const listar = vi.fn().mockReturnValue(of([]));
+    const { c } = setup({ listar });
+    expect(listar).not.toHaveBeenCalled();
+
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/tabs/mis-citas');
+    expect(listar).toHaveBeenCalledTimes(1);
+
+    await router.navigateByUrl('/');
+    await router.navigateByUrl('/tabs/mis-citas');
+    expect(listar).toHaveBeenCalledTimes(2);
   });
 
   it('irAgendar navega a la pantalla de agendar', () => {

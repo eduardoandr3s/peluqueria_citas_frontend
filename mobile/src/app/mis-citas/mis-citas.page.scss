@@ -32,6 +32,9 @@ ion-item {
   }
 }
 
-ion-badge {
-  margin-right: 4px;
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }

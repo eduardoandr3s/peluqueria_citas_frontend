@@ -1,6 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
+import { filter } from 'rxjs';
 import {
   IonHeader,
   IonToolbar,
@@ -47,10 +49,15 @@ export class MisCitasPage {
 
   constructor() {
     addIcons({ addOutline });
-  }
-
-  ionViewWillEnter(): void {
-    this.cargar();
+    // ionViewWillEnter no se dispara al volver desde rutas fuera de las tabs
+    // (p. ej. /pago/:citaId), asi que la recarga se engancha a la navegacion.
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        filter((e) => e.urlAfterRedirects.includes('/tabs/mis-citas')),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.cargar());
   }
 
   cargar(event?: CustomEvent): void {
