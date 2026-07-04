@@ -12,8 +12,8 @@ import {
   IonContent,
   IonSpinner,
   IonButton,
+  ToastController,
 } from '@ionic/angular/standalone';
-import { ToastController } from '@ionic/angular';
 import { loadStripe, Stripe, StripeElements } from '@stripe/stripe-js';
 import { PagoService, CitaService, Cita } from '@peluqueria/core';
 import { environment } from '../../environments/environment';
@@ -56,6 +56,10 @@ export class PagoPage {
     }
   }
 
+  ionViewWillLeave(): void {
+    this.detenerPolling();
+  }
+
   async ionViewWillEnter(): Promise<void> {
     if (!this.citaId) return;
     this.estado.set('cargando');
@@ -82,9 +86,12 @@ export class PagoPage {
       });
 
       const paymentElement = this.elements.create('payment');
-      paymentElement.mount('#payment-element');
 
+      // El div #payment-element solo existe cuando el template pinta la rama
+      // 'listo': renderizar primero y montar el Payment Element después.
       this.estado.set('listo');
+      await new Promise((resolve) => setTimeout(resolve));
+      paymentElement.mount('#payment-element');
     } catch (err) {
       this.mensajeError.set(this.extraerError(err) ?? 'No se pudo preparar el pago.');
       this.estado.set('error-inicial');
@@ -125,6 +132,8 @@ export class PagoPage {
             this.notificarExito();
           }
         },
+        // Un fallo puntual no aborta la verificación: se reintenta en el siguiente tick.
+        error: () => {},
       });
 
       if (intentos >= maxIntentos) {

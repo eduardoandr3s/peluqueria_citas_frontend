@@ -672,8 +672,8 @@ export class Citas implements OnInit {
   protected labelPago(pago: PagoResponse): string {
     switch (pago.estadoPago) {
       case 'PENDIENTE': return 'Pago pendiente';
-      case 'PAGADO': return `${pago.monto} € pagado`;
-      case 'REEMBOLSADO': return `${pago.monto} € reembolsado`;
+      case 'PAGADO': return `${pago.monto.toFixed(2)} € pagado`;
+      case 'REEMBOLSADO': return `${pago.monto.toFixed(2)} € reembolsado`;
       case 'CANCELADO': return 'Pago cancelado';
       default: return pago.estadoPago;
     }
