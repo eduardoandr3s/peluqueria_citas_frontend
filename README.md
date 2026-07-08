@@ -1,5 +1,7 @@
 # PeluqueriaFrontend
 
+[![CI](https://github.com/eduardoandr3s/peluqueria_citas_frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/eduardoandr3s/peluqueria_citas_frontend/actions/workflows/ci.yml)
+
 Monorepo frontend para la peluquería "Lalo Segovia". Consume la API REST del backend [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas).
 
 ## Estructura
