@@ -1,8 +1,11 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { Cita, EstadoCita, CitaService, ServicioService, UsuarioService } from '@peluqueria/core';
+import {
+  Cita, EstadoCita, CitaService, ServicioService, UsuarioService,
+  EstadisticasService, EstadisticasResponse,
+} from '@peluqueria/core';
 
 interface MetricCard {
   label: string;
@@ -13,7 +16,7 @@ interface MetricCard {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   template: `
     <div class="space-y-6">
       <div>
@@ -96,6 +99,112 @@ interface MetricCard {
           </div>
         }
       </div>
+
+      <!-- Estadísticas de negocio -->
+      <div class="rounded-xl bg-surface shadow-sm ring-1 ring-line">
+        <div class="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 class="font-semibold text-main">Estadísticas de negocio</h2>
+          <div class="flex gap-2">
+            @for (opt of rangoOptions; track opt.value) {
+              <button
+                (click)="seleccionarRango(opt.value)"
+                class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                [class.bg-primary]="rangoActivo() === opt.value"
+                [class.text-white]="rangoActivo() === opt.value"
+                [class.bg-elevated]="rangoActivo() !== opt.value"
+                [class.text-main]="rangoActivo() !== opt.value"
+                [class.hover:bg-line]="rangoActivo() !== opt.value"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (statsLoading()) {
+          <div class="p-5 text-sm text-muted">Cargando estadísticas…</div>
+        } @else if (statsError()) {
+          <div class="rounded-lg bg-error/15 px-5 py-4 text-sm text-error">
+            {{ statsError() }}
+          </div>
+        } @else {
+          <div class="space-y-5 p-5">
+            <!-- Citas por estado + ingresos -->
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <h3 class="mb-2 text-sm font-medium text-muted">Citas por estado</h3>
+                <div class="space-y-2">
+                  @for (item of citasPorEstado(); track item.estado) {
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-main">{{ item.estado }}</span>
+                      <span class="font-semibold text-main">{{ item.total }}</span>
+                    </div>
+                    <div class="h-2 w-full rounded-full bg-elevated">
+                      <div
+                        class="h-2 rounded-full"
+                        [style.width.%]="barWidth(item.total, totalCitas())"
+                        [class.bg-success]="item.estado === 'CONFIRMADA'"
+                        [class.bg-warning]="item.estado === 'PENDIENTE'"
+                        [class.bg-error]="item.estado === 'ANULADA'"
+                      ></div>
+                    </div>
+                  }
+                </div>
+              </div>
+              <div>
+                <h3 class="mb-2 text-sm font-medium text-muted">Ingresos</h3>
+                <p class="text-2xl font-bold text-main">
+                  {{ ingresosTotal() | number:'1.2-2' }} €
+                </p>
+                <div class="mt-3 space-y-2">
+                  @for (entry of ingresosPorMetodo(); track entry[0]) {
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-muted">{{ entry[0] }}</span>
+                      <span class="font-medium text-main">{{ entry[1] | number:'1.2-2' }} €</span>
+                    </div>
+                    <div class="h-2 w-full rounded-full bg-elevated">
+                      <div
+                        class="h-2 rounded-full bg-primary"
+                        [style.width.%]="barWidth(entry[1], ingresosTotal())"
+                      ></div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- Top servicios + nuevos clientes -->
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <h3 class="mb-2 text-sm font-medium text-muted">Servicios más demandados</h3>
+                @if (topServiciosList().length === 0) {
+                  <p class="text-sm text-muted">Sin datos en este periodo.</p>
+                } @else {
+                  <div class="space-y-2">
+                    @for (sv of topServiciosList(); track sv.nombre; let i = $index) {
+                      <div class="flex items-center justify-between text-sm">
+                        <span class="text-main">{{ i + 1 }}. {{ sv.nombre }}</span>
+                        <span class="font-medium text-main">{{ sv.total }} citas</span>
+                      </div>
+                      <div class="h-2 w-full rounded-full bg-elevated">
+                        <div
+                          class="h-2 rounded-full bg-secondary"
+                          [style.width.%]="barWidth(sv.total, maxTopServicio())"
+                        ></div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <div>
+                <h3 class="mb-2 text-sm font-medium text-muted">Nuevos clientes</h3>
+                <p class="text-2xl font-bold text-main">{{ nuevosClientesCount() }}</p>
+                <p class="mt-1 text-xs text-muted">en el periodo seleccionado</p>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
     </div>
   `,
 })
@@ -103,9 +212,25 @@ export class Dashboard implements OnInit {
   private readonly citaService = inject(CitaService);
   private readonly servicioService = inject(ServicioService);
   private readonly usuarioService = inject(UsuarioService);
+  private readonly estadisticasService = inject(EstadisticasService);
 
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly statsLoading = signal(false);
+  protected readonly statsError = signal<string | null>(null);
+  protected readonly stats = signal<EstadisticasResponse | null>(null);
+  protected readonly rangoActivo = signal('30d');
+
+  protected readonly citasPorEstado = computed(() => this.stats()?.citasPorEstado ?? []);
+  protected readonly ingresosTotal = computed(() => this.stats()?.ingresos?.total ?? 0);
+  protected readonly topServiciosList = computed(() => this.stats()?.topServicios ?? []);
+  protected readonly nuevosClientesCount = computed(() => this.stats()?.nuevosClientes ?? 0);
+
+  readonly rangoOptions = [
+    { label: 'Este mes', value: 'mes' },
+    { label: '30 días', value: '30d' },
+    { label: 'Este año', value: 'ano' },
+  ];
 
   private readonly citas = signal<Cita[]>([]);
   private readonly totalServicios = signal(0);
@@ -167,6 +292,72 @@ export class Dashboard implements OnInit {
         this.loading.set(false);
       },
     });
+    this.cargarEstadisticas();
+  }
+
+  protected seleccionarRango(rango: string): void {
+    this.rangoActivo.set(rango);
+    this.cargarEstadisticas();
+  }
+
+  private cargarEstadisticas(): void {
+    this.statsLoading.set(true);
+    this.statsError.set(null);
+    const { desde, hasta } = this.calcularRango(this.rangoActivo());
+    this.estadisticasService.obtener(desde, hasta).subscribe({
+      next: (data) => {
+        this.stats.set(data);
+        this.statsLoading.set(false);
+      },
+      error: () => {
+        this.statsError.set('No se pudieron cargar las estadísticas.');
+        this.statsLoading.set(false);
+      },
+    });
+  }
+
+  private calcularRango(rango: string): { desde: string; hasta: string } {
+    const hoy = new Date();
+    let desde: Date;
+    switch (rango) {
+      case 'mes':
+        desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        break;
+      case 'ano':
+        desde = new Date(hoy.getFullYear(), 0, 1);
+        break;
+      default: // 30d
+        desde = new Date(hoy);
+        desde.setDate(desde.getDate() - 30);
+        break;
+    }
+    return {
+      desde: this.formatearFecha(desde),
+      hasta: this.formatearFecha(hoy),
+    };
+  }
+
+  private formatearFecha(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  protected totalCitas(): number {
+    return (this.stats()?.citasPorEstado ?? []).reduce((sum, c) => sum + c.total, 0);
+  }
+
+  protected ingresosPorMetodo(): [string, number][] {
+    const map = this.stats()?.ingresos.porMetodoPago;
+    return map ? Object.entries(map) : [];
+  }
+
+  protected maxTopServicio(): number {
+    const top = this.stats()?.topServicios ?? [];
+    return top.length > 0 ? Math.max(...top.map((s) => s.total)) : 1;
+  }
+
+  protected barWidth(value: number, max: number): number {
+    if (max <= 0) return 0;
+    return Math.round((value / max) * 100);
   }
 
   protected estadoClass(estado: EstadoCita): string {
