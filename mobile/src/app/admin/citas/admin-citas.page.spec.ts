@@ -4,6 +4,7 @@ import {
   Cita,
   CitaService,
   EstadoCita,
+  PeluqueroService,
   Servicio,
   ServicioService,
   Usuario,
@@ -46,6 +47,7 @@ function setup(overrides: { cita?: Partial<Record<keyof CitaService, unknown>>; 
       { provide: CitaService, useValue: citaSvc },
       { provide: UsuarioService, useValue: { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) } },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
+      { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
       { provide: ActionSheetController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
       { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
       { provide: ToastController, useValue: toast },
@@ -114,7 +116,7 @@ describe('AdminCitasPage', () => {
     expect(c.fUsuarioId()).toBe(1);
     expect(c.fFecha()).toBe('2026-07-01');
     expect(c.fHora()).toBe('10:00');
-    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-01', 1);
+    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-01', 1, undefined);
   });
 
   it('usuariosForm añade el cliente de la cita editada si no está en la lista', () => {
@@ -149,7 +151,7 @@ describe('AdminCitasPage', () => {
     c.fFecha.set('2026-07-10');
     c.fHora.set('09:00');
     c.guardar();
-    expect(agendar).toHaveBeenCalledWith({ usuarioId: 1, servicioId: 1, fechaHora: '2026-07-10T09:00:00' });
+    expect(agendar).toHaveBeenCalledWith({ usuarioId: 1, servicioId: 1, peluqueroId: undefined, fechaHora: '2026-07-10T09:00:00' });
     expect(c.citas().some((x: Cita) => x.idCita === 99)).toBe(true);
     expect(c.formOpen()).toBe(false);
   });
@@ -162,7 +164,7 @@ describe('AdminCitasPage', () => {
     c.abrirEditar(CITAS[0]);
     c.fHora.set('09:30');
     c.guardar();
-    expect(actualizar).toHaveBeenCalledWith(1, expect.objectContaining({ fechaHora: '2026-07-01T09:30:00' }));
+    expect(actualizar).toHaveBeenCalledWith(1, expect.objectContaining({ peluqueroId: undefined, fechaHora: '2026-07-01T09:30:00' }));
     expect(c.citas().find((x: Cita) => x.idCita === 1).fechaHora).toBe('2026-07-01T09:30:00');
   });
 

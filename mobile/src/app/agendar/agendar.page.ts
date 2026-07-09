@@ -18,7 +18,7 @@ import {
   IonSelect,
   IonSelectOption,
 } from '@ionic/angular/standalone';
-import { CitaService, ServicioService, Servicio } from '@peluqueria/core';
+import { CitaService, ServicioService, Servicio, PeluqueroService, Peluquero } from '@peluqueria/core';
 
 @Component({
   selector: 'app-agendar',
@@ -36,11 +36,14 @@ export class AgendarPage implements OnInit {
   private readonly router = inject(Router);
   private readonly citaService = inject(CitaService);
   private readonly servicioService = inject(ServicioService);
+  private readonly peluqueroService = inject(PeluqueroService);
 
   readonly servicios = signal<Servicio[]>([]);
+  readonly peluqueros = signal<Peluquero[]>([]);
   readonly slots = signal<string[]>([]);
 
   readonly servicioId = signal<number | null>(null);
+  readonly peluqueroId = signal<number | null>(null);
   readonly fecha = signal('');
   readonly slotSeleccionado = signal('');
 
@@ -61,6 +64,10 @@ export class AgendarPage implements OnInit {
 
     this.servicioService.listar().subscribe((data) => {
       this.servicios.set(data.filter((s) => s.activo));
+    });
+
+    this.peluqueroService.listar().subscribe((data) => {
+      this.peluqueros.set(data);
     });
   }
 
@@ -84,9 +91,18 @@ export class AgendarPage implements OnInit {
     }
   }
 
+  onPeluqueroChange(id: number | null): void {
+    this.peluqueroId.set(id);
+    this.slotSeleccionado.set('');
+    this.slots.set([]);
+    if (this.fecha() && this.servicioId()) {
+      this.cargarSlots(this.fecha(), this.servicioId()!);
+    }
+  }
+
   private cargarSlots(fecha: string, servicioId: number): void {
     this.loadingSlots.set(true);
-    this.citaService.disponibilidad(fecha, servicioId).subscribe({
+    this.citaService.disponibilidad(fecha, servicioId, this.peluqueroId() ?? undefined).subscribe({
       next: (data) => {
         this.slots.set(data);
         this.loadingSlots.set(false);
@@ -103,6 +119,7 @@ export class AgendarPage implements OnInit {
       .agendar({
         servicioId: this.servicioId()!,
         fechaHora: `${this.fecha()}T${this.slotSeleccionado()}:00`,
+        peluqueroId: this.peluqueroId() ?? undefined,
       })
       .subscribe({
         next: () => {

@@ -22,11 +22,12 @@ export class CitaService {
   }
 
   /**
-   * Horas libres (slots de 30 min, formato "HH:mm") para una fecha y servicio.
+   * Horas libres (slots de 30 min, formato "HH:mm") para una fecha, servicio y opcionalmente peluquero.
    * El backend ya descuenta citas existentes, duración, horario laboral y domingos.
    */
-  disponibilidad(fecha: string, idServicio: number): Observable<string[]> {
-    const params = new HttpParams().set('fecha', fecha).set('idServicio', String(idServicio));
+  disponibilidad(fecha: string, idServicio: number, peluqueroId?: number): Observable<string[]> {
+    let params = new HttpParams().set('fecha', fecha).set('idServicio', String(idServicio));
+    if (peluqueroId != null) params = params.set('peluqueroId', String(peluqueroId));
     return this.http.get<string[]>(`${this.apiUrl}/disponibilidad`, { params });
   }
 

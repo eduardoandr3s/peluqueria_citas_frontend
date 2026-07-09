@@ -10,11 +10,13 @@ import {
   EstadoCita,
   Servicio,
   Usuario,
+  Peluquero,
   CitaService,
   ServicioService,
   UsuarioService,
   PagoService,
   PagoResponse,
+  PeluqueroService,
 } from '@peluqueria/core';
 
 type EstadoFiltro = 'TODAS' | EstadoCita;
@@ -125,6 +127,7 @@ interface Feedback {
                 <tr>
                   <th class="px-5 py-3 font-medium">Cliente</th>
                   <th class="px-5 py-3 font-medium">Servicio</th>
+                  <th class="px-5 py-3 font-medium">Peluquero</th>
                   <th class="px-5 py-3 font-medium">Fecha y hora</th>
                   <th class="px-5 py-3 font-medium">Estado / Pago</th>
                   <th class="px-5 py-3 text-right font-medium">Acciones</th>
@@ -140,6 +143,9 @@ interface Feedback {
                     <td class="px-5 py-3">
                       <p class="text-main">{{ c.servicio.nombre }}</p>
                       <p class="text-xs text-muted">{{ c.servicio.duracion }} min</p>
+                    </td>
+                    <td class="px-5 py-3">
+                      <p class="text-main">{{ c.peluquero?.nombre ?? '—' }}</p>
                     </td>
                     <td class="px-5 py-3 text-main">
                       <p>{{ c.fechaHora | date: 'EEE dd/MM/yyyy' }}</p>
@@ -281,6 +287,22 @@ interface Feedback {
               @if (invalid('servicioId')) {
                 <p class="mt-1 text-xs text-error">Selecciona un servicio.</p>
               }
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-main">
+                Peluquero <span class="text-muted">(opcional)</span>
+              </label>
+              <select
+                formControlName="peluqueroId"
+                (change)="onContextoSlotsCambio()"
+                class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
+              >
+                <option [ngValue]="null">Cualquiera</option>
+                @for (p of peluqueros(); track p.idPeluquero) {
+                  <option [ngValue]="p.idPeluquero">{{ p.nombre }}</option>
+                }
+              </select>
             </div>
 
             <div>
@@ -461,11 +483,13 @@ export class Citas implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
   private readonly pagoService = inject(PagoService);
+  private readonly peluqueroService = inject(PeluqueroService);
   private readonly fb = inject(FormBuilder);
 
   protected readonly citas = signal<Cita[]>([]);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly servicios = signal<Servicio[]>([]);
+  protected readonly peluqueros = signal<Peluquero[]>([]);
   protected readonly pagos = signal<Record<number, PagoResponse | null>>({});
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
@@ -510,6 +534,7 @@ export class Citas implements OnInit {
   protected readonly form = this.fb.group({
     usuarioId: [null as number | null, [Validators.required]],
     servicioId: [null as number | null, [Validators.required]],
+    peluqueroId: [null as number | null],
     fecha: ['', [Validators.required]],
     hora: ['', [Validators.required]],
   });
@@ -575,11 +600,13 @@ export class Citas implements OnInit {
       citas: this.citaService.listar(),
       usuarios: this.usuarioService.listarTodos(),
       servicios: this.servicioService.listar(),
+      peluqueros: this.peluqueroService.listar(),
     }).subscribe({
-      next: ({ citas, usuarios, servicios }) => {
+      next: ({ citas, usuarios, servicios, peluqueros }) => {
         this.citas.set(citas);
         this.usuarios.set(usuarios);
         this.servicios.set(servicios);
+        this.peluqueros.set(peluqueros);
         this.loading.set(false);
         this.cargarPagos(citas);
       },
@@ -761,6 +788,7 @@ export class Citas implements OnInit {
   private cargarSlots(): void {
     const servicioId = this.form.controls.servicioId.value;
     const fecha = this.form.controls.fecha.value;
+    const peluqueroId = this.form.controls.peluqueroId.value ?? undefined;
     if (!servicioId || !fecha) {
       this.slots.set([]);
       this.slotsError.set(null);
@@ -768,7 +796,7 @@ export class Citas implements OnInit {
     }
     this.slotsLoading.set(true);
     this.slotsError.set(null);
-    this.citaService.disponibilidad(fecha, servicioId).subscribe({
+    this.citaService.disponibilidad(fecha, servicioId, peluqueroId).subscribe({
       next: (horas) => {
         this.slots.set(horas);
         this.slotsLoading.set(false);
@@ -799,6 +827,7 @@ export class Citas implements OnInit {
         usuarioId: v.usuarioId!,
         servicioId: v.servicioId!,
         fechaHora,
+        peluqueroId: v.peluqueroId ?? undefined,
       };
       this.citaService.actualizar(editando.idCita, payload).subscribe({
         next: (actualizada) => {
@@ -824,6 +853,7 @@ export class Citas implements OnInit {
       usuarioId: v.usuarioId!,
       servicioId: v.servicioId!,
       fechaHora,
+      peluqueroId: v.peluqueroId ?? undefined,
     };
     this.citaService.agendar(payload).subscribe({
       next: (cita) => {

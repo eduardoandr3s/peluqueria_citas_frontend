@@ -32,6 +32,24 @@
       </ion-select>
     </ion-item>
 
+    <!-- Selector de peluquero -->
+    <ion-item>
+      <ion-select
+        label="¿Con quién?"
+        labelPlacement="floating"
+        [value]="peluqueroId()"
+        (ionChange)="onPeluqueroChange($event.detail.value)"
+        interface="action-sheet"
+      >
+        <ion-select-option [value]="null">Cualquiera</ion-select-option>
+        @for (p of peluqueros(); track p.idPeluquero) {
+          <ion-select-option [value]="p.idPeluquero">
+            {{ p.nombre }}
+          </ion-select-option>
+        }
+      </ion-select>
+    </ion-item>
+
     <!-- Selector de fecha -->
     <ion-item>
       <ion-input

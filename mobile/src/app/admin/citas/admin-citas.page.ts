@@ -39,9 +39,11 @@ import {
   CitaRequest,
   CitaUpdate,
   EstadoCita,
+  Peluquero,
   Servicio,
   Usuario,
   CitaService,
+  PeluqueroService,
   ServicioService,
   UsuarioService,
 } from '@peluqueria/core';
@@ -64,6 +66,7 @@ export class AdminCitasPage {
   private readonly citaService = inject(CitaService);
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
+  private readonly peluqueroService = inject(PeluqueroService);
   private readonly actionSheet = inject(ActionSheetController);
   private readonly alertCtrl = inject(AlertController);
   private readonly toast = inject(ToastController);
@@ -71,6 +74,7 @@ export class AdminCitasPage {
   readonly citas = signal<Cita[]>([]);
   readonly usuarios = signal<Usuario[]>([]);
   readonly servicios = signal<Servicio[]>([]);
+  readonly peluqueros = signal<Peluquero[]>([]);
   readonly loading = signal(true);
 
   readonly search = signal('');
@@ -84,6 +88,7 @@ export class AdminCitasPage {
 
   readonly fUsuarioId = signal<number | null>(null);
   readonly fServicioId = signal<number | null>(null);
+  readonly fPeluqueroId = signal<number | null>(null);
   readonly fFecha = signal('');
   readonly fHora = signal('');
 
@@ -157,11 +162,13 @@ export class AdminCitasPage {
       citas: this.citaService.listar(),
       usuarios: this.usuarioService.listarTodos(),
       servicios: this.servicioService.listar(),
+      peluqueros: this.peluqueroService.listar(),
     }).subscribe({
-      next: ({ citas, usuarios, servicios }) => {
+      next: ({ citas, usuarios, servicios, peluqueros }) => {
         this.citas.set(citas);
         this.usuarios.set(usuarios);
         this.servicios.set(servicios.filter((s) => s.activo));
+        this.peluqueros.set(peluqueros);
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
       },
@@ -194,6 +201,7 @@ export class AdminCitasPage {
     this.slots.set([]);
     this.fUsuarioId.set(null);
     this.fServicioId.set(null);
+    this.fPeluqueroId.set(null);
     this.fFecha.set('');
     this.fHora.set('');
     this.formOpen.set(true);
@@ -205,6 +213,7 @@ export class AdminCitasPage {
     this.slots.set([]);
     this.fUsuarioId.set(c.usuario.idUsuario);
     this.fServicioId.set(c.servicio.idServicio);
+    this.fPeluqueroId.set(c.peluquero?.idPeluquero ?? null);
     this.fFecha.set(c.fechaHora.slice(0, 10));
     this.fHora.set(c.fechaHora.slice(11, 16));
     this.formOpen.set(true);
@@ -223,12 +232,13 @@ export class AdminCitasPage {
   private cargarSlots(): void {
     const servicioId = this.fServicioId();
     const fecha = this.fFecha();
+    const peluqueroId = this.fPeluqueroId();
     if (!servicioId || !fecha) {
       this.slots.set([]);
       return;
     }
     this.slotsLoading.set(true);
-    this.citaService.disponibilidad(fecha, servicioId).subscribe({
+    this.citaService.disponibilidad(fecha, servicioId, peluqueroId ?? undefined).subscribe({
       next: (horas) => {
         this.slots.set(horas);
         this.slotsLoading.set(false);
@@ -259,6 +269,7 @@ export class AdminCitasPage {
       const payload: CitaUpdate = {
         usuarioId: this.fUsuarioId()!,
         servicioId: this.fServicioId()!,
+        peluqueroId: this.fPeluqueroId() ?? undefined,
         fechaHora,
       };
       this.citaService.actualizar(e.idCita, payload).subscribe({
@@ -276,6 +287,7 @@ export class AdminCitasPage {
     const payload: CitaRequest = {
       usuarioId: this.fUsuarioId()!,
       servicioId: this.fServicioId()!,
+      peluqueroId: this.fPeluqueroId() ?? undefined,
       fechaHora,
     };
     this.citaService.agendar(payload).subscribe({

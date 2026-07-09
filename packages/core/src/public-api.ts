@@ -14,6 +14,7 @@ export * from './models/servicio.model';
 export * from './models/usuario.model';
 export * from './models/pago.model';
 export * from './models/estadisticas.model';
+export * from './models/peluquero.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
@@ -23,6 +24,7 @@ export * from './services/servicio.service';
 export * from './services/usuario.service';
 export * from './services/pago.service';
 export * from './services/estadisticas.service';
+export * from './services/peluquero.service';
 
 // Guards e interceptor
 export * from './guards/auth.guard';

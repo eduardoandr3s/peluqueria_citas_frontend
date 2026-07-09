@@ -9,6 +9,7 @@ import {
   UsuarioService,
 } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
+import { PeluqueroService } from '@peluqueria/core';
 import { Citas } from './citas';
 
 const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
@@ -56,6 +57,7 @@ function setup(overrides: {
       { provide: PagoService, useValue: pagoSvc },
       { provide: UsuarioService, useValue: { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) } },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
+      { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
     ],
   });
   const fixture = TestBed.createComponent(Citas);
@@ -122,9 +124,9 @@ describe('Citas', () => {
     const agendar = vi.fn().mockReturnValue(of(nueva));
     const { c } = setup({ cita: { agendar } });
     c.abrirAgendar();
-    c.form.setValue({ usuarioId: 1, servicioId: 1, fecha: '2026-07-10', hora: '09:00' });
+    c.form.setValue({ usuarioId: 1, servicioId: 1, peluqueroId: null, fecha: '2026-07-10', hora: '09:00' });
     c.guardar();
-    expect(agendar).toHaveBeenCalledWith({ usuarioId: 1, servicioId: 1, fechaHora: '2026-07-10T09:00:00' });
+    expect(agendar).toHaveBeenCalledWith({ usuarioId: 1, servicioId: 1, peluqueroId: undefined, fechaHora: '2026-07-10T09:00:00' });
     expect(c.citas().some((x: Cita) => x.idCita === 99)).toBe(true);
     expect(c.feedback().type).toBe('success');
   });
@@ -144,7 +146,7 @@ describe('Citas', () => {
     const agendar = vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'Horario ocupado' } })));
     const { c } = setup({ cita: { agendar } });
     c.abrirAgendar();
-    c.form.setValue({ usuarioId: 1, servicioId: 1, fecha: '2026-07-10', hora: '09:00' });
+    c.form.setValue({ usuarioId: 1, servicioId: 1, peluqueroId: null, fecha: '2026-07-10', hora: '09:00' });
     c.guardar();
     expect(c.formError()).toBe('Horario ocupado');
     expect(c.saving()).toBe(false);
