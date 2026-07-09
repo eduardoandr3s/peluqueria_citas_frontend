@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { CitaService, Servicio, ServicioService } from '@peluqueria/core';
+import { CitaService, PeluqueroService, Servicio, ServicioService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { AgendarPage } from './agendar.page';
 
@@ -23,6 +23,7 @@ function setup(opts: {
       provideRouter([]),
       { provide: CitaService, useValue: citaSvc },
       { provide: ServicioService, useValue: { listar: opts.listar ?? vi.fn().mockReturnValue(of([S1, S2, INACTIVO])) } },
+      { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -60,7 +61,7 @@ describe('AgendarPage', () => {
     c.ngOnInit();
     c.onFechaChange('2026-07-01');
     expect(c.fecha()).toBe('2026-07-01');
-    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-01', 1);
+    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-01', 1, undefined);
     expect(c.slots()).toEqual(['09:00', '09:30']);
   });
 
@@ -72,7 +73,7 @@ describe('AgendarPage', () => {
     c.onServicioChange(2);
     expect(c.servicioId()).toBe(2);
     expect(c.slotSeleccionado()).toBe('');
-    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-02', 2);
+    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-02', 2, undefined);
   });
 
   it('confirmar no hace nada si faltan datos', () => {
@@ -89,7 +90,7 @@ describe('AgendarPage', () => {
     c.fecha.set('2026-07-01');
     c.slotSeleccionado.set('09:00');
     c.confirmar();
-    expect(agendar).toHaveBeenCalledWith({ servicioId: 1, fechaHora: '2026-07-01T09:00:00' });
+    expect(agendar).toHaveBeenCalledWith({ servicioId: 1, peluqueroId: undefined, fechaHora: '2026-07-01T09:00:00' });
     expect(c.exito()).toBe(true);
   });
 

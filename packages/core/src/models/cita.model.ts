@@ -1,4 +1,5 @@
 import { Servicio } from './servicio.model';
+import { Peluquero } from './peluquero.model';
 
 export type EstadoCita = 'PENDIENTE' | 'CONFIRMADA' | 'ANULADA';
 
@@ -12,11 +13,12 @@ export interface CitaUsuario {
   telefono?: string;
 }
 
-/** Entidad Cita tal como la devuelve GET /api/citas (con usuario y servicio anidados). */
+/** Entidad Cita tal como la devuelve GET /api/citas (con usuario, servicio y peluquero anidados). */
 export interface Cita {
   idCita: number;
   usuario: CitaUsuario;
   servicio: Servicio;
+  peluquero?: Peluquero;
   fechaHora: string; // ISO LocalDateTime, ej. "2026-05-29T14:30:00"
   estado: EstadoCita;
 }
@@ -25,6 +27,7 @@ export interface Cita {
 export interface CitaRequest {
   usuarioId?: number; // opcional: el backend usa la identidad del token para rol USER
   servicioId: number;
+  peluqueroId?: number;
   fechaHora: string; // ISO LocalDateTime, ej. "2026-05-29T14:30:00"
 }
 
@@ -32,6 +35,7 @@ export interface CitaRequest {
 export interface CitaUpdate {
   usuarioId?: number;
   servicioId?: number;
+  peluqueroId?: number;
   fechaHora?: string;
   estado?: EstadoCita;
 }

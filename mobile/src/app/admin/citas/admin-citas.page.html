@@ -40,7 +40,7 @@
           <ion-label>
             <h2>{{ c.usuario.nombre }}</h2>
             <p>{{ c.servicio.nombre }} · {{ c.servicio.duracion }} min</p>
-            <p>{{ c.fechaHora | date: 'EEE d MMM, HH:mm' }}</p>
+            <p>{{ c.fechaHora | date: 'EEE d MMM, HH:mm' }}@if (c.peluquero) { · {{ c.peluquero.nombre }} }</p>
           </ion-label>
           <ion-badge slot="end" [color]="colorEstado(c.estado)">{{ c.estado }}</ion-badge>
           <ion-icon slot="end" name="ellipsis-vertical-outline" aria-hidden="true"></ion-icon>
@@ -92,6 +92,21 @@
         >
           @for (s of serviciosForm(); track s.idServicio) {
             <ion-select-option [value]="s.idServicio">{{ s.nombre }} ({{ s.duracion }} min)</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+
+      <ion-item>
+        <ion-select
+          label="Peluquero"
+          labelPlacement="floating"
+          [value]="fPeluqueroId()"
+          (ionChange)="fPeluqueroId.set($event.detail.value); onContextoCambio()"
+          interface="action-sheet"
+        >
+          <ion-select-option [value]="null">Cualquiera</ion-select-option>
+          @for (p of peluqueros(); track p.idPeluquero) {
+            <ion-select-option [value]="p.idPeluquero">{{ p.nombre }}</ion-select-option>
           }
         </ion-select>
       </ion-item>

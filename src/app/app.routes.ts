@@ -41,6 +41,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/usuarios/usuarios').then((m) => m.Usuarios),
       },
+      {
+        path: 'peluqueros',
+        loadComponent: () =>
+          import('./features/peluqueros/peluqueros').then((m) => m.Peluqueros),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
