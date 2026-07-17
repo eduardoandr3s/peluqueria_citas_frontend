@@ -186,6 +186,28 @@ describe('Citas', () => {
     expect(c.busyId()).toBeNull();
   });
 
+  // ── Selector de peluquero ─────────────────────────────────────────────
+
+  it('al elegir un peluquero recarga los slots pasando ese peluqueroId', () => {
+    const disponibilidad = vi.fn().mockReturnValue(of(['09:00', '09:30']));
+    const { c } = setup({ cita: { disponibilidad } });
+    c.abrirAgendar();
+    c.form.patchValue({ servicioId: 1, fecha: '2026-07-10', peluqueroId: 2 });
+    disponibilidad.mockClear();
+    c.onContextoSlotsCambio();
+    expect(disponibilidad).toHaveBeenCalledWith('2026-07-10', 1, 2);
+  });
+
+  it('con «Cualquiera» (sin peluquero) pide disponibilidad sin peluqueroId', () => {
+    const disponibilidad = vi.fn().mockReturnValue(of(['09:00', '09:30']));
+    const { c } = setup({ cita: { disponibilidad } });
+    c.abrirAgendar();
+    c.form.patchValue({ servicioId: 1, fecha: '2026-07-10', peluqueroId: null });
+    disponibilidad.mockClear();
+    c.onContextoSlotsCambio();
+    expect(disponibilidad).toHaveBeenCalledWith('2026-07-10', 1, undefined);
+  });
+
   // ── Pagos ─────────────────────────────────────────────────────────────
 
   it('puedePagoManual true sin pago o con pago pendiente', () => {

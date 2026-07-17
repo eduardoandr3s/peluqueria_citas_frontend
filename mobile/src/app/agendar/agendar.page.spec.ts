@@ -76,6 +76,30 @@ describe('AgendarPage', () => {
     expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-02', 2, undefined);
   });
 
+  it('onPeluqueroChange recarga los slots pasando el peluqueroId', () => {
+    const disponibilidad = vi.fn().mockReturnValue(of(['09:00', '09:30']));
+    const { c } = setup({ cita: { disponibilidad }, servicioIdQuery: '1' });
+    c.ngOnInit();
+    c.fecha.set('2026-07-01');
+    disponibilidad.mockClear();
+    c.onPeluqueroChange(3);
+    expect(c.peluqueroId()).toBe(3);
+    expect(c.slotSeleccionado()).toBe('');
+    expect(disponibilidad).toHaveBeenCalledWith('2026-07-01', 1, 3);
+  });
+
+  it('con «Cualquiera» (peluquero null) agenda sin peluqueroId', () => {
+    const agendar = vi.fn().mockReturnValue(of({ idCita: 7 }));
+    const { c } = setup({ cita: { agendar }, servicioIdQuery: '1' });
+    c.ngOnInit();
+    c.onPeluqueroChange(null);
+    c.fecha.set('2026-07-01');
+    c.slotSeleccionado.set('09:00');
+    c.confirmar();
+    expect(agendar).toHaveBeenCalledWith({ servicioId: 1, peluqueroId: undefined, fechaHora: '2026-07-01T09:00:00' });
+    expect(c.peluqueroId()).toBeNull();
+  });
+
   it('confirmar no hace nada si faltan datos', () => {
     const agendar = vi.fn();
     const { c } = setup({ cita: { agendar } });
