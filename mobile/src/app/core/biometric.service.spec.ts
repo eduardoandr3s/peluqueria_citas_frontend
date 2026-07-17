@@ -42,13 +42,21 @@ vi.mock('@capgo/capacitor-native-biometric', () => ({ NativeBiometric: biometric
 const API = 'http://test/api';
 const SECURE_SERVER = 'com.segovia.peluqueria.refresh';
 
+/**
+ * El almacén persiste en segundo plano (promesas fire-and-forget); se drenan
+ * las tareas pendientes antes de limpiar el estado para que una escritura
+ * rezagada de un test no aterrice en el siguiente.
+ */
+const drenar = () => new Promise<void>((resolve) => setTimeout(resolve));
+
 describe('BiometricService', () => {
   let service: InstanceType<typeof BiometricService>;
   let storage: InstanceType<typeof BiometricTokenStorage>;
   let auth: AuthService;
   let http: HttpTestingController;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await drenar();
     prefs.clear();
     secure.clear();
     vi.clearAllMocks();

@@ -36,10 +36,18 @@ vi.mock('@capgo/capacitor-native-biometric', () => ({ NativeBiometric: biometric
 const SECURE_SERVER = 'com.segovia.peluqueria.refresh';
 const FLAG = 'peluqueria_biometric';
 
+/**
+ * El almacén persiste en segundo plano (promesas fire-and-forget); hay que
+ * drenar las tareas pendientes antes de assertar o de limpiar el estado, o una
+ * escritura rezagada de un test puede aterrizar en el siguiente.
+ */
+const drenar = () => new Promise<void>((resolve) => setTimeout(resolve));
+
 describe('BiometricTokenStorage', () => {
   let storage: InstanceType<typeof BiometricTokenStorage>;
 
   beforeEach(async () => {
+    await drenar();
     prefs.clear();
     secure.clear();
     vi.clearAllMocks();
@@ -52,6 +60,8 @@ describe('BiometricTokenStorage', () => {
 
     storage.set(STORAGE_KEYS.refresh, 'r1');
     expect(storage.get(STORAGE_KEYS.refresh)).toBe('r1');
+
+    await drenar();
     expect(prefs.get(STORAGE_KEYS.refresh)).toBe('r1');
     expect(biometric.setCredentials).not.toHaveBeenCalled();
   });
@@ -75,6 +85,7 @@ describe('BiometricTokenStorage', () => {
 
     storage.set(STORAGE_KEYS.refresh, 'r2'); // rotación
 
+    await drenar();
     expect(storage.get(STORAGE_KEYS.refresh)).toBe('r2');
     expect(secure.get(SECURE_SERVER)?.password).toBe('r2');
     expect(prefs.has(STORAGE_KEYS.refresh)).toBe(false);
@@ -121,6 +132,7 @@ describe('BiometricTokenStorage', () => {
 
     storage.remove(STORAGE_KEYS.refresh); // logout
 
+    await drenar();
     expect(storage.biometricEnabled).toBe(false);
     expect(storage.get(STORAGE_KEYS.refresh)).toBeNull();
     expect(secure.has(SECURE_SERVER)).toBe(false);
