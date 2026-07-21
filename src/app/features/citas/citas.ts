@@ -15,7 +15,6 @@ import {
   ServicioService,
   UsuarioService,
   PagoService,
-  PagoResponse,
   PeluqueroService,
 } from '@peluqueria/core';
 
@@ -158,11 +157,11 @@ interface Feedback {
                           [class]="estadoClass(c.estado)"
                           >{{ c.estado }}</span
                         >
-                        @if (pagos()[c.idCita]; as pago) {
+                        @if (c.estadoPago; as estadoPago) {
                           <span
                             class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                            [class]="pagoClass(pago.estadoPago)"
-                            >{{ labelPago(pago) }}</span
+                            [class]="pagoClass(estadoPago)"
+                            >{{ labelPago(c) }}</span
                           >
                         }
                       </div>
@@ -490,7 +489,6 @@ export class Citas implements OnInit {
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly servicios = signal<Servicio[]>([]);
   protected readonly peluqueros = signal<Peluquero[]>([]);
-  protected readonly pagos = signal<Record<number, PagoResponse | null>>({});
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
 
@@ -608,7 +606,6 @@ export class Citas implements OnInit {
         this.servicios.set(servicios);
         this.peluqueros.set(peluqueros);
         this.loading.set(false);
-        this.cargarPagos(citas);
       },
       error: () => {
         this.loadError.set('No se pudieron cargar las citas.');
@@ -617,27 +614,12 @@ export class Citas implements OnInit {
     });
   }
 
-  private cargarPagos(citas: Cita[]): void {
-    citas
-      .filter((c) => c.estado !== 'ANULADA')
-      .forEach((c) => {
-        this.pagoService.obtenerPorCita(c.idCita).subscribe({
-          next: (pago) => {
-            this.pagos.update((m) => ({ ...m, [c.idCita]: pago }));
-          },
-          error: () => {},
-        });
-      });
-  }
-
   protected puedePagoManual(c: Cita): boolean {
-    const pago = this.pagos()[c.idCita];
-    return !pago || (pago.estadoPago !== 'PAGADO' && pago.estadoPago !== 'REEMBOLSADO');
+    return c.estadoPago !== 'PAGADO' && c.estadoPago !== 'REEMBOLSADO';
   }
 
   protected puedeReembolsar(c: Cita): boolean {
-    const pago = this.pagos()[c.idCita];
-    return !!pago && pago.estadoPago === 'PAGADO';
+    return c.estadoPago === 'PAGADO';
   }
 
   protected abrirPagoManual(c: Cita): void {
@@ -656,10 +638,11 @@ export class Citas implements OnInit {
     this.pagoManualError.set(null);
     this.pagoService.registrarManual(c.idCita, this.metodoPagoManual()).subscribe({
       next: (pago) => {
-        this.pagos.update((m) => ({ ...m, [c.idCita]: pago }));
         this.citas.update((list) =>
           list.map((x) =>
-            x.idCita === c.idCita ? { ...x, estado: 'CONFIRMADA' as EstadoCita } : x,
+            x.idCita === c.idCita
+              ? { ...x, estado: 'CONFIRMADA' as EstadoCita, estadoPago: pago.estadoPago }
+              : x,
           ),
         );
         this.pagoManualSaving.set(false);
@@ -678,13 +661,11 @@ export class Citas implements OnInit {
     this.reembolsoError.set(null);
     this.pagoService.reembolsar(c.idCita).subscribe({
       next: () => {
-        const pago = this.pagos()[c.idCita];
-        if (pago) {
-          this.pagos.update((m) => ({
-            ...m,
-            [c.idCita]: { ...pago, estadoPago: 'REEMBOLSADO' as const },
-          }));
-        }
+        this.citas.update((list) =>
+          list.map((x) =>
+            x.idCita === c.idCita ? { ...x, estadoPago: 'REEMBOLSADO' as const } : x,
+          ),
+        );
         this.reembolsoSaving.set(false);
         this.pendingReembolso.set(null);
         this.feedback.set({ type: 'success', text: 'Pago reembolsado.' });
@@ -696,13 +677,15 @@ export class Citas implements OnInit {
     });
   }
 
-  protected labelPago(pago: PagoResponse): string {
-    switch (pago.estadoPago) {
+  protected labelPago(c: Cita): string {
+    // El importe cobrado es el precio del servicio de la cita.
+    const importe = c.servicio.precio.toFixed(2);
+    switch (c.estadoPago) {
       case 'PENDIENTE': return 'Pago pendiente';
-      case 'PAGADO': return `${pago.monto.toFixed(2)} € pagado`;
-      case 'REEMBOLSADO': return `${pago.monto.toFixed(2)} € reembolsado`;
+      case 'PAGADO': return `${importe} € pagado`;
+      case 'REEMBOLSADO': return `${importe} € reembolsado`;
       case 'CANCELADO': return 'Pago cancelado';
-      default: return pago.estadoPago;
+      default: return c.estadoPago ?? '';
     }
   }
 

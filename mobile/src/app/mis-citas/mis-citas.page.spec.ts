@@ -1,19 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AlertController } from '@ionic/angular/standalone';
-import { API_URL, Cita, CitaService, PagoService, EstadoCita, Servicio } from '@peluqueria/core';
+import { API_URL, Cita, CitaService, EstadoCita, Servicio } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { MisCitasPage } from './mis-citas.page';
 
 const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
 
-function cita(id: number, fechaHora: string, estado: EstadoCita): Cita {
+function cita(id: number, fechaHora: string, estado: EstadoCita, estadoPago?: Cita['estadoPago']): Cita {
   return {
     idCita: id,
     usuario: { idUsuario: 1, nombre: 'Ana', email: 'ana@b.com' },
     servicio: SERVICIO,
     fechaHora,
     estado,
+    estadoPago,
   };
 }
 
@@ -23,12 +24,6 @@ function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
     actualizar: vi.fn().mockReturnValue(of({})),
     ...cita$,
   };
-  const pagoSvc = {
-    obtenerPorCita: vi.fn().mockReturnValue(throwError(() => ({ status: 404 }))),
-    crearIntent: vi.fn(),
-    registrarManual: vi.fn(),
-    reembolsar: vi.fn(),
-  };
   TestBed.configureTestingModule({
     providers: [
       provideRouter([
@@ -37,7 +32,6 @@ function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
       ]),
       { provide: API_URL, useValue: 'http://test/api' },
       { provide: CitaService, useValue: citaSvc },
-      { provide: PagoService, useValue: pagoSvc },
       { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
     ],
   });
@@ -114,5 +108,21 @@ describe('MisCitasPage', () => {
     expect(c.colorEstado('ANULADA')).toBe('medium');
     expect(c.labelEstado('PENDIENTE')).toBe('Pendiente');
     expect(c.labelEstado('ANULADA')).toBe('Anulada');
+  });
+
+  it('colorPago y labelPago mapean cada estado de pago', () => {
+    const { c } = setup();
+    expect(c.colorPago('PAGADO')).toBe('success');
+    expect(c.colorPago('PENDIENTE')).toBe('warning');
+    expect(c.colorPago('REEMBOLSADO')).toBe('medium');
+    expect(c.labelPago('PAGADO')).toBe('Pagado');
+    expect(c.labelPago('PENDIENTE')).toBe('Pago pendiente');
+  });
+
+  it('el estado de pago viaja en la cita, sin peticiones extra por cita', () => {
+    const lista = [cita(1, '2026-07-01T10:00:00', 'CONFIRMADA', 'PAGADO')];
+    const { c } = setup({ listar: vi.fn().mockReturnValue(of(lista)) });
+    c.cargar();
+    expect(c.citas()[0].estadoPago).toBe('PAGADO');
   });
 });

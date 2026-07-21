@@ -1,5 +1,6 @@
 import { Servicio } from './servicio.model';
 import { Peluquero } from './peluquero.model';
+import { EstadoPago } from './pago.model';
 
 export type EstadoCita = 'PENDIENTE' | 'CONFIRMADA' | 'ANULADA';
 
@@ -21,6 +22,7 @@ export interface Cita {
   peluquero?: Peluquero;
   fechaHora: string; // ISO LocalDateTime, ej. "2026-05-29T14:30:00"
   estado: EstadoCita;
+  estadoPago?: EstadoPago | null; // estado del pago asociado; null/ausente si la cita no tiene pago
 }
 
 /** Cuerpo de POST /api/citas (CitaRequestDTO). */

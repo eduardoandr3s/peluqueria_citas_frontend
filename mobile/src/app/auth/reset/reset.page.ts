@@ -17,6 +17,7 @@ import {
   IonBackButton,
   IonButton,
   IonInput,
+  IonInputPasswordToggle,
   IonItem,
   IonSpinner,
   IonNote,
@@ -30,7 +31,7 @@ import { AuthService } from '@peluqueria/core';
   styleUrls: ['./reset.page.scss'],
   imports: [
     IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonBackButton,
-    IonButton, IonInput, IonItem, IonSpinner, IonNote, IonText,
+    IonButton, IonInput, IonInputPasswordToggle, IonItem, IonSpinner, IonNote, IonText,
     ReactiveFormsModule, RouterLink,
   ],
 })

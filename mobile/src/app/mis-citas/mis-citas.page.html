@@ -29,14 +29,14 @@
               <ion-badge [color]="colorEstado(cita.estado)">
                 {{ labelEstado(cita.estado) }}
               </ion-badge>
-              @if (pagos()[cita.idCita]; as pago) {
-                <ion-badge [color]="colorPago(pago.estadoPago)">
-                  {{ labelPago(pago.estadoPago) }}
+              @if (cita.estadoPago; as estadoPago) {
+                <ion-badge [color]="colorPago(estadoPago)">
+                  {{ labelPago(estadoPago) }}
                 </ion-badge>
               }
             </div>
           </ion-label>
-          @if (cita.estado === 'PENDIENTE' && (!pagos()[cita.idCita] || pagos()[cita.idCita]!.estadoPago === 'PENDIENTE')) {
+          @if (cita.estado === 'PENDIENTE' && (!cita.estadoPago || cita.estadoPago === 'PENDIENTE')) {
             <ion-button
               slot="end"
               fill="solid"

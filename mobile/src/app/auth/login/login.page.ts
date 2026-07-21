@@ -6,6 +6,7 @@ import {
   IonContent,
   IonButton,
   IonInput,
+  IonInputPasswordToggle,
   IonItem,
   IonSpinner,
   IonNote,
@@ -16,7 +17,7 @@ import { AuthService } from '@peluqueria/core';
   selector: 'app-login',
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
-  imports: [IonContent, IonButton, IonInput, IonItem, IonSpinner, IonNote, ReactiveFormsModule, RouterLink],
+  imports: [IonContent, IonButton, IonInput, IonInputPasswordToggle, IonItem, IonSpinner, IonNote, ReactiveFormsModule, RouterLink],
 })
 export class LoginPage {
   private readonly auth = inject(AuthService);

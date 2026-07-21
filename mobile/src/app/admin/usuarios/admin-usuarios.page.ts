@@ -18,6 +18,7 @@ import {
   IonSpinner,
   IonModal,
   IonInput,
+  IonInputPasswordToggle,
   IonFab,
   IonFabButton,
   IonInfiniteScroll,
@@ -39,7 +40,7 @@ const PAGE_SIZE = 20;
   imports: [
     IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonContent,
     IonSearchbar, IonItem, IonLabel, IonToggle, IonList, IonBadge, IonIcon,
-    IonSpinner, IonModal, IonInput, IonFab, IonFabButton,
+    IonSpinner, IonModal, IonInput, IonInputPasswordToggle, IonFab, IonFabButton,
     IonInfiniteScroll, IonInfiniteScrollContent,
     FormsModule,
   ],

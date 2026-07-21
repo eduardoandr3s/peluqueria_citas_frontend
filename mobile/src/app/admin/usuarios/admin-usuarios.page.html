@@ -103,7 +103,9 @@
           type="password"
           [value]="fPassword()"
           (ionInput)="fPassword.set($any($event.target).value)"
-        ></ion-input>
+        >
+          <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+        </ion-input>
       </ion-item>
 
       @if (formError()) {

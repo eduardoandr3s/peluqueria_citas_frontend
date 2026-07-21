@@ -46,7 +46,9 @@
         type="password"
         formControlName="password"
         autocomplete="new-password"
-      ></ion-input>
+      >
+        <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+      </ion-input>
     </ion-item>
 
     @if (error()) {

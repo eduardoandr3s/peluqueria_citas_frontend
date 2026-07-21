@@ -35,7 +35,9 @@
           type="password"
           formControlName="password"
           autocomplete="new-password"
-        ></ion-input>
+        >
+          <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+        </ion-input>
       </ion-item>
 
       <ion-item>
@@ -45,7 +47,9 @@
           type="password"
           formControlName="confirmar"
           autocomplete="new-password"
-        ></ion-input>
+        >
+          <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+        </ion-input>
       </ion-item>
 
       @if (form.hasError('noCoincide') && form.controls.confirmar.touched) {

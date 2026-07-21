@@ -23,7 +23,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addOutline } from 'ionicons/icons';
-import { CitaService, Cita, EstadoCita, PagoService, PagoResponse } from '@peluqueria/core';
+import { CitaService, Cita, EstadoCita } from '@peluqueria/core';
 
 @Component({
   selector: 'app-mis-citas',
@@ -39,12 +39,10 @@ import { CitaService, Cita, EstadoCita, PagoService, PagoResponse } from '@peluq
 })
 export class MisCitasPage {
   private readonly citaService = inject(CitaService);
-  private readonly pagoService = inject(PagoService);
   private readonly router = inject(Router);
   private readonly alertCtrl = inject(AlertController);
 
   readonly citas = signal<Cita[]>([]);
-  readonly pagos = signal<Record<number, PagoResponse | null>>({});
   readonly loading = signal(true);
 
   constructor() {
@@ -73,27 +71,11 @@ export class MisCitasPage {
         );
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
-        this.cargarPagos(data);
       },
       error: () => {
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
       },
-    });
-  }
-
-  private cargarPagos(citas: Cita[]): void {
-    const idsConPosiblePago = citas
-      .filter((c) => c.estado !== 'ANULADA')
-      .map((c) => c.idCita);
-
-    idsConPosiblePago.forEach((id) => {
-      this.pagoService.obtenerPorCita(id).subscribe({
-        next: (pago) => {
-          this.pagos.update((m) => ({ ...m, [id]: pago }));
-        },
-        error: () => {},
-      });
     });
   }
 

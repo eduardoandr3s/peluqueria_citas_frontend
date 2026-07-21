@@ -15,13 +15,20 @@ import { Citas } from './citas';
 const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
 const USUARIO: Usuario = { idUsuario: 1, nombre: 'Ana López', email: 'ana@b.com', rol: 'USER' };
 
-function cita(id: number, fechaHora: string, estado: Cita['estado'], nombre = 'Ana López'): Cita {
+function cita(
+  id: number,
+  fechaHora: string,
+  estado: Cita['estado'],
+  nombre = 'Ana López',
+  estadoPago?: Cita['estadoPago'],
+): Cita {
   return {
     idCita: id,
     usuario: { idUsuario: 1, nombre, email: 'ana@b.com' },
     servicio: SERVICIO,
     fechaHora,
     estado,
+    estadoPago,
   };
 }
 
@@ -45,7 +52,6 @@ function setup(overrides: {
     ...overrides.cita,
   };
   const pagoSvc = {
-    obtenerPorCita: vi.fn().mockReturnValue(throwError(() => ({ status: 404 }))),
     registrarManual: vi.fn(),
     reembolsar: vi.fn(),
     ...overrides.pago,
@@ -212,34 +218,22 @@ describe('Citas', () => {
 
   it('puedePagoManual true sin pago o con pago pendiente', () => {
     const { c } = setup({});
-    expect(c.puedePagoManual(CITAS[0])).toBe(true);
+    expect(c.puedePagoManual(cita(1, '2026-07-01T10:00:00', 'PENDIENTE'))).toBe(true);
+    expect(c.puedePagoManual(cita(1, '2026-07-01T10:00:00', 'PENDIENTE', 'Ana López', 'PENDIENTE'))).toBe(true);
   });
 
   it('puedePagoManual false con pago PAGADO', () => {
-    const pago = {
-      obtenerPorCita: vi.fn().mockReturnValue(of({
-        idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
-        estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
-      })),
-    };
-    const { c } = setup({ pago });
-    c.cargar();
-    expect(c.puedePagoManual(CITAS[0])).toBe(false);
+    const { c } = setup({});
+    expect(c.puedePagoManual(cita(1, '2026-07-01T10:00:00', 'CONFIRMADA', 'Ana López', 'PAGADO'))).toBe(false);
   });
 
   it('puedeReembolsar true con pago PAGADO', () => {
-    const pago = {
-      obtenerPorCita: vi.fn().mockReturnValue(of({
-        idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
-        estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
-      })),
-    };
-    const { c } = setup({ pago });
-    c.cargar();
-    expect(c.puedeReembolsar(CITAS[0])).toBe(true);
+    const { c } = setup({});
+    expect(c.puedeReembolsar(cita(1, '2026-07-01T10:00:00', 'CONFIRMADA', 'Ana López', 'PAGADO'))).toBe(true);
+    expect(c.puedeReembolsar(cita(1, '2026-07-01T10:00:00', 'PENDIENTE'))).toBe(false);
   });
 
-  it('registrarPagoManual llama al servicio, actualiza pago y cita, y muestra feedback', () => {
+  it('registrarPagoManual llama al servicio, actualiza la cita con su estadoPago, y muestra feedback', () => {
     const pagoResp = {
       idPago: 2, citaId: 1, monto: 15, metodoPago: 'EFECTIVO',
       estadoPago: 'PAGADO', referenciaExterna: null, fechaCreacion: '', fechaPago: '',
@@ -252,40 +246,27 @@ describe('Citas', () => {
 
     c.registrarPagoManual(CITAS[0]);
     expect(registrarManual).toHaveBeenCalledWith(1, 'EFECTIVO');
-    expect(c.pagos()[1]).toEqual(pagoResp);
-    expect(c.citas().find((x: Cita) => x.idCita === 1)?.estado).toBe('CONFIRMADA');
+    const actualizada = c.citas().find((x: Cita) => x.idCita === 1);
+    expect(actualizada?.estado).toBe('CONFIRMADA');
+    expect(actualizada?.estadoPago).toBe('PAGADO');
     expect(c.feedback().type).toBe('success');
   });
 
-  it('reembolsar llama al servicio y actualiza estado del pago', () => {
-    const pagoExistente = {
-      idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
-      estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
-    };
-    const pago = {
-      obtenerPorCita: vi.fn().mockReturnValue(of(pagoExistente)),
-      reembolsar: vi.fn().mockReturnValue(of(undefined)),
-    };
-    const { c } = setup({ pago });
-    c.cargar();
+  it('reembolsar llama al servicio y marca la cita como REEMBOLSADO', () => {
+    const reembolsar = vi.fn().mockReturnValue(of(undefined));
+    const { c } = setup({ pago: { reembolsar } });
 
     c.reembolsar(CITAS[0]);
-    expect(pago.reembolsar).toHaveBeenCalledWith(1);
-    expect(c.pagos()[1].estadoPago).toBe('REEMBOLSADO');
+    expect(reembolsar).toHaveBeenCalledWith(1);
+    expect(c.citas().find((x: Cita) => x.idCita === 1)?.estadoPago).toBe('REEMBOLSADO');
     expect(c.feedback().type).toBe('success');
   });
 
   it('reembolsar con error muestra mensaje de error', () => {
-    const pagoExistente = {
-      idPago: 1, citaId: 1, monto: 15, metodoPago: 'TARJETA',
-      estadoPago: 'PAGADO', referenciaExterna: 'pi_x', fechaCreacion: '', fechaPago: '',
-    };
-    const pago = {
-      obtenerPorCita: vi.fn().mockReturnValue(of(pagoExistente)),
-      reembolsar: vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'No se puede reembolsar' } }))),
-    };
-    const { c } = setup({ pago });
-    c.cargar();
+    const reembolsar = vi.fn().mockReturnValue(
+      throwError(() => ({ error: { error: 'No se puede reembolsar' } })),
+    );
+    const { c } = setup({ pago: { reembolsar } });
 
     c.reembolsar(CITAS[0]);
     expect(c.reembolsoError()).toBe('No se puede reembolsar');
