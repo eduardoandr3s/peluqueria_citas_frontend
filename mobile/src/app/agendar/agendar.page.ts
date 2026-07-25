@@ -10,15 +10,24 @@ import {
   IonContent,
   IonItem,
   IonLabel,
-  IonInput,
   IonButton,
   IonSpinner,
   IonChip,
   IonNote,
   IonSelect,
   IonSelectOption,
+  IonDatetime,
 } from '@ionic/angular/standalone';
-import { CitaService, ServicioService, Servicio, PeluqueroService, Peluquero } from '@peluqueria/core';
+import {
+  CitaService,
+  ServicioService,
+  Servicio,
+  PeluqueroService,
+  Peluquero,
+  DiaCerrado,
+  hoyIso,
+  sumarMeses,
+} from '@peluqueria/core';
 
 @Component({
   selector: 'app-agendar',
@@ -26,8 +35,8 @@ import { CitaService, ServicioService, Servicio, PeluqueroService, Peluquero } f
   styleUrls: ['./agendar.page.scss'],
   imports: [
     IonHeader, IonToolbar, IonTitle, IonButtons, IonBackButton,
-    IonContent, IonItem, IonLabel, IonInput, IonButton, IonSpinner,
-    IonChip, IonNote, IonSelect, IonSelectOption,
+    IonContent, IonItem, IonLabel, IonButton, IonSpinner,
+    IonChip, IonNote, IonSelect, IonSelectOption, IonDatetime,
     FormsModule,
   ],
 })
@@ -56,7 +65,22 @@ export class AgendarPage implements OnInit {
     this.servicios().find((s) => s.idServicio === this.servicioId())
   );
 
-  readonly minFecha = new Date().toISOString().split('T')[0];
+  /** Meses que se pueden navegar en el calendario (el backend acepta como mucho 12). */
+  private readonly mesesCalendario = 11;
+  readonly minFecha = hoyIso();
+  readonly maxFecha = sumarMeses(this.minFecha, this.mesesCalendario);
+
+  readonly diasCerrados = signal<DiaCerrado[]>([]);
+
+  /**
+   * Callback que `ion-datetime` usa para pintar cada día: los cerrados quedan
+   * deshabilitados y no se pueden pulsar. Es un computed a propósito: al cambiar
+   * `diasCerrados` se emite una función nueva y el calendario se vuelve a pintar.
+   */
+  readonly esFechaHabilitada = computed(() => {
+    const cerrados = new Set(this.diasCerrados().map((d) => d.fecha));
+    return (iso: string) => !cerrados.has(iso.slice(0, 10));
+  });
 
   ngOnInit(): void {
     const id = this.route.snapshot.queryParamMap.get('servicioId');
@@ -69,10 +93,15 @@ export class AgendarPage implements OnInit {
     this.peluqueroService.listar().subscribe((data) => {
       this.peluqueros.set(data);
     });
+
+    this.citaService.diasCerrados(this.minFecha, this.maxFecha).subscribe((data) => {
+      this.diasCerrados.set(data);
+    });
   }
 
-  onFechaChange(value: string | null | undefined): void {
-    const v = value ?? '';
+  onFechaChange(value: string | string[] | null | undefined): void {
+    // ion-datetime emite un ISO completo; solo interesa el día.
+    const v = typeof value === 'string' ? value.slice(0, 10) : '';
     this.fecha.set(v);
     this.slotSeleccionado.set('');
     this.slots.set([]);

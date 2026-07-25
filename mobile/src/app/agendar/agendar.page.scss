@@ -7,6 +7,17 @@ ion-item {
   overflow: hidden;
 }
 
+ion-datetime {
+  margin-bottom: 4px;
+  border-radius: 8px;
+}
+
+.cerrado-note {
+  display: block;
+  padding: 0 4px 8px;
+  font-size: 13px;
+}
+
 .slots-section {
   margin: 16px 0;
 }

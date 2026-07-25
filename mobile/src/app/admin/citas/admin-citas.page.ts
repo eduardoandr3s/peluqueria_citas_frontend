@@ -21,7 +21,7 @@ import {
   IonModal,
   IonSelect,
   IonSelectOption,
-  IonInput,
+  IonDatetime,
   IonChip,
   IonFab,
   IonFabButton,
@@ -46,6 +46,9 @@ import {
   PeluqueroService,
   ServicioService,
   UsuarioService,
+  DiaCerrado,
+  hoyIso,
+  sumarMeses,
 } from '@peluqueria/core';
 
 type EstadoFiltro = 'TODAS' | EstadoCita;
@@ -58,7 +61,7 @@ type EstadoFiltro = 'TODAS' | EstadoCita;
     IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonContent,
     IonSegment, IonSegmentButton, IonLabel, IonSearchbar, IonList, IonItem,
     IonBadge, IonIcon, IonSpinner, IonModal, IonSelect, IonSelectOption,
-    IonInput, IonChip, IonFab, IonFabButton, IonRefresher, IonRefresherContent,
+    IonDatetime, IonChip, IonFab, IonFabButton, IonRefresher, IonRefresherContent,
     FormsModule, DatePipe,
   ],
 })
@@ -95,7 +98,21 @@ export class AdminCitasPage {
   readonly slots = signal<string[]>([]);
   readonly slotsLoading = signal(false);
 
-  readonly minFecha = new Date().toISOString().split('T')[0];
+  readonly diasCerrados = signal<DiaCerrado[]>([]);
+
+  /** Meses navegables en el calendario (el backend acepta un rango máximo de 12). */
+  private readonly mesesCalendario = 11;
+  readonly minFecha = hoyIso();
+  readonly maxFecha = sumarMeses(this.minFecha, this.mesesCalendario);
+
+  /**
+   * Callback de `ion-datetime` para deshabilitar los días cerrados. Es un computed a
+   * propósito: al llegar los datos se emite una función nueva y el calendario se repinta.
+   */
+  readonly esFechaHabilitada = computed(() => {
+    const cerrados = new Set(this.diasCerrados().map((d) => d.fecha));
+    return (iso: string) => !cerrados.has(iso.slice(0, 10));
+  });
 
   readonly filtros: { value: EstadoFiltro; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
@@ -163,12 +180,14 @@ export class AdminCitasPage {
       usuarios: this.usuarioService.listarTodos(),
       servicios: this.servicioService.listar(),
       peluqueros: this.peluqueroService.listar(),
+      diasCerrados: this.citaService.diasCerrados(this.minFecha, this.maxFecha),
     }).subscribe({
-      next: ({ citas, usuarios, servicios, peluqueros }) => {
+      next: ({ citas, usuarios, servicios, peluqueros, diasCerrados }) => {
         this.citas.set(citas);
         this.usuarios.set(usuarios);
         this.servicios.set(servicios.filter((s) => s.activo));
         this.peluqueros.set(peluqueros);
+        this.diasCerrados.set(diasCerrados);
         this.loading.set(false);
         (event?.target as HTMLIonRefresherElement)?.complete();
       },
@@ -227,6 +246,12 @@ export class AdminCitasPage {
   onContextoCambio(): void {
     this.fHora.set('');
     this.cargarSlots();
+  }
+
+  onFechaChange(value: string | string[] | null | undefined): void {
+    // ion-datetime emite un ISO completo; solo interesa el día.
+    this.fFecha.set(typeof value === 'string' ? value.slice(0, 10) : '');
+    this.onContextoCambio();
   }
 
   private cargarSlots(): void {

@@ -15,6 +15,7 @@ function setup(opts: {
 } = {}) {
   const citaSvc = {
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
+    diasCerrados: vi.fn().mockReturnValue(of([{ fecha: '2026-07-05', motivo: 'Cerrado (domingo)' }])),
     agendar: vi.fn(),
     ...opts.cita,
   };
@@ -63,6 +64,22 @@ describe('AgendarPage', () => {
     expect(c.fecha()).toBe('2026-07-01');
     expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-01', 1, undefined);
     expect(c.slots()).toEqual(['09:00', '09:30']);
+  });
+
+  it('onFechaChange recorta el ISO completo que emite ion-datetime', () => {
+    const { c } = setup({ servicioIdQuery: '1' });
+    c.ngOnInit();
+    c.onFechaChange('2026-07-01T00:00:00');
+    expect(c.fecha()).toBe('2026-07-01');
+  });
+
+  it('esFechaHabilitada deshabilita los días cerrados y deja el resto', () => {
+    const { c } = setup({});
+    c.ngOnInit();
+    const habilitada = c.esFechaHabilitada();
+    expect(habilitada('2026-07-05')).toBe(false);
+    expect(habilitada('2026-07-05T00:00:00')).toBe(false);
+    expect(habilitada('2026-07-06')).toBe(true);
   });
 
   it('onServicioChange con fecha cargada pide disponibilidad y resetea el slot', () => {

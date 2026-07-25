@@ -32,13 +32,16 @@ Monorepo frontend de un sistema de gestión de citas para una peluquería: un **
 ```
 peluqueria_citas_frontend/
 ├── src/                       # App admin (Angular 21 zoneless + Tailwind v4)
-│   └── app/features/
-│       ├── auth/              # Login, recuperación y reset de contraseña
-│       ├── citas/             # Gestión de citas (calendario, pagos, selector de peluquero)
-│       ├── dashboard/         # Dashboard de estadísticas (gráficas solo con CSS)
-│       ├── peluqueros/        # CRUD de peluqueros
-│       ├── servicios/         # CRUD del catálogo de servicios
-│       └── usuarios/          # Gestión de usuarios (roles, búsqueda, reactivación)
+│   ├── app/features/
+│   │   ├── auth/              # Login, recuperación y reset de contraseña
+│   │   ├── bloqueos/          # Días cerrados (festivos y cierres puntuales)
+│   │   ├── citas/             # Gestión de citas (calendario, pagos, selector de peluquero)
+│   │   ├── dashboard/         # Dashboard de estadísticas (gráficas solo con CSS)
+│   │   ├── peluqueros/        # CRUD de peluqueros
+│   │   ├── servicios/         # CRUD del catálogo de servicios
+│   │   └── usuarios/          # Gestión de usuarios (roles, búsqueda, reactivación)
+│   └── app/shared/
+│       └── date-picker/       # Rejilla de mes que deshabilita los días cerrados
 ├── mobile/                    # App clientes (Ionic 8 + Angular + Capacitor)
 │   └── src/app/
 │       ├── agendar/           # Reserva: selección de servicio, fecha, peluquero y hueco
@@ -49,8 +52,9 @@ peluqueria_citas_frontend/
 │       └── perfil/            # Perfil y ajustes de biometría
 ├── packages/core/             # @peluqueria/core — librería compartida
 │   └── src/
-│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, Estadisticas
+│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas
 │       ├── services/          # Servicios HTTP de cada recurso de la API + token storage
+│       ├── utils/             # Helpers de fechas ISO compartidos por los dos calendarios
 │       ├── auth.guard.ts      # Guard de rutas
 │       └── jwt.interceptor.ts # Adjunta el JWT y gestiona el refresh
 └── package.json               # npm workspaces (packages/*, mobile)
@@ -66,6 +70,7 @@ Panel de gestión para el dueño de la peluquería:
 * Pagos: pagos manuales (efectivo/transferencia), estado del pago Stripe, reembolsos
 * **Dashboard de estadísticas**: citas por estado, ingresos por método de pago, top servicios y clientes nuevos, con selector de rango (mes / últimos 30 días / año) — gráficas hechas con `div` + Tailwind, sin librería de charts, manteniendo la app zoneless
 * CRUD de servicios, **peluqueros** y usuarios (roles, búsqueda, soft delete y reactivación)
+* **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
 * Login con JWT + refresh tokens con rotación, recuperación de contraseña
 
 ### App móvil de clientes (`mobile/`)
@@ -73,7 +78,7 @@ Panel de gestión para el dueño de la peluquería:
 App Ionic para los clientes de la peluquería:
 
 * Registro, login y recuperación de contraseña
-* Flujo de reserva: elegir servicio, fecha, opcionalmente **peluquero** ("Cualquiera" por defecto) y un hueco libre
+* Flujo de reserva: elegir servicio, fecha, opcionalmente **peluquero** ("Cualquiera" por defecto) y un hueco libre. El calendario (`ion-datetime` con `isDateEnabled`) **deshabilita domingos y días cerrados**, que quedan en gris y no se pueden pulsar
 * **Pago online con tarjeta** (Stripe Payment Element) con polling automático del estado, e historial de citas con badges de pago
 * **Login biométrico** (huella/cara) guardando los tokens en almacenamiento nativo seguro
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`)
@@ -82,8 +87,9 @@ App Ionic para los clientes de la peluquería:
 
 `@peluqueria/core`, consumida por ambas apps:
 
-* `models/`: interfaces TypeScript de cada recurso de la API (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `Estadisticas`) y sus enums
-* `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `EstadisticasService`, ...) más `AuthService` y el token storage
+* `models/`: interfaces TypeScript de cada recurso de la API (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`) y sus enums
+* `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) más `AuthService` y el token storage
+* `utils/fecha.ts`: helpers de `YYYY-MM-DD` en hora local (`toISOString()` desplazaría el día en las zonas con offset positivo)
 * `jwt.interceptor.ts` y `auth.guard.ts`: manejo del JWT y protección de rutas compartidos por las dos apps
 
 ## Puesta en marcha
@@ -112,12 +118,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**264 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**292 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 146 | Componentes de features (citas, usuarios, servicios, peluqueros, dashboard, auth) y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 118 | Flujo de reserva (incl. selector de peluquero), página de pago Stripe, login biométrico y token storage, historial de citas |
+| Admin + core (`npx ng test`) | 168 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, dashboard, auth), el date picker de días cerrados y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 124 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, historial de citas |
 
 ```bash
 npx ng test --watch=false            # admin + core

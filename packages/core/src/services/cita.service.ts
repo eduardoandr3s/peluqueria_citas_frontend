@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { API_URL } from '../api.config';
 import { Cita, CitaRequest, CitaUpdate } from '../models/cita.model';
+import { DiaCerrado } from '../models/dia-bloqueado.model';
 import { Page } from '../models/usuario.model';
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +30,19 @@ export class CitaService {
     let params = new HttpParams().set('fecha', fecha).set('idServicio', String(idServicio));
     if (peluqueroId != null) params = params.set('peluqueroId', String(peluqueroId));
     return this.http.get<string[]>(`${this.apiUrl}/disponibilidad`, { params });
+  }
+
+  /**
+   * Días del rango en los que no se puede agendar: domingos (o los días de la semana
+   * que tenga configurados el negocio) más los festivos/cierres puntuales que haya
+   * bloqueado el administrador. Se usa para deshabilitarlos en el calendario.
+   * Sin parámetros el backend devuelve los 3 próximos meses.
+   */
+  diasCerrados(desde?: string, hasta?: string): Observable<DiaCerrado[]> {
+    let params = new HttpParams();
+    if (desde) params = params.set('desde', desde);
+    if (hasta) params = params.set('hasta', hasta);
+    return this.http.get<DiaCerrado[]>(`${this.apiUrl}/dias-cerrados`, { params });
   }
 
   obtener(id: number): Observable<Cita> {

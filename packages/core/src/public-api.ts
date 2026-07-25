@@ -15,6 +15,7 @@ export * from './models/usuario.model';
 export * from './models/pago.model';
 export * from './models/estadisticas.model';
 export * from './models/peluquero.model';
+export * from './models/dia-bloqueado.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
@@ -25,6 +26,10 @@ export * from './services/usuario.service';
 export * from './services/pago.service';
 export * from './services/estadisticas.service';
 export * from './services/peluquero.service';
+export * from './services/dia-bloqueado.service';
+
+// Utilidades
+export * from './utils/fecha';
 
 // Guards e interceptor
 export * from './guards/auth.guard';

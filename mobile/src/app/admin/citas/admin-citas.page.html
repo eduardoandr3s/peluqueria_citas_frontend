@@ -111,16 +111,20 @@
         </ion-select>
       </ion-item>
 
-      <ion-item>
-        <ion-input
-          label="Fecha"
-          labelPlacement="floating"
-          type="date"
-          [min]="minFecha"
-          [value]="fFecha()"
-          (ionChange)="fFecha.set($any($event.detail.value) ?? ''); onContextoCambio()"
-        ></ion-input>
+      <ion-item lines="none">
+        <ion-label position="stacked">Fecha</ion-label>
       </ion-item>
+      <ion-datetime
+        presentation="date"
+        locale="es-ES"
+        firstDayOfWeek="1"
+        [min]="minFecha"
+        [max]="maxFecha"
+        [value]="fFecha() || null"
+        [isDateEnabled]="esFechaHabilitada()"
+        (ionChange)="onFechaChange($event.detail.value)"
+      ></ion-datetime>
+      <p class="cerrado-hint">Los domingos y festivos aparecen deshabilitados.</p>
 
       <div class="slots">
         @if (!fServicioId() || !fFecha()) {

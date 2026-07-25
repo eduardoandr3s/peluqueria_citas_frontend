@@ -32,13 +32,16 @@ Frontend monorepo for a hair salon booking system: an **admin panel** (Angular) 
 ```
 peluqueria_citas_frontend/
 ├── src/                       # Admin app (Angular 21 zoneless + Tailwind v4)
-│   └── app/features/
-│       ├── auth/              # Login, password recovery and reset
-│       ├── citas/             # Appointment management (calendar, payments, barber selector)
-│       ├── dashboard/         # Statistics dashboard (CSS-only charts)
-│       ├── peluqueros/        # Barber CRUD
-│       ├── servicios/         # Service catalog CRUD
-│       └── usuarios/          # User management (roles, search, reactivation)
+│   ├── app/features/
+│   │   ├── auth/              # Login, password recovery and reset
+│   │   ├── bloqueos/          # Closed days (holidays and one-off closures)
+│   │   ├── citas/             # Appointment management (calendar, payments, barber selector)
+│   │   ├── dashboard/         # Statistics dashboard (CSS-only charts)
+│   │   ├── peluqueros/        # Barber CRUD
+│   │   ├── servicios/         # Service catalog CRUD
+│   │   └── usuarios/          # User management (roles, search, reactivation)
+│   └── app/shared/
+│       └── date-picker/       # Month grid that disables closed days
 ├── mobile/                    # Customer app (Ionic 8 + Angular + Capacitor)
 │   └── src/app/
 │       ├── agendar/           # Booking: service, date, barber and slot selection
@@ -49,8 +52,9 @@ peluqueria_citas_frontend/
 │       └── perfil/            # Profile and biometric settings
 ├── packages/core/             # @peluqueria/core — shared library
 │   └── src/
-│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, Estadisticas
+│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas
 │       ├── services/          # HTTP services for every API resource + token storage
+│       ├── utils/             # ISO date helpers shared by both calendars
 │       ├── auth.guard.ts      # Route guard
 │       └── jwt.interceptor.ts # Attaches the JWT and handles refresh
 └── package.json               # npm workspaces (packages/*, mobile)
@@ -66,6 +70,7 @@ Management panel for the salon owner:
 * Payments: manual payments (cash/transfer), Stripe payment status, refunds
 * **Statistics dashboard**: appointments by status, revenue by payment method, top services and new customers, with range selector (month / last 30 days / year) — charts built with plain `div` + Tailwind, no chart library, keeping the app zoneless
 * CRUD for services, **barbers** and users (roles, search, soft delete and reactivation)
+* **Closed days**: block a holiday or a one-off closure (with a reason) and unblock it. Closed days — Sundays included — render as **unselectable** in the booking calendar, so a day with no available times can no longer be picked
 * Login with JWT + rotating refresh tokens, password recovery
 
 ### Customer mobile app (`mobile/`)
@@ -73,7 +78,7 @@ Management panel for the salon owner:
 Ionic app for the salon's customers:
 
 * Registration, login and password recovery
-* Booking flow: pick a service, a date, optionally a **barber** ("Any" by default) and a free slot
+* Booking flow: pick a service, a date, optionally a **barber** ("Any" by default) and a free slot. The calendar (`ion-datetime` with `isDateEnabled`) **greys out Sundays and closed days**, so they cannot be selected
 * **Online card payment** (Stripe Payment Element) with automatic status polling, plus appointment history with payment badges
 * **Biometric login** (fingerprint/face) storing tokens in secure native storage
 * Built with Capacitor: the same codebase deploys as a web app today and packages as an Android app (`appId com.segovia.peluqueria`)
@@ -82,8 +87,9 @@ Ionic app for the salon's customers:
 
 `@peluqueria/core`, consumed by both apps:
 
-* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `Estadisticas`) and their enums
-* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `EstadisticasService`, ...) plus `AuthService` and token storage
+* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`) and their enums
+* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) plus `AuthService` and token storage
+* `utils/fecha.ts`: local-time `YYYY-MM-DD` helpers (`toISOString()` would shift the day in positive-offset timezones)
 * `jwt.interceptor.ts` and `auth.guard.ts`: JWT handling and route protection shared by both apps
 
 ## Getting Started
@@ -112,12 +118,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**264 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**292 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 146 | Feature components (citas, usuarios, servicios, peluqueros, dashboard, auth) and every core service, guard and interceptor |
-| Mobile (`cd mobile && npx ng test`) | 118 | Booking flow (incl. barber selector), Stripe payment page, biometric login and token storage, appointment history |
+| Admin + core (`npx ng test`) | 168 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, dashboard, auth), the closed-day date picker, and every core service, guard and interceptor |
+| Mobile (`cd mobile && npx ng test`) | 124 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, appointment history |
 
 ```bash
 npx ng test --watch=false            # admin + core

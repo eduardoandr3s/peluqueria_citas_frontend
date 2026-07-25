@@ -37,6 +37,7 @@ function setup(overrides: { cita?: Partial<Record<keyof CitaService, unknown>>; 
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
+    diasCerrados: vi.fn().mockReturnValue(of([{ fecha: '2026-07-05', motivo: 'Cerrado (domingo)' }])),
     agendar: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
@@ -65,6 +66,25 @@ describe('AdminCitasPage', () => {
     expect(c.usuarios().length).toBe(1);
     expect(c.servicios().length).toBe(1);
     expect(c.loading()).toBe(false);
+  });
+
+  it('cargar trae los días cerrados y esFechaHabilitada los rechaza', () => {
+    const { c } = setup();
+    c.cargar();
+    const habilitada = c.esFechaHabilitada();
+    expect(habilitada('2026-07-05')).toBe(false);
+    expect(habilitada('2026-07-06')).toBe(true);
+  });
+
+  it('onFechaChange recorta el ISO de ion-datetime y recarga los slots', () => {
+    const { c, citaSvc } = setup();
+    c.cargar();
+    c.fServicioId.set(1);
+    c.fHora.set('10:00');
+    c.onFechaChange('2026-07-06T00:00:00');
+    expect(c.fFecha()).toBe('2026-07-06');
+    expect(c.fHora()).toBe('');
+    expect(citaSvc.disponibilidad).toHaveBeenCalledWith('2026-07-06', 1, undefined);
   });
 
   it('si falla la carga apaga el loading y notifica', () => {

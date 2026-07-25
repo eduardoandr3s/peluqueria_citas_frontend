@@ -46,6 +46,7 @@ function setup(overrides: {
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
+    diasCerrados: vi.fn().mockReturnValue(of([{ fecha: '2026-07-05', motivo: 'Cerrado (domingo)' }])),
     agendar: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),

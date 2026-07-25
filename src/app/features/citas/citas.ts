@@ -7,6 +7,7 @@ import {
   Cita,
   CitaRequest,
   CitaUpdate,
+  DiaCerrado,
   EstadoCita,
   Servicio,
   Usuario,
@@ -16,7 +17,10 @@ import {
   UsuarioService,
   PagoService,
   PeluqueroService,
+  hoyIso,
+  sumarMeses,
 } from '@peluqueria/core';
+import { DatePicker } from '../../shared/date-picker/date-picker';
 
 type EstadoFiltro = 'TODAS' | EstadoCita;
 
@@ -27,7 +31,7 @@ interface Feedback {
 
 @Component({
   selector: 'app-citas',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe, DecimalPipe],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, DecimalPipe, DatePicker],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -246,6 +250,7 @@ interface Feedback {
           </h2>
           <p class="mt-1 text-xs text-muted">
             Horario: lunes a sábado, de 09:00 a 20:00 (la cita debe terminar antes de las 20:00).
+            Los domingos y los días bloqueados en «Días cerrados» no se pueden elegir.
           </p>
 
           @if (formError()) {
@@ -306,12 +311,12 @@ interface Feedback {
 
             <div>
               <label class="mb-1.5 block text-sm font-medium text-main">Fecha</label>
-              <input
-                type="date"
+              <app-date-picker
                 formControlName="fecha"
                 [min]="minFecha"
-                (change)="onContextoSlotsCambio()"
-                class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
+                [maxMeses]="mesesCalendario"
+                [diasCerrados]="diasCerrados()"
+                (fechaElegida)="onContextoSlotsCambio()"
               />
               @if (invalid('fecha')) {
                 <p class="mt-1 text-xs text-error">Indica la fecha.</p>
@@ -489,6 +494,8 @@ export class Citas implements OnInit {
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly servicios = signal<Servicio[]>([]);
   protected readonly peluqueros = signal<Peluquero[]>([]);
+  /** Días que el calendario del formulario debe dejar sin seleccionar. */
+  protected readonly diasCerrados = signal<DiaCerrado[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
 
@@ -520,7 +527,11 @@ export class Citas implements OnInit {
   protected readonly slotsLoading = signal(false);
   protected readonly slotsError = signal<string | null>(null);
 
-  protected readonly minFecha = this.calcularMinFecha();
+  /** Meses que se pueden navegar en el calendario (el backend acepta un rango máximo de 12). */
+  protected readonly mesesCalendario = 11;
+  protected readonly minFecha = hoyIso();
+  /** Tope del calendario y del rango de cierres que se pide al backend. */
+  protected readonly maxFecha = sumarMeses(this.minFecha, this.mesesCalendario);
 
   protected readonly filtros: { value: EstadoFiltro; label: string }[] = [
     { value: 'TODAS', label: 'Todas' },
@@ -599,12 +610,16 @@ export class Citas implements OnInit {
       usuarios: this.usuarioService.listarTodos(),
       servicios: this.servicioService.listar(),
       peluqueros: this.peluqueroService.listar(),
+      // Un año de cierres de golpe: es lo que se puede navegar en el calendario, así
+      // no hay que volver al backend cada vez que se cambia de mes.
+      diasCerrados: this.citaService.diasCerrados(this.minFecha, this.maxFecha),
     }).subscribe({
-      next: ({ citas, usuarios, servicios, peluqueros }) => {
+      next: ({ citas, usuarios, servicios, peluqueros, diasCerrados }) => {
         this.citas.set(citas);
         this.usuarios.set(usuarios);
         this.servicios.set(servicios);
         this.peluqueros.set(peluqueros);
+        this.diasCerrados.set(diasCerrados);
         this.loading.set(false);
       },
       error: () => {
@@ -904,9 +919,4 @@ export class Citas implements OnInit {
     return valores.length ? String(valores[0]) : null;
   }
 
-  private calcularMinFecha(): string {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  }
 }

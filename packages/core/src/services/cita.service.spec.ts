@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api.config';
 import { Cita, CitaRequest } from '../models/cita.model';
+import { DiaCerrado } from '../models/dia-bloqueado.model';
 import { Page } from '../models/usuario.model';
 import { CitaService } from './cita.service';
 
@@ -58,6 +59,27 @@ describe('CitaService', () => {
     req.flush(['09:00', '09:30']);
 
     expect(slots).toEqual(['09:00', '09:30']);
+  });
+
+  it('diasCerrados pasa el rango y devuelve los días cerrados', () => {
+    let cerrados: DiaCerrado[] | undefined;
+    service.diasCerrados('2026-08-01', '2026-08-31').subscribe((d) => (cerrados = d));
+
+    const req = http.expectOne((r) => r.url === `${API}/citas/dias-cerrados`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('desde')).toBe('2026-08-01');
+    expect(req.request.params.get('hasta')).toBe('2026-08-31');
+    req.flush([{ fecha: '2026-08-02', motivo: 'Cerrado (domingo)' }]);
+
+    expect(cerrados).toEqual([{ fecha: '2026-08-02', motivo: 'Cerrado (domingo)' }]);
+  });
+
+  it('diasCerrados sin rango no manda parámetros', () => {
+    service.diasCerrados().subscribe();
+
+    const req = http.expectOne((r) => r.url === `${API}/citas/dias-cerrados`);
+    expect(req.request.params.keys().length).toBe(0);
+    req.flush([]);
   });
 
   it('obtener hace GET /citas/{id}', () => {
