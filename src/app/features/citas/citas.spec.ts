@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import {
   Cita,
   CitaService,
@@ -71,6 +71,20 @@ function setup(overrides: {
   fixture.detectChanges(); // ngOnInit -> cargar (forkJoin)
   const c = fixture.componentInstance as any;
   return { fixture, c, citaSvc };
+}
+
+/** Botón de una fila de la tabla, por su texto exacto (el de la primera cita listada). */
+function botonEnTabla(fixture: ComponentFixture<Citas>, texto: string): HTMLButtonElement | undefined {
+  return Array.from(fixture.nativeElement.querySelectorAll('table button')).find(
+    (b) => (b as HTMLElement).textContent?.trim() === texto,
+  ) as HTMLButtonElement | undefined;
+}
+
+/** Botón de un modal abierto, por su texto exacto. */
+function botonEnModal(fixture: ComponentFixture<Citas>, texto: string): HTMLButtonElement | undefined {
+  return Array.from(fixture.nativeElement.querySelectorAll('.fixed button')).find(
+    (b) => (b as HTMLElement).textContent?.trim() === texto,
+  ) as HTMLButtonElement | undefined;
 }
 
 describe('Citas', () => {
@@ -175,6 +189,51 @@ describe('Citas', () => {
     const { c } = setup({ cita: { actualizar } });
     c.anular(CITAS[0]);
     expect(actualizar).toHaveBeenCalledWith(1, { estado: 'ANULADA' });
+  });
+
+  it('«Anular» de la tabla pide confirmación y no anula hasta aceptarla', () => {
+    const actualizar = vi.fn().mockReturnValue(of({ ...CITAS[0], estado: 'ANULADA' as const }));
+    const { fixture } = setup({ cita: { actualizar } });
+
+    botonEnTabla(fixture, 'Anular')!.click();
+    fixture.detectChanges();
+
+    expect(actualizar).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('volverá a quedar libre');
+
+    botonEnModal(fixture, 'Anular cita')!.click();
+    fixture.detectChanges();
+
+    expect(actualizar).toHaveBeenCalledWith(1, { estado: 'ANULADA' });
+  });
+
+  it('«Eliminar» de la tabla pide confirmación y no borra hasta aceptarla', () => {
+    const eliminar = vi.fn().mockReturnValue(of(undefined));
+    const { fixture } = setup({ cita: { eliminar } });
+
+    botonEnTabla(fixture, 'Eliminar')!.click();
+    fixture.detectChanges();
+
+    expect(eliminar).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('no se puede deshacer');
+
+    botonEnModal(fixture, 'Eliminar')!.click();
+    fixture.detectChanges();
+
+    expect(eliminar).toHaveBeenCalledWith(1);
+  });
+
+  it('cancelar la confirmación cierra el modal sin tocar nada', () => {
+    const actualizar = vi.fn();
+    const { fixture, c } = setup({ cita: { actualizar } });
+
+    botonEnTabla(fixture, 'Anular')!.click();
+    fixture.detectChanges();
+    botonEnModal(fixture, 'Cancelar')!.click();
+    fixture.detectChanges();
+
+    expect(c.pendingAnular()).toBeNull();
+    expect(actualizar).not.toHaveBeenCalled();
   });
 
   it('eliminar quita la cita de la lista', () => {

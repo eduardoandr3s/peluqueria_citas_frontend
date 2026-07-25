@@ -442,6 +442,74 @@ interface Feedback {
       </div>
     }
 
+    <!-- Modal: anular cita -->
+    @if (pendingAnular(); as c) {
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">Anular cita</h2>
+          <p class="mt-2 text-sm text-main">
+            La cita de {{ c.usuario.nombre }} ({{ c.servicio.nombre }},
+            {{ c.fechaHora | date: "dd/MM/yyyy 'a las' HH:mm" }}) pasará a ANULADA y el hueco
+            volverá a quedar libre.
+          </p>
+          <p class="mt-2 text-sm text-muted">
+            Se avisará al cliente por correo. La cita sigue en el listado; si hay un pago
+            cobrado, el reembolso se hace aparte.
+          </p>
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="pendingAnular.set(null)"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              (click)="anular(c)"
+              class="rounded-lg bg-warning px-4 py-2 text-sm font-semibold text-white transition hover:bg-warning/80"
+            >
+              Anular cita
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal: eliminar cita -->
+    @if (pendingDelete(); as c) {
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">Eliminar cita</h2>
+          <p class="mt-2 text-sm text-main">
+            Se borrará la cita de {{ c.usuario.nombre }} ({{ c.servicio.nombre }},
+            {{ c.fechaHora | date: "dd/MM/yyyy 'a las' HH:mm" }}). Esto no se puede deshacer y
+            la cita desaparece del historial y de las estadísticas.
+          </p>
+          <p class="mt-2 text-sm text-muted">
+            Se avisará al cliente por correo. Si la cita tiene un pago registrado no se podrá
+            borrar: anúlala en su lugar.
+          </p>
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="pendingDelete.set(null)"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              (click)="eliminar(c)"
+              class="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white transition hover:bg-error/80"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Modal: reembolsar -->
     @if (pendingReembolso(); as c) {
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
