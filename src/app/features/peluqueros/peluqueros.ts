@@ -41,6 +41,24 @@ interface Feedback {
         </div>
       }
 
+      @if (!loading() && !loadError() && peluqueros().length > 0) {
+        <div class="relative max-w-xs">
+          <svg
+            class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-muted"
+            fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+            placeholder="Buscar por nombre…"
+            class="w-full rounded-lg border border-line bg-base py-2 pl-10 pr-3 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+      }
+
       <div class="rounded-xl bg-surface shadow-sm ring-1 ring-line">
         @if (loading()) {
           <div class="space-y-3 p-5">
@@ -59,9 +77,13 @@ interface Feedback {
               Reintentar
             </button>
           </div>
-        } @else if (peluqueros().length === 0) {
+        } @else if (filtrados().length === 0) {
           <div class="p-8 text-center text-sm text-muted">
-            Aún no hay peluqueros. Crea el primero con «Nuevo peluquero».
+            @if (peluqueros().length === 0) {
+              Aún no hay peluqueros. Crea el primero con «Nuevo peluquero».
+            } @else {
+              Ningún peluquero coincide con la búsqueda.
+            }
           </div>
         } @else {
           <div class="overflow-x-auto">
@@ -74,7 +96,7 @@ interface Feedback {
                 </tr>
               </thead>
               <tbody class="divide-y divide-line">
-                @for (p of peluqueros(); track p.idPeluquero) {
+                @for (p of filtrados(); track p.idPeluquero) {
                   <tr class="hover:bg-elevated">
                     <td class="px-5 py-3">
                       <p class="font-medium text-main">{{ p.nombre }}</p>
@@ -204,10 +226,18 @@ export class Peluqueros implements OnInit {
   protected readonly busyId = signal<number | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
 
+  protected readonly search = signal('');
+
   protected readonly formOpen = signal(false);
   protected readonly editandoId = signal<number | null>(null);
   protected readonly saving = signal(false);
   protected readonly pendingDelete = signal<Peluquero | null>(null);
+
+  protected readonly filtrados = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    const lista = this.peluqueros();
+    return q ? lista.filter((p) => p.nombre.toLowerCase().includes(q)) : lista;
+  });
 
   protected readonly form = this.fb.group({
     nombre: ['', [Validators.required]],

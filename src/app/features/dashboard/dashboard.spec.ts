@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import {
-  Cita, CitaService, Servicio, ServicioService, UsuarioService,
+  Cita, CitaService, PagoResponse, PagoService, Servicio, ServicioService, Usuario, UsuarioService,
   EstadisticasService, EstadisticasResponse,
 } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
@@ -51,10 +51,25 @@ const STATS_MOCK: EstadisticasResponse = {
   nuevosClientes: 10,
 };
 
+function pago(idPago: number, citaId: number, monto: number, metodoPago: PagoResponse['metodoPago'],
+              estadoPago: PagoResponse['estadoPago']): PagoResponse {
+  return {
+    idPago,
+    citaId,
+    monto,
+    metodoPago,
+    estadoPago,
+    referenciaExterna: null,
+    fechaCreacion: localIso(diasDesdeHoy(-3)),
+    fechaPago: estadoPago === 'PAGADO' ? localIso(diasDesdeHoy(-3)) : null,
+  };
+}
+
 function setup(opts: {
   citas?: Cita[];
   servicios?: Servicio[];
   usuarios?: unknown[];
+  pagos?: PagoResponse[];
   stats?: EstadisticasResponse;
   fail?: boolean;
   statsFail?: boolean;
@@ -81,6 +96,14 @@ function setup(opts: {
       {
         provide: EstadisticasService,
         useValue: { obtener: vi.fn().mockReturnValue(statsFail ? throwError(() => new Error('x')) : of(opts.stats ?? STATS_MOCK)) },
+      },
+      {
+        provide: PagoService,
+        useValue: {
+          listarTodos: vi.fn().mockReturnValue(
+            statsFail ? throwError(() => new Error('x')) : of(opts.pagos ?? []),
+          ),
+        },
       },
     ],
   });
@@ -176,5 +199,113 @@ describe('Dashboard', () => {
     const { c } = setup({ citas: [], statsFail: true });
     expect(c.statsError()).toContain('No se pudieron cargar');
     expect(c.statsLoading()).toBe(false);
+  });
+
+  describe('modales', () => {
+    it('la tarjeta de citas de hoy abre la lista con solo las de hoy', () => {
+      const citas = [
+        cita(1, diasDesdeHoy(0, 9), 'PENDIENTE'),
+        cita(2, diasDesdeHoy(0, 17), 'CONFIRMADA'),
+        cita(3, diasDesdeHoy(-5), 'CONFIRMADA'),
+      ];
+      const { c } = setup({ citas });
+
+      c.metrics()[0].abrir();
+
+      const m = c.modal();
+      expect(m.tipo).toBe('citas');
+      expect(m.titulo).toBe('Citas de hoy');
+      expect(m.citas.map((x: Cita) => x.idCita)).toEqual([1, 2]); // ordenadas por hora
+    });
+
+    it('la tarjeta de servicios abre solo los activos', () => {
+      const { c } = setup({ citas: [] });
+
+      c.metrics()[2].abrir();
+
+      const m = c.modal();
+      expect(m.tipo).toBe('servicios');
+      expect(m.servicios.map((s: Servicio) => s.nombre)).toEqual(['Corte', 'Tinte']);
+    });
+
+    it('una barra de «citas por estado» abre las citas del rango con ese estado', () => {
+      const citas = [
+        cita(1, diasDesdeHoy(-2), 'CONFIRMADA'),
+        cita(2, diasDesdeHoy(-3), 'ANULADA'),
+        // Futura: fuera del rango «30 días», que acaba hoy.
+        cita(3, diasDesdeHoy(4), 'CONFIRMADA'),
+        // Anterior al rango.
+        cita(4, diasDesdeHoy(-60), 'CONFIRMADA'),
+      ];
+      const { c } = setup({ citas });
+
+      c.abrirCitasPorEstado('CONFIRMADA');
+
+      expect(c.modal().citas.map((x: Cita) => x.idCita)).toEqual([1]);
+    });
+
+    it('un servicio del top abre sus citas del rango sin las anuladas', () => {
+      const citas = [
+        cita(1, diasDesdeHoy(-2), 'CONFIRMADA'),
+        cita(2, diasDesdeHoy(-4), 'ANULADA'),
+      ];
+      const { c } = setup({ citas });
+
+      c.abrirCitasDeServicio('Corte');
+
+      expect(c.modal().citas.map((x: Cita) => x.idCita)).toEqual([1]);
+    });
+
+    it('los ingresos abren solo los pagos cobrados, y por método si se pide', () => {
+      const pagos = [
+        pago(1, 10, 30, 'TARJETA', 'PAGADO'),
+        pago(2, 11, 20, 'EFECTIVO', 'PAGADO'),
+        pago(3, 12, 50, 'TARJETA', 'PENDIENTE'),
+        pago(4, 13, 15, 'TARJETA', 'REEMBOLSADO'),
+      ];
+      const { c } = setup({ citas: [], pagos });
+
+      c.abrirIngresos();
+      expect(c.modal().pagos.map((p: PagoResponse) => p.idPago)).toEqual([1, 2]);
+
+      c.abrirIngresos('TARJETA');
+      expect(c.modal().titulo).toBe('Ingresos · TARJETA');
+      expect(c.modal().pagos.map((p: PagoResponse) => p.idPago)).toEqual([1]);
+    });
+
+    it('nuevos clientes abre los usuarios registrados dentro del rango', () => {
+      const iso = (n: number) => localIso(diasDesdeHoy(n)).slice(0, 10);
+      const usuarios: Usuario[] = [
+        { idUsuario: 1, nombre: 'Nuevo', email: 'n@b.com', rol: 'USER', fechaRegistro: iso(-3) },
+        { idUsuario: 2, nombre: 'Viejo', email: 'v@b.com', rol: 'USER', fechaRegistro: iso(-90) },
+        { idUsuario: 3, nombre: 'Sin fecha', email: 's@b.com', rol: 'USER' },
+      ];
+      const { c } = setup({ citas: [], usuarios });
+
+      c.abrirNuevosClientes();
+
+      expect(c.modal().usuarios.map((u: Usuario) => u.idUsuario)).toEqual([1]);
+    });
+
+    it('el buscador de pagos encuentra por cliente de la cita y por importe', () => {
+      const citas = [cita(10, diasDesdeHoy(-3), 'CONFIRMADA')];
+      const pagos = [pago(1, 10, 30, 'TARJETA', 'PAGADO')];
+      const { c } = setup({ citas, pagos });
+
+      expect(c.filtroPago(pagos[0], 'cliente')).toBe(true); // nombre del cliente de la cita
+      expect(c.filtroPago(pagos[0], '30.00')).toBe(true);
+      expect(c.filtroPago(pagos[0], 'tarjeta')).toBe(true);
+      expect(c.filtroPago(pagos[0], 'zzz')).toBe(false);
+    });
+
+    it('el buscador de citas mira cliente, email y servicio', () => {
+      const { c } = setup({ citas: [] });
+      const x = cita(1, diasDesdeHoy(0), 'CONFIRMADA');
+
+      expect(c.filtroCita(x, 'cliente')).toBe(true);
+      expect(c.filtroCita(x, 'c@b.com')).toBe(true);
+      expect(c.filtroCita(x, 'corte')).toBe(true);
+      expect(c.filtroCita(x, 'zzz')).toBe(false);
+    });
   });
 });

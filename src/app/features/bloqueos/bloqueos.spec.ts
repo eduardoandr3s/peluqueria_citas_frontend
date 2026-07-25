@@ -49,6 +49,35 @@ describe('Bloqueos', () => {
     expect(c.loadError()).toContain('No se pudieron cargar');
   });
 
+  it('el buscador filtra por motivo', () => {
+    const { fixture, c } = setup();
+
+    c.search.set('vacaciones');
+    fixture.detectChanges();
+
+    expect(c.filtrados().map((d: DiaBloqueado) => d.idDiaBloqueado)).toEqual([1]);
+  });
+
+  it('el buscador también encuentra por fecha, tal como se ve y en ISO', () => {
+    const { c } = setup();
+
+    c.search.set('06/01/2027');
+    expect(c.filtrados().map((d: DiaBloqueado) => d.idDiaBloqueado)).toEqual([2]);
+
+    c.search.set('2027-01');
+    expect(c.filtrados().map((d: DiaBloqueado) => d.idDiaBloqueado)).toEqual([2]);
+  });
+
+  it('si la búsqueda no encuentra nada lo dice, sin confundirlo con la lista vacía', () => {
+    const { fixture, c } = setup();
+
+    c.search.set('zzz');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Ningún día cerrado coincide');
+    expect(fixture.nativeElement.textContent).not.toContain('No hay días bloqueados');
+  });
+
   it('no envía nada si no se ha elegido fecha', () => {
     const { c, diasSvc } = setup();
     c.bloquear();

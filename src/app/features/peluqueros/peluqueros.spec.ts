@@ -27,6 +27,26 @@ describe('Peluqueros', () => {
     expect(c.loading()).toBe(false);
   });
 
+  it('el buscador filtra por nombre, sin distinguir mayúsculas', () => {
+    const { fixture, c } = setup({});
+
+    c.search.set('mar');
+    fixture.detectChanges();
+
+    expect(c.filtrados().map((p: Peluquero) => p.nombre)).toEqual(['Marta']);
+    expect(fixture.nativeElement.textContent).not.toContain('Lalo');
+  });
+
+  it('si la búsqueda no encuentra a nadie lo dice, sin confundirlo con la lista vacía', () => {
+    const { fixture, c } = setup({});
+
+    c.search.set('zzz');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Ningún peluquero coincide');
+    expect(fixture.nativeElement.textContent).not.toContain('Aún no hay peluqueros');
+  });
+
   it('si falla la carga muestra loadError', () => {
     const { c } = setup({ listar: vi.fn().mockReturnValue(throwError(() => new Error('x'))) });
     expect(c.loadError()).toContain('No se pudieron cargar');

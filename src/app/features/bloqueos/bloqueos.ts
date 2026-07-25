@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import {
   CitaService,
@@ -19,7 +19,7 @@ interface Feedback {
 
 @Component({
   selector: 'app-bloqueos',
-  imports: [ReactiveFormsModule, DatePicker],
+  imports: [ReactiveFormsModule, FormsModule, DatePicker],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -52,6 +52,24 @@ interface Feedback {
         </div>
       }
 
+      @if (!loading() && !loadError() && bloqueos().length > 0) {
+        <div class="relative max-w-xs">
+          <svg
+            class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-muted"
+            fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+            placeholder="Buscar por fecha o motivo…"
+            class="w-full rounded-lg border border-line bg-base py-2 pl-10 pr-3 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+      }
+
       <div class="rounded-xl bg-surface shadow-sm ring-1 ring-line">
         @if (loading()) {
           <div class="space-y-3 p-5">
@@ -70,9 +88,13 @@ interface Feedback {
               Reintentar
             </button>
           </div>
-        } @else if (bloqueos().length === 0) {
+        } @else if (filtrados().length === 0) {
           <div class="p-8 text-center text-sm text-muted">
-            No hay días bloqueados. Los domingos ya están cerrados de forma fija.
+            @if (bloqueos().length === 0) {
+              No hay días bloqueados. Los domingos ya están cerrados de forma fija.
+            } @else {
+              Ningún día cerrado coincide con la búsqueda.
+            }
           </div>
         } @else {
           <div class="overflow-x-auto">
@@ -85,7 +107,7 @@ interface Feedback {
                 </tr>
               </thead>
               <tbody class="divide-y divide-line">
-                @for (d of bloqueos(); track d.idDiaBloqueado) {
+                @for (d of filtrados(); track d.idDiaBloqueado) {
                   <tr class="hover:bg-elevated">
                     <td class="px-5 py-3">
                       <p class="font-medium capitalize text-main">{{ formatear(d.fecha) }}</p>
@@ -230,10 +252,25 @@ export class Bloqueos implements OnInit {
   protected readonly busyId = signal<number | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
 
+  protected readonly search = signal('');
+
   protected readonly formOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
   protected readonly pendingDelete = signal<DiaBloqueado | null>(null);
+
+  /** Busca por motivo y por la fecha tal como se ve en la tabla («miércoles, 06/01/2027»). */
+  protected readonly filtrados = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    const lista = this.bloqueos();
+    if (!q) return lista;
+    return lista.filter(
+      (d) =>
+        (d.motivo ?? '').toLowerCase().includes(q) ||
+        this.formatear(d.fecha).toLowerCase().includes(q) ||
+        d.fecha.includes(q),
+    );
+  });
 
   protected readonly mesesCalendario = 11;
   protected readonly minFecha = hoyIso();

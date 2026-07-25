@@ -96,6 +96,51 @@ describe('PagoService', () => {
     expect(result).toEqual(mock);
   });
 
+  it('listar manda los filtros que se le pasan y omite los que no', () => {
+    service.listar({ desde: '2026-07-01', hasta: '2026-07-31', estado: 'PAGADO', metodo: 'TARJETA' })
+      .subscribe();
+
+    const req = http.expectOne((r) => r.url === `${API}/pagos`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('desde')).toBe('2026-07-01');
+    expect(req.request.params.get('hasta')).toBe('2026-07-31');
+    expect(req.request.params.get('estado')).toBe('PAGADO');
+    expect(req.request.params.get('metodo')).toBe('TARJETA');
+    req.flush({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20, first: true, last: true });
+  });
+
+  it('listar sin filtros solo manda la paginación', () => {
+    service.listar().subscribe();
+
+    const req = http.expectOne((r) => r.url === `${API}/pagos`);
+    expect(req.request.params.get('page')).toBe('0');
+    expect(req.request.params.get('size')).toBe('20');
+    expect(req.request.params.has('estado')).toBe(false);
+    expect(req.request.params.has('desde')).toBe(false);
+    req.flush({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 20, first: true, last: true });
+  });
+
+  it('listarTodos devuelve el content de la página, pedida con un size alto', () => {
+    const mock: PagoResponse = {
+      idPago: 1,
+      citaId: 5,
+      monto: 25.5,
+      metodoPago: 'TARJETA',
+      estadoPago: 'PAGADO',
+      referenciaExterna: null,
+      fechaCreacion: '2026-07-01T10:00:00',
+      fechaPago: '2026-07-01T10:05:00',
+    };
+
+    let result: PagoResponse[] | undefined;
+    service.listarTodos({ desde: '2026-07-01' }).subscribe((r) => (result = r));
+
+    const req = http.expectOne((r) => r.url === `${API}/pagos`);
+    expect(req.request.params.get('size')).toBe('2000');
+    req.flush({ content: [mock], totalElements: 1, totalPages: 1, number: 0, size: 2000, first: true, last: true });
+    expect(result).toEqual([mock]);
+  });
+
   it('reembolsar hace POST /{citaId}/reembolsar', () => {
     let completed = false;
     service.reembolsar(5).subscribe(() => (completed = true));
