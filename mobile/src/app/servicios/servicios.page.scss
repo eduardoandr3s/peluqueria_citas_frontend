@@ -9,6 +9,17 @@
   --background: var(--ion-card-background);
   border-radius: 12px;
   margin: 0;
+  overflow: hidden;
+
+  // Altura fija: sin ella la tarjeta salta de tamano al llegar la imagen y la
+  // lista se mueve bajo el dedo mientras se hace scroll.
+  .servicio-foto {
+    display: block;
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    background: var(--ion-color-step-100, #f2f2f2);
+  }
 
   ion-card-title {
     font-size: 18px;

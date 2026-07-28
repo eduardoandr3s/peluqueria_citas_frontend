@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Servicio, ServicioRequest, ServicioService } from '@peluqueria/core';
+import { Servicio, ServicioRequest, ServicioService, redimensionarImagen } from '@peluqueria/core';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -88,6 +88,7 @@ interface Feedback {
             <table class="w-full text-left text-sm">
               <thead class="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
+                  <th class="px-5 py-3 font-medium">Foto</th>
                   <th class="px-5 py-3 font-medium">Servicio</th>
                   <th class="px-5 py-3 font-medium">Precio</th>
                   <th class="px-5 py-3 font-medium">Duración</th>
@@ -97,6 +98,25 @@ interface Feedback {
               <tbody class="divide-y divide-line">
                 @for (s of filtered(); track s.idServicio) {
                   <tr class="hover:bg-elevated">
+                    <td class="px-5 py-3">
+                      @if (s.urlImagen) {
+                        <img
+                          [src]="s.urlImagen"
+                          [alt]="s.nombre"
+                          loading="lazy"
+                          class="h-12 w-12 rounded-lg object-cover ring-1 ring-line"
+                        />
+                      } @else {
+                        <div
+                          class="flex h-12 w-12 items-center justify-center rounded-lg bg-elevated text-muted ring-1 ring-line"
+                          title="Sin foto"
+                        >
+                          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 6h.008v.008H18V6Zm2.25 12H3.75A1.5 1.5 0 0 1 2.25 16.5v-9A1.5 1.5 0 0 1 3.75 6h16.5a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5Z" />
+                          </svg>
+                        </div>
+                      }
+                    </td>
                     <td class="px-5 py-3">
                       <p class="font-medium text-main">{{ s.nombre }}</p>
                       @if (s.descripcion) {
@@ -110,6 +130,13 @@ interface Feedback {
                         @if (busyId() === s.idServicio) {
                           <span class="text-xs text-muted">Procesando…</span>
                         } @else {
+                          <button
+                            type="button"
+                            (click)="abrirFoto(s)"
+                            class="rounded-md px-2.5 py-1 text-xs font-medium text-main hover:bg-elevated"
+                          >
+                            Foto
+                          </button>
                           <button
                             type="button"
                             (click)="abrirEditar(s)"
@@ -226,6 +253,71 @@ interface Feedback {
       </div>
     }
 
+    <!-- Modal de la foto del servicio -->
+    @if (pendingFoto(); as s) {
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">Foto de «{{ s.nombre }}»</h2>
+          <p class="mt-1 text-sm text-muted">
+            JPEG, PNG o WebP. Se reduce en tu navegador antes de subirla, así que no
+            hace falta que la prepares.
+          </p>
+
+          <div class="mt-4 flex justify-center">
+            @if (s.urlImagen) {
+              <img
+                [src]="s.urlImagen"
+                [alt]="s.nombre"
+                class="max-h-56 rounded-xl object-contain ring-1 ring-line"
+              />
+            } @else {
+              <div class="flex h-40 w-full items-center justify-center rounded-xl bg-elevated text-sm text-muted">
+                Este servicio no tiene foto.
+              </div>
+            }
+          </div>
+
+          @if (fotoError()) {
+            <p class="mt-3 text-sm text-error">{{ fotoError() }}</p>
+          }
+
+          <div class="mt-6 flex flex-wrap justify-end gap-3">
+            @if (s.urlImagen) {
+              <button
+                type="button"
+                (click)="borrarFoto(s)"
+                [disabled]="subiendoFoto()"
+                class="rounded-lg px-4 py-2 text-sm font-medium text-error hover:bg-error/10 disabled:opacity-60"
+              >
+                Quitar foto
+              </button>
+            }
+            <label
+              class="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover"
+              [class.opacity-60]="subiendoFoto()"
+            >
+              {{ subiendoFoto() ? 'Subiendo…' : s.urlImagen ? 'Sustituir' : 'Subir foto' }}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="hidden"
+                [disabled]="subiendoFoto()"
+                (change)="onFotoElegida($event, s)"
+              />
+            </label>
+            <button
+              type="button"
+              (click)="cerrarFoto()"
+              [disabled]="subiendoFoto()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated disabled:opacity-60"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Modal de confirmación de borrado -->
     @if (pendingDelete(); as s) {
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
@@ -270,6 +362,10 @@ export class Servicios implements OnInit {
   protected readonly editandoId = signal<number | null>(null);
   protected readonly saving = signal(false);
   protected readonly pendingDelete = signal<Servicio | null>(null);
+
+  protected readonly pendingFoto = signal<Servicio | null>(null);
+  protected readonly subiendoFoto = signal(false);
+  protected readonly fotoError = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     nombre: ['', [Validators.required]],
@@ -403,6 +499,73 @@ export class Servicios implements OnInit {
         });
       },
     });
+  }
+
+  protected abrirFoto(s: Servicio): void {
+    this.feedback.set(null);
+    this.fotoError.set(null);
+    this.pendingFoto.set(s);
+  }
+
+  protected cerrarFoto(): void {
+    this.pendingFoto.set(null);
+    this.fotoError.set(null);
+  }
+
+  protected async onFotoElegida(evento: Event, s: Servicio): Promise<void> {
+    const input = evento.target as HTMLInputElement;
+    const fichero = input.files?.[0];
+    // Permite volver a elegir el mismo fichero si la subida falla.
+    input.value = '';
+    if (!fichero) return;
+
+    this.fotoError.set(null);
+    this.subiendoFoto.set(true);
+    // Se reduce antes de subir: el servidor rechaza lo que pase de 2 MB y una
+    // foto de móvil se pasa de largo.
+    const reducida = await redimensionarImagen(fichero);
+
+    this.servicioService.subirImagen(s.idServicio, reducida).subscribe({
+      next: (actualizado) => {
+        this.subiendoFoto.set(false);
+        this.reemplazar(actualizado);
+        this.feedback.set({ type: 'success', text: `Foto de «${actualizado.nombre}» actualizada.` });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFoto.set(false);
+        this.fotoError.set(
+          err.status === 413
+            ? 'La imagen es demasiado grande.'
+            : (this.extraerError(err) ?? 'No se pudo subir la foto.'),
+        );
+      },
+    });
+  }
+
+  protected borrarFoto(s: Servicio): void {
+    this.fotoError.set(null);
+    this.subiendoFoto.set(true);
+    this.servicioService.borrarImagen(s.idServicio).subscribe({
+      next: (actualizado) => {
+        this.subiendoFoto.set(false);
+        this.reemplazar(actualizado);
+        this.feedback.set({ type: 'success', text: `Foto de «${actualizado.nombre}» eliminada.` });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFoto.set(false);
+        this.fotoError.set(this.extraerError(err) ?? 'No se pudo quitar la foto.');
+      },
+    });
+  }
+
+  /** Refresca el servicio en el listado y en el modal abierto, si es el mismo. */
+  private reemplazar(actualizado: Servicio): void {
+    this.servicios.update((list) =>
+      list.map((x) => (x.idServicio === actualizado.idServicio ? actualizado : x)),
+    );
+    if (this.pendingFoto()?.idServicio === actualizado.idServicio) {
+      this.pendingFoto.set(actualizado);
+    }
   }
 
   /** El backend devuelve {error: "..."} o, en validaciones, {campo: "mensaje"}. */

@@ -61,4 +61,34 @@ describe('ServicioService', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });
+
+  it('subirImagen hace POST multipart a /servicios/{id}/imagen', () => {
+    const imagen = new File(['bytes'], 'foto.jpg', { type: 'image/jpeg' });
+    let resultado: Servicio | undefined;
+
+    service.subirImagen(3, imagen).subscribe((r) => (resultado = r));
+
+    const req = http.expectOne(`${API}/servicios/3/imagen`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeInstanceOf(FormData);
+    expect((req.request.body as FormData).get('imagen')).toBe(imagen);
+    // Con FormData el Content-Type lo pone el navegador con su boundary;
+    // fijarlo a mano rompe la peticion, asi que no debe venir puesto.
+    expect(req.request.headers.has('Content-Type')).toBe(false);
+
+    const actualizado = { idServicio: 3, urlImagen: 'https://x/y.jpg' } as Servicio;
+    req.flush(actualizado);
+    expect(resultado).toEqual(actualizado);
+  });
+
+  it('borrarImagen hace DELETE /servicios/{id}/imagen y devuelve el servicio', () => {
+    let resultado: Servicio | undefined;
+
+    service.borrarImagen(3).subscribe((r) => (resultado = r));
+
+    const req = http.expectOne(`${API}/servicios/3/imagen`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ idServicio: 3, urlImagen: null } as Servicio);
+    expect(resultado?.urlImagen).toBeNull();
+  });
 });

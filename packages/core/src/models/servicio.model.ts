@@ -6,6 +6,11 @@ export interface Servicio {
   precio: number; // BigDecimal en el backend
   duracion: number; // minutos
   activo: boolean;
+  /**
+   * URL de la foto del catálogo, o null si no tiene. La calcula el backend a
+   * partir de la clave que guarda; el cliente nunca ve ni maneja esa clave.
+   */
+  urlImagen?: string | null;
 }
 
 /** Cuerpo de POST /api/servicios (ServicioRequestDTO). */

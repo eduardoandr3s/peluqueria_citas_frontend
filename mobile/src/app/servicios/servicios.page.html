@@ -21,6 +21,14 @@
     <div class="servicios-grid">
       @for (servicio of servicios(); track servicio.idServicio) {
         <ion-card class="servicio-card">
+          @if (servicio.urlImagen) {
+            <img
+              [src]="servicio.urlImagen"
+              [alt]="servicio.nombre"
+              loading="lazy"
+              class="servicio-foto"
+            />
+          }
           <ion-card-header>
             <ion-card-title>{{ servicio.nombre }}</ion-card-title>
             @if (servicio.descripcion) {

@@ -30,6 +30,7 @@ export * from './services/dia-bloqueado.service';
 
 // Utilidades
 export * from './utils/fecha';
+export * from './utils/imagen';
 
 // Guards e interceptor
 export * from './guards/auth.guard';
