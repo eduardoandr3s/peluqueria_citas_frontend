@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { AuthService } from '@peluqueria/core';
-import { mobileAuthGuard, adminGuard, clientGuard } from './auth.guard';
+import { mobileAuthGuard, adminGuard, clientGuard, sessionRedirectGuard } from './auth.guard';
 
 function setup(auth: { isAuthenticated: boolean; isAdmin: boolean }) {
   TestBed.configureTestingModule({
@@ -70,5 +70,27 @@ describe('clientGuard', () => {
   it('un USER autenticado pasa', () => {
     const { run } = setup({ isAuthenticated: true, isAdmin: false });
     expect(run(clientGuard)).toBe(true);
+  });
+});
+
+describe('sessionRedirectGuard', () => {
+  it('sin sesión manda al login', () => {
+    const { router, run } = setup({ isAuthenticated: false, isAdmin: false });
+    expect(destino(router, run(sessionRedirectGuard))).toBe('/auth/login');
+  });
+
+  it('con sesión de cliente manda a /tabs', () => {
+    const { router, run } = setup({ isAuthenticated: true, isAdmin: false });
+    expect(destino(router, run(sessionRedirectGuard))).toBe('/tabs');
+  });
+
+  it('con sesión de admin manda a /admin', () => {
+    const { router, run } = setup({ isAuthenticated: true, isAdmin: true });
+    expect(destino(router, run(sessionRedirectGuard))).toBe('/admin');
+  });
+
+  it('nunca devuelve true: la raíz siempre redirige', () => {
+    const { run } = setup({ isAuthenticated: true, isAdmin: false });
+    expect(run(sessionRedirectGuard)).toBeInstanceOf(UrlTree);
   });
 });

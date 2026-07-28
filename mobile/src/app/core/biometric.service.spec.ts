@@ -96,34 +96,87 @@ describe('BiometricService', () => {
     expect(secure.get(SECURE_SERVER)?.password).toBe('r1');
   });
 
-  it('unlock pide biometría, recupera el refresh y renueva la sesión', async () => {
+  /** Deja el almacén como al abrir la app con la huella ya enrolada. */
+  async function conHuellaEnrolada(refresh = 'r-seguro'): Promise<void> {
     prefs.set('peluqueria_biometric', 'true');
-    secure.set(SECURE_SERVER, { username: 'session', password: 'r-seguro' });
+    secure.set(SECURE_SERVER, { username: 'session', password: refresh });
     await storage.init();
+  }
+
+  /** unlock encadena verifyIdentity + getCredentials (microtasks) antes de refrescar. */
+  const trasLasMicrotasks = () => new Promise((r) => setTimeout(r, 0));
+
+  it('unlock pide biometría, recupera el refresh y renueva la sesión', async () => {
+    await conHuellaEnrolada();
 
     const ok = service.unlock();
-    // unlock encadena verifyIdentity + getCredentials (microtasks) antes de refrescar.
-    await new Promise((r) => setTimeout(r, 0));
+    await trasLasMicrotasks();
 
     const req = http.expectOne(`${API}/auth/refresh`);
     expect(req.request.body).toEqual({ refreshToken: 'r-seguro' });
     req.flush({ token: 'jwt-2', refreshToken: 'r3', email: 'a@b.com', nombre: 'Ana', rol: 'USER' });
 
-    expect(await ok).toBe(true);
+    expect(await ok).toBe('ok');
+    expect(service.ultimoIntento()).toBe('ok');
     expect(biometric.verifyIdentity).toHaveBeenCalled();
     expect(auth.getToken()).toBe('jwt-2');
     expect(auth.isAuthenticated()).toBe(true);
   });
 
-  it('unlock devuelve false si la biometría falla (sin renovar sesión)', async () => {
-    prefs.set('peluqueria_biometric', 'true');
-    secure.set(SECURE_SERVER, { username: 'session', password: 'r-seguro' });
-    await storage.init();
+  it('unlock informa de la cancelación sin tocar la sesión ni el enrolamiento', async () => {
+    await conHuellaEnrolada();
     biometric.verifyIdentity.mockRejectedValueOnce(new Error('cancelado'));
 
-    expect(await service.unlock()).toBe(false);
+    expect(await service.unlock()).toBe('cancelado');
+    expect(service.ultimoIntento()).toBe('cancelado');
     expect(auth.isAuthenticated()).toBe(false);
+    // La huella sigue enrolada: el botón del login debe poder reintentar.
+    expect(service.isEnabled()).toBe(true);
+    expect(secure.has(SECURE_SERVER)).toBe(true);
     // afterEach http.verify() confirma que NO se llamó a /auth/refresh.
+  });
+
+  it('unlock olvida la huella si el servidor rechaza el refresh', async () => {
+    await conHuellaEnrolada('r-revocado');
+
+    const resultado = service.unlock();
+    await trasLasMicrotasks();
+    http
+      .expectOne(`${API}/auth/refresh`)
+      .flush({ mensaje: 'refresh revocado' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(await resultado).toBe('sesion-caducada');
+    // Un refresh rechazado no volverá a servir: se cierra la sesión del todo para
+    // que el botón de huella no quede como una trampa que siempre falla.
+    http.expectOne(`${API}/auth/logout`).flush({});
+    expect(service.isEnabled()).toBe(false);
+    expect(secure.has(SECURE_SERVER)).toBe(false);
+    expect(auth.isAuthenticated()).toBe(false);
+    await drenar();
+  });
+
+  it('unlock conserva la huella si el fallo es de conexión', async () => {
+    await conHuellaEnrolada();
+
+    const resultado = service.unlock();
+    await trasLasMicrotasks();
+    http
+      .expectOne(`${API}/auth/refresh`)
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+
+    expect(await resultado).toBe('error-conexion');
+    // Sin red no se puede saber si la sesión vive: se conserva para reintentar.
+    expect(service.isEnabled()).toBe(true);
+    expect(secure.get(SECURE_SERVER)?.password).toBe('r-seguro');
+  });
+
+  it('unlock con el keystore vacío no deja la huella activa', async () => {
+    prefs.set('peluqueria_biometric', 'true');
+    await storage.init();
+
+    expect(await service.unlock()).toBe('sesion-caducada');
+    expect(service.isEnabled()).toBe(false);
+    expect(auth.isAuthenticated()).toBe(false);
   });
 
   it('disable borra el keystore y desactiva la biometría', async () => {

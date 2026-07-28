@@ -1,8 +1,14 @@
 import { Routes } from '@angular/router';
-import { mobileAuthGuard, adminGuard, clientGuard } from './guards/auth.guard';
+import {
+  mobileAuthGuard,
+  adminGuard,
+  clientGuard,
+  sessionRedirectGuard,
+} from './guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
+  // El destino de la raíz depende de la sesión: no puede ser un redirectTo fijo.
+  { path: '', pathMatch: 'full', canActivate: [sessionRedirectGuard], children: [] },
   {
     path: 'auth',
     children: [

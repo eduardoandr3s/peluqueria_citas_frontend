@@ -24,3 +24,15 @@ export const clientGuard: CanActivateFn = () => {
   if (!auth.isAuthenticated()) return router.createUrlTree(['/auth/login']);
   return auth.isAdmin() ? router.createUrlTree(['/admin']) : true;
 };
+
+/**
+ * Ruta raíz: manda a cada uno a su sitio según la sesión ya rehidratada por el
+ * inicializador de `main.ts` (Preferences, o keystore + refresh si hay biometría).
+ * Sin esto la raíz iría siempre al login y una sesión restaurada se perdería.
+ */
+export const sessionRedirectGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!auth.isAuthenticated()) return router.createUrlTree(['/auth/login']);
+  return router.createUrlTree([auth.isAdmin() ? '/admin' : '/tabs']);
+};
