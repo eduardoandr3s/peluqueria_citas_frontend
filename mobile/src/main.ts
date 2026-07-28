@@ -28,7 +28,7 @@ bootstrapApplication(AppComponent, {
     // refresh, si la biometría está activa, en el keystore seguro del sistema.
     { provide: TOKEN_STORAGE, useClass: BiometricTokenStorage },
     // Al arrancar: precarga el almacén. Si hay biometría activa, pide desbloqueo
-    // (huella/Face ID) para restaurar la sesión; si no, rehidrata directamente.
+    // (la huella) para restaurar la sesión; si no, rehidrata directamente.
     provideAppInitializer(async () => {
       const storage = inject(TOKEN_STORAGE);
       const auth = inject(AuthService);

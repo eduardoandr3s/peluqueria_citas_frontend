@@ -73,9 +73,13 @@ export class BiometricService {
    */
   async unlock(): Promise<UnlockResult> {
     try {
+      // Solo se promete la huella: en Android el prompt exige biometría fuerte
+      // (Clase 3) y el reconocimiento facial de la mayoría de moviles es débil
+      // (Clase 2), asi que el sistema no lo ofrece. Ver el plugin,
+      // AuthActivity.getAllowedAuthenticators(), que fija BIOMETRIC_STRONG.
       await NativeBiometric.verifyIdentity({
         title: 'Desbloquear',
-        subtitle: 'Usa tu huella o rostro para entrar',
+        subtitle: 'Usa tu huella para entrar',
       });
     } catch {
       return this.registrar('cancelado');
