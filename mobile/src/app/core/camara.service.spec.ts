@@ -19,10 +19,11 @@ describe('CamaraService', () => {
   let servicio: CamaraService;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    camera.checkPermissions.mockResolvedValue({ camera: 'granted', photos: 'granted' });
-    camera.requestPermissions.mockResolvedValue({ camera: 'granted', photos: 'granted' });
-    camera.getPhoto.mockResolvedValue({ webPath: 'blob:local/foto' });
+    // Se resetean solo los dobles de este fichero: un vi.clearAllMocks() alcanzaria
+    // tambien a los de otros specs, que comparten registro al empaquetarse.
+    camera.checkPermissions.mockReset().mockResolvedValue({ camera: 'granted', photos: 'granted' });
+    camera.requestPermissions.mockReset().mockResolvedValue({ camera: 'granted', photos: 'granted' });
+    camera.getPhoto.mockReset().mockResolvedValue({ webPath: 'blob:local/foto' });
     // El webPath se convierte a bytes con fetch: se simula la respuesta local.
     vi.stubGlobal('fetch', vi.fn(async () => ({ blob: async () => new Blob(['bytes']) })));
 

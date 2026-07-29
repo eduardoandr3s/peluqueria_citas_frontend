@@ -1,10 +1,23 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { API_URL, AuthService, TOKEN_STORAGE } from '@peluqueria/core';
+import { API_URL, AuthService, STORAGE_KEYS, TOKEN_STORAGE } from '@peluqueria/core';
 import { BiometricService } from './biometric.service';
 import { BiometricTokenStorage } from './biometric-token-storage';
 
+/**
+ * Tests del acceso biométrico: el almacén (`BiometricTokenStorage`) y el servicio
+ * que lo orquesta (`BiometricService`).
+ *
+ * **Los dos van en el MISMO fichero a propósito: no volver a separarlos.** El
+ * builder de test empaqueta todos los specs, así que `vi.mock` no queda aislado por
+ * fichero: si dos specs mockean el mismo módulo, solo sobrevive el factory de uno y
+ * el otro acaba leyendo y escribiendo en los dobles del primero. Cuando estaban en
+ * dos ficheros, el que perdía veía mapas vacíos y valores dejados por tests
+ * anteriores; y como el ganador depende de cómo se reparten los ficheros entre
+ * procesos, en local pasaba y en CI (2 cores) fallaba. Con un solo fichero hay un
+ * único `vi.mock` por módulo y el problema no existe.
+ */
 const { prefs, secure, biometric } = vi.hoisted(() => {
   const prefs = new Map<string, string>();
   const secure = new Map<string, { username: string; password: string }>();
@@ -41,13 +54,116 @@ vi.mock('@capgo/capacitor-native-biometric', () => ({ NativeBiometric: biometric
 
 const API = 'http://test/api';
 const SECURE_SERVER = 'com.segovia.peluqueria.refresh';
+const FLAG = 'peluqueria_biometric';
 
 /**
- * El almacén persiste en segundo plano (promesas fire-and-forget); se drenan
- * las tareas pendientes antes de limpiar el estado para que una escritura
- * rezagada de un test no aterrice en el siguiente.
+ * El almacén persiste en segundo plano (promesas fire-and-forget); hay que drenar
+ * las tareas pendientes antes de assertar o de limpiar el estado, o una escritura
+ * rezagada de un test puede aterrizar en el siguiente.
  */
 const drenar = () => new Promise<void>((resolve) => setTimeout(resolve));
+
+/** Deja los dobles sin estado, sin llamadas y con su comportamiento original. */
+function limpiarDobles(): void {
+  prefs.clear();
+  secure.clear();
+  vi.clearAllMocks();
+}
+
+describe('BiometricTokenStorage', () => {
+  let storage: InstanceType<typeof BiometricTokenStorage>;
+
+  beforeEach(async () => {
+    await drenar();
+    limpiarDobles();
+    storage = new BiometricTokenStorage();
+  });
+
+  it('sin biometría guarda el refresh en Preferences (texto plano)', async () => {
+    await storage.init();
+    expect(storage.biometricEnabled).toBe(false);
+
+    storage.set(STORAGE_KEYS.refresh, 'r1');
+    expect(storage.get(STORAGE_KEYS.refresh)).toBe('r1');
+
+    await drenar();
+    expect(prefs.get(STORAGE_KEYS.refresh)).toBe('r1');
+    expect(biometric.setCredentials).not.toHaveBeenCalled();
+  });
+
+  it('enableSecure mueve el refresh al keystore y lo saca de Preferences', async () => {
+    await storage.init();
+    storage.set(STORAGE_KEYS.refresh, 'r1');
+
+    await storage.enableSecure();
+
+    expect(storage.biometricEnabled).toBe(true);
+    expect(prefs.has(STORAGE_KEYS.refresh)).toBe(false);
+    expect(prefs.get(FLAG)).toBe('true');
+    expect(secure.get(SECURE_SERVER)?.password).toBe('r1');
+  });
+
+  it('con biometría activa, una rotación se refleja en el keystore (no en Preferences)', async () => {
+    await storage.init();
+    storage.set(STORAGE_KEYS.refresh, 'r1');
+    await storage.enableSecure();
+
+    storage.set(STORAGE_KEYS.refresh, 'r2'); // rotación
+
+    await drenar();
+    expect(storage.get(STORAGE_KEYS.refresh)).toBe('r2');
+    expect(secure.get(SECURE_SERVER)?.password).toBe('r2');
+    expect(prefs.has(STORAGE_KEYS.refresh)).toBe(false);
+  });
+
+  it('init con el flag activo NO carga el refresh desde Preferences (queda bloqueado)', async () => {
+    prefs.set(FLAG, 'true');
+    secure.set(SECURE_SERVER, { username: 'session', password: 'r-seguro' });
+
+    await storage.init();
+
+    expect(storage.biometricEnabled).toBe(true);
+    expect(storage.get(STORAGE_KEYS.refresh)).toBeNull();
+  });
+
+  it('loadSecureRefresh recupera el refresh del keystore a memoria', async () => {
+    prefs.set(FLAG, 'true');
+    secure.set(SECURE_SERVER, { username: 'session', password: 'r-seguro' });
+    await storage.init();
+
+    const refresh = await storage.loadSecureRefresh();
+
+    expect(refresh).toBe('r-seguro');
+    expect(storage.get(STORAGE_KEYS.refresh)).toBe('r-seguro');
+  });
+
+  it('disableSecure borra el keystore y devuelve el refresh a Preferences', async () => {
+    await storage.init();
+    storage.set(STORAGE_KEYS.refresh, 'r1');
+    await storage.enableSecure();
+
+    await storage.disableSecure();
+
+    expect(storage.biometricEnabled).toBe(false);
+    expect(secure.has(SECURE_SERVER)).toBe(false);
+    expect(prefs.has(FLAG)).toBe(false);
+    expect(prefs.get(STORAGE_KEYS.refresh)).toBe('r1');
+  });
+
+  it('remove del refresh con biometría activa cierra sesión y desactiva la biometría', async () => {
+    await storage.init();
+    storage.set(STORAGE_KEYS.refresh, 'r1');
+    await storage.enableSecure();
+
+    storage.remove(STORAGE_KEYS.refresh); // logout
+
+    await drenar();
+    expect(storage.biometricEnabled).toBe(false);
+    expect(storage.get(STORAGE_KEYS.refresh)).toBeNull();
+    expect(secure.has(SECURE_SERVER)).toBe(false);
+    expect(biometric.deleteCredentials).toHaveBeenCalled();
+  });
+});
 
 describe('BiometricService', () => {
   let service: InstanceType<typeof BiometricService>;
@@ -57,9 +173,7 @@ describe('BiometricService', () => {
 
   beforeEach(async () => {
     await drenar();
-    prefs.clear();
-    secure.clear();
-    vi.clearAllMocks();
+    limpiarDobles();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -98,7 +212,7 @@ describe('BiometricService', () => {
 
   /** Deja el almacén como al abrir la app con la huella ya enrolada. */
   async function conHuellaEnrolada(refresh = 'r-seguro'): Promise<void> {
-    prefs.set('peluqueria_biometric', 'true');
+    prefs.set(FLAG, 'true');
     secure.set(SECURE_SERVER, { username: 'session', password: refresh });
     await storage.init();
   }
@@ -171,7 +285,7 @@ describe('BiometricService', () => {
   });
 
   it('unlock con el keystore vacío no deja la huella activa', async () => {
-    prefs.set('peluqueria_biometric', 'true');
+    prefs.set(FLAG, 'true');
     await storage.init();
 
     expect(await service.unlock()).toBe('sesion-caducada');
