@@ -18,6 +18,7 @@ function setup(overrides: { svc?: Partial<Record<keyof UsuarioService, unknown>>
     eliminar: vi.fn(),
     cambiarRol: vi.fn(),
     activar: vi.fn(),
+    obtener: vi.fn().mockReturnValue(of({ ...OTRO, urlAvatar: null })),
     ...overrides.svc,
   };
   TestBed.configureTestingModule({
@@ -157,5 +158,47 @@ describe('Usuarios', () => {
     expect(c.confirmAccion({ type: 'deactivate', usuario: OTRO })).toBe('Desactivar');
     expect(c.confirmAccion({ type: 'activate', usuario: OTRO })).toBe('Reactivar');
     expect(c.confirmMensaje({ type: 'activate', usuario: OTRO })).toContain('volverá a tener acceso');
+  });
+
+  it('el listado no pide ninguna foto: solo al abrir la ficha', () => {
+    const { c, svc } = setup();
+
+    // Cargar la página no llama al detalle de nadie.
+    expect(svc.obtener).not.toHaveBeenCalled();
+
+    c.abrirFicha(OTRO);
+
+    expect(svc.obtener).toHaveBeenCalledWith(2);
+    expect(c.ficha().idUsuario).toBe(2);
+  });
+
+  it('la ficha muestra la foto que devuelve el detalle', () => {
+    const conFoto = { ...OTRO, urlAvatar: 'https://almacen/firmada/2/ana.jpg' };
+    const { c } = setup({ svc: { obtener: vi.fn().mockReturnValue(of(conFoto)) } });
+
+    c.abrirFicha(OTRO);
+
+    expect(c.ficha().urlAvatar).toBe('https://almacen/firmada/2/ana.jpg');
+    expect(c.fichaCargando()).toBe(false);
+  });
+
+  it('si el detalle falla, la ficha sigue abierta con los datos de la fila', () => {
+    const { c } = setup({ svc: { obtener: vi.fn().mockReturnValue(throwError(() => new Error('x'))) } });
+
+    c.abrirFicha(OTRO);
+
+    expect(c.ficha().nombre).toBe('Ana López');
+    expect(c.fichaError()).toContain('No se pudo cargar la foto');
+    expect(c.fichaCargando()).toBe(false);
+  });
+
+  it('cerrar la ficha la vacía', () => {
+    const { c } = setup();
+
+    c.abrirFicha(OTRO);
+    c.cerrarFicha();
+
+    expect(c.ficha()).toBeNull();
+    expect(c.fichaError()).toBeNull();
   });
 });

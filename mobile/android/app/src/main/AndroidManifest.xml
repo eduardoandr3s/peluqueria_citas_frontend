@@ -38,4 +38,17 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Foto de perfil (@capacitor/camera). `cap sync` registra el plugin pero NO añade
+      estos permisos: van a mano. El usuario elige entre camara y galeria, de ahi los
+      dos. READ_MEDIA_IMAGES es el de Android 13+; READ_EXTERNAL_STORAGE queda acotado
+      a las versiones anteriores para no pedir en Android 13+ un permiso que ya no
+      existe. No se pide permiso de escritura: la app no guarda nada en la galeria.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 </manifest>

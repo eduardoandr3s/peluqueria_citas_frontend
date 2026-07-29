@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   IonHeader,
@@ -16,6 +16,7 @@ import {
   IonSkeletonText,
   IonItem,
   IonList,
+  IonSearchbar,
 } from '@ionic/angular/standalone';
 import { ServicioService, Servicio } from '@peluqueria/core';
 
@@ -27,7 +28,7 @@ import { ServicioService, Servicio } from '@peluqueria/core';
     IonHeader, IonToolbar, IonTitle, IonContent,
     IonRefresher, IonRefresherContent,
     IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
-    IonButton, IonSkeletonText, IonItem, IonList,
+    IonButton, IonSkeletonText, IonItem, IonList, IonSearchbar,
   ],
 })
 export class ServiciosPage implements OnInit {
@@ -36,9 +37,44 @@ export class ServiciosPage implements OnInit {
 
   readonly servicios = signal<Servicio[]>([]);
   readonly loading = signal(true);
+  readonly busqueda = signal('');
+
+  /**
+   * Servicios que coinciden con la busqueda, por nombre o descripcion. El catalogo
+   * son unas decenas de filas que ya estan en memoria, asi que se filtra aqui y no
+   * pidiendoselo al servidor.
+   */
+  readonly filtrados = computed(() => {
+    const termino = this.normalizar(this.busqueda());
+    if (!termino) {
+      return this.servicios();
+    }
+    return this.servicios().filter(
+      (s) =>
+        this.normalizar(s.nombre).includes(termino) ||
+        this.normalizar(s.descripcion ?? '').includes(termino),
+    );
+  });
 
   ngOnInit(): void {
     this.cargar();
+  }
+
+  onBuscar(event: CustomEvent): void {
+    this.busqueda.set((event.detail as { value?: string | null }).value ?? '');
+  }
+
+  /**
+   * Quita mayusculas y tildes. Lo segundo importa en el movil: escribir «coloración»
+   * con la tilde es incomodo, y sin esto no encontraria el servicio.
+   */
+  private normalizar(texto: string): string {
+    return texto
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      // NFD separa la tilde en un caracter propio; este rango son esas marcas.
+      .replace(/[\u0300-\u036f]/g, '');
   }
 
   cargar(event?: CustomEvent): void {

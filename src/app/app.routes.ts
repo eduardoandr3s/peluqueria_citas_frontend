@@ -50,6 +50,10 @@ export const routes: Routes = [
         path: 'bloqueos',
         loadComponent: () => import('./features/bloqueos/bloqueos').then((m) => m.Bloqueos),
       },
+      {
+        path: 'perfil',
+        loadComponent: () => import('./features/perfil/perfil').then((m) => m.Perfil),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

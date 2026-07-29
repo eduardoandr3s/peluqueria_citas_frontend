@@ -123,4 +123,34 @@ describe('UsuarioService', () => {
     expect(req.request.method).toBe('PATCH');
     req.flush({});
   });
+
+  it('subirAvatar hace POST multipart a /usuarios/{id}/avatar', () => {
+    const imagen = new File(['bytes'], 'yo.jpg', { type: 'image/jpeg' });
+    let resultado: Usuario | undefined;
+
+    service.subirAvatar(7, imagen).subscribe((r) => (resultado = r));
+
+    const req = http.expectOne(`${API}/usuarios/7/avatar`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeInstanceOf(FormData);
+    expect((req.request.body as FormData).get('imagen')).toBe(imagen);
+    // Con FormData el Content-Type lo pone el navegador con su boundary;
+    // fijarlo a mano rompe la peticion, asi que no debe venir puesto.
+    expect(req.request.headers.has('Content-Type')).toBe(false);
+
+    const actualizado = { idUsuario: 7, urlAvatar: 'https://x/firmada/y.jpg' } as Usuario;
+    req.flush(actualizado);
+    expect(resultado).toEqual(actualizado);
+  });
+
+  it('borrarAvatar hace DELETE /usuarios/{id}/avatar y devuelve el usuario', () => {
+    let resultado: Usuario | undefined;
+
+    service.borrarAvatar(7).subscribe((r) => (resultado = r));
+
+    const req = http.expectOne(`${API}/usuarios/7/avatar`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ idUsuario: 7, urlAvatar: null } as Usuario);
+    expect(resultado?.urlAvatar).toBeNull();
+  });
 });

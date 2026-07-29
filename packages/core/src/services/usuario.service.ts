@@ -73,4 +73,22 @@ export class UsuarioService {
   activar(id: number): Observable<Usuario> {
     return this.http.patch<Usuario>(`${this.apiUrl}/${id}/activar`, {});
   }
+
+  /**
+   * Sube o sustituye el avatar. Cada usuario puede con el suyo; un ADMIN, con el de
+   * cualquiera (lo comprueba el backend, que devuelve 403 si no toca).
+   *
+   * Ojo: NO se fija `Content-Type`. Con un `FormData` lo pone el navegador,
+   * incluyendo el `boundary` del multipart; ponerlo a mano rompe la petición.
+   */
+  subirAvatar(id: number, imagen: File | Blob): Observable<Usuario> {
+    const cuerpo = new FormData();
+    cuerpo.append('imagen', imagen);
+    return this.http.post<Usuario>(`${this.apiUrl}/${id}/avatar`, cuerpo);
+  }
+
+  /** Quita el avatar. Idempotente. */
+  borrarAvatar(id: number): Observable<Usuario> {
+    return this.http.delete<Usuario>(`${this.apiUrl}/${id}/avatar`);
+  }
 }

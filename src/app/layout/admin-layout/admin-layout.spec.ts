@@ -1,10 +1,26 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { AuthService } from '@peluqueria/core';
+import { AuthService, UsuarioService } from '@peluqueria/core';
 import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
 import { AdminLayout } from './admin-layout';
 
-function setup() {
+function setup(opts: { urlAvatar?: string | null; meFalla?: boolean } = {}) {
+  // Señal real (no un vi.fn suelto) para poder comprobar que la cabecera reacciona
+  // a la URL que publica el layout tras pedir /usuarios/me.
+  const avatarUrl = signal<string | null>(null);
+  const me = vi.fn(() =>
+    opts.meFalla
+      ? throwError(() => new Error('boom'))
+      : of({
+          idUsuario: 1,
+          nombre: 'Ana Ruiz',
+          email: 'ana@test.com',
+          rol: 'ADMIN',
+          urlAvatar: opts.urlAvatar ?? null,
+        }),
+  );
+
   TestBed.configureTestingModule({
     imports: [AdminLayout],
     providers: [
@@ -14,13 +30,16 @@ function setup() {
         useValue: {
           user: signal({ idUsuario: 1, nombre: 'Ana Ruiz', email: 'ana@test.com', rol: 'ADMIN' }),
           logout: vi.fn(),
+          avatarUrl,
+          setAvatarUrl: (url: string | null) => avatarUrl.set(url),
         },
       },
+      { provide: UsuarioService, useValue: { me } },
     ],
   });
   const fixture = TestBed.createComponent(AdminLayout);
   fixture.detectChanges();
-  return { fixture, c: fixture.componentInstance as any };
+  return { fixture, c: fixture.componentInstance as any, me, avatarUrl };
 }
 
 /** Enlaces de la barra lateral, por su destino. */
@@ -81,6 +100,42 @@ describe('AdminLayout', () => {
     const { fixture, c } = setup();
 
     expect(c.iniciales()).toBe('AR');
+    expect(fixture.nativeElement.textContent).toContain('Ana Ruiz');
+  });
+
+  it('«Mi perfil» cuelga del menú Configuración', () => {
+    const { fixture } = setup();
+
+    boton(fixture, 'Configuración')!.click();
+    fixture.detectChanges();
+
+    expect(enlace(fixture, '/perfil')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('Mi perfil');
+  });
+
+  it('sin avatar deja las iniciales y el círculo lleva al perfil', () => {
+    const { fixture, me } = setup({ urlAvatar: null });
+
+    expect(me).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('header img')).toBeNull();
+    // Las iniciales siguen siendo el enlace a «Mi perfil».
+    const enlacePerfil = fixture.nativeElement.querySelector('header a[href="/perfil"]');
+    expect(enlacePerfil?.textContent).toContain('AR');
+  });
+
+  it('con avatar pinta la foto en la cabecera', () => {
+    const { fixture } = setup({ urlAvatar: 'https://almacen/firmada/1/yo.jpg' });
+
+    const img = fixture.nativeElement.querySelector('header img') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('https://almacen/firmada/1/yo.jpg');
+    expect(img.closest('a')?.getAttribute('href')).toBe('/perfil');
+  });
+
+  it('si /usuarios/me falla, la cabecera sigue viva con las iniciales', () => {
+    // El avatar es decoración: un error aquí no debe romper el layout ni avisar de nada.
+    const { fixture } = setup({ meFalla: true });
+
+    expect(fixture.nativeElement.querySelector('header img')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Ana Ruiz');
   });
 });

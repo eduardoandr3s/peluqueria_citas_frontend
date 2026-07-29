@@ -7,7 +7,41 @@
 <ion-content>
   @if (user(); as u) {
     <div class="avatar-area">
-      <div class="avatar">{{ u.nombre.charAt(0).toUpperCase() }}</div>
+      @if (usuario()?.urlAvatar) {
+        <img class="avatar-foto" [src]="usuario()!.urlAvatar" [alt]="u.nombre" />
+      } @else {
+        <div class="avatar">{{ u.nombre.charAt(0).toUpperCase() }}</div>
+      }
+
+      @if (usuario(); as detalle) {
+        <div class="avatar-acciones">
+          <ion-button size="small" fill="clear" [disabled]="subiendo()" (click)="cambiarFoto()">
+            @if (subiendo()) {
+              Subiendo…
+            } @else if (detalle.urlAvatar) {
+              Cambiar foto
+            } @else {
+              Añadir foto
+            }
+          </ion-button>
+          @if (detalle.urlAvatar) {
+            <ion-button
+              size="small"
+              fill="clear"
+              color="danger"
+              [disabled]="subiendo()"
+              (click)="confirmarQuitarFoto()"
+            >
+              Quitar
+            </ion-button>
+          }
+        </div>
+      }
+
+      @if (avatarError()) {
+        <p class="avatar-error">{{ avatarError() }}</p>
+      }
+
       <h2>{{ u.nombre }}</h2>
       <p>{{ u.email }}</p>
     </div>

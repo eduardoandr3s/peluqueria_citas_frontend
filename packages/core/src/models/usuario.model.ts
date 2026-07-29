@@ -9,6 +9,14 @@ export interface Usuario {
   fechaRegistro?: string; // ISO date (LocalDate)
   rol: Rol;
   activo?: boolean;
+  /**
+   * URL firmada del avatar, o null si no tiene.
+   *
+   * Caduca (el bucket es privado), así que no se guarda en cliente: llega en las
+   * respuestas de un usuario concreto (`me()`, `obtener(id)`, subir/borrar avatar).
+   * El listado la devuelve siempre null para no firmar una URL por fila.
+   */
+  urlAvatar?: string | null;
 }
 
 /** Página de Spring Data (Page<T>). GET /api/usuarios devuelve esta forma. */

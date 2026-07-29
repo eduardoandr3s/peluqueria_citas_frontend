@@ -124,7 +124,12 @@ interface Feedback {
                 @for (u of usuarios(); track u.idUsuario) {
                   <tr class="hover:bg-elevated">
                     <td class="px-5 py-3">
-                      <div class="flex items-center gap-3">
+                      <button
+                        type="button"
+                        (click)="abrirFicha(u)"
+                        class="flex items-center gap-3 rounded-lg text-left transition hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        [attr.aria-label]="'Ver la ficha de ' + u.nombre"
+                      >
                         <span class="flex h-9 w-9 items-center justify-center rounded-full bg-elevated text-xs font-bold text-main">
                           {{ iniciales(u.nombre) }}
                         </span>
@@ -140,7 +145,7 @@ interface Feedback {
                           </p>
                           <p class="text-xs text-muted">{{ u.email }}</p>
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td class="px-5 py-3 text-main">{{ u.telefono || '—' }}</td>
                     <td class="px-5 py-3 text-main">
@@ -237,6 +242,69 @@ interface Feedback {
         </div>
       }
     </div>
+
+    <!-- Ficha del usuario: la foto no viene en el listado, se pide al abrirla -->
+    @if (ficha(); as u) {
+      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div class="w-full max-w-sm rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">Ficha de usuario</h2>
+
+          <div class="mt-5 flex flex-col items-center gap-3">
+            @if (u.urlAvatar) {
+              <img
+                [src]="u.urlAvatar"
+                [alt]="u.nombre"
+                class="h-24 w-24 rounded-full object-cover ring-1 ring-line"
+              />
+            } @else if (fichaCargando()) {
+              <div class="h-24 w-24 animate-pulse rounded-full bg-elevated"></div>
+            } @else {
+              <span
+                class="flex h-24 w-24 items-center justify-center rounded-full bg-elevated text-2xl font-bold text-main"
+                >{{ iniciales(u.nombre) }}</span
+              >
+            }
+            <p class="font-semibold text-main">{{ u.nombre }}</p>
+            <span
+              class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              [class]="u.rol === 'ADMIN' ? 'bg-primary/15 text-primary' : 'bg-elevated text-main'"
+              >{{ u.rol }}</span
+            >
+          </div>
+
+          <dl class="mt-5 divide-y divide-line text-sm">
+            <div class="flex justify-between gap-4 py-2.5">
+              <dt class="text-muted">Email</dt>
+              <dd class="text-main">{{ u.email }}</dd>
+            </div>
+            <div class="flex justify-between gap-4 py-2.5">
+              <dt class="text-muted">Teléfono</dt>
+              <dd class="text-main">{{ u.telefono || '—' }}</dd>
+            </div>
+            <div class="flex justify-between gap-4 py-2.5">
+              <dt class="text-muted">Alta</dt>
+              <dd class="text-main">
+                {{ u.fechaRegistro ? (u.fechaRegistro | date: 'dd/MM/yyyy') : '—' }}
+              </dd>
+            </div>
+          </dl>
+
+          @if (fichaError()) {
+            <p class="mt-3 text-xs text-error">{{ fichaError() }}</p>
+          }
+
+          <div class="mt-6 flex justify-end">
+            <button
+              type="button"
+              (click)="cerrarFicha()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Modal: crear / editar usuario -->
     @if (formOpen()) {
@@ -410,6 +478,12 @@ export class Usuarios implements OnInit {
   protected readonly incluirInactivos = signal(false);
   private readonly size = 20;
 
+  // Ficha de un usuario. El listado no trae la foto (el backend no firma una URL
+  // por fila), así que se pide el detalle al abrirla.
+  protected readonly ficha = signal<Usuario | null>(null);
+  protected readonly fichaCargando = signal(false);
+  protected readonly fichaError = signal<string | null>(null);
+
   protected readonly formOpen = signal(false);
   protected readonly editando = signal<Usuario | null>(null);
   protected readonly saving = signal(false);
@@ -496,6 +570,36 @@ export class Usuarios implements OnInit {
   protected iniciales(nombre: string): string {
     const parts = nombre.trim().split(/\s+/);
     return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+  }
+
+  /**
+   * Abre la ficha con lo que ya se sabe de la fila y pide el detalle para la foto:
+   * el listado la devuelve siempre vacía porque firmar la URL de un bucket privado
+   * es una llamada al almacén, y por fila serían tantas como usuarios en la página.
+   */
+  protected abrirFicha(u: Usuario): void {
+    this.ficha.set(u);
+    this.fichaError.set(null);
+    this.fichaCargando.set(true);
+    this.usuarioService.obtener(u.idUsuario).subscribe({
+      next: (detalle) => {
+        // Puede haberse cerrado (o abierto otra) mientras llegaba la respuesta.
+        if (this.ficha()?.idUsuario === detalle.idUsuario) {
+          this.ficha.set(detalle);
+        }
+        this.fichaCargando.set(false);
+      },
+      error: () => {
+        this.fichaError.set('No se pudo cargar la foto de este usuario.');
+        this.fichaCargando.set(false);
+      },
+    });
+  }
+
+  protected cerrarFicha(): void {
+    this.ficha.set(null);
+    this.fichaError.set(null);
+    this.fichaCargando.set(false);
   }
 
   protected invalidCampo(control: 'nombre' | 'email' | 'telefono' | 'password'): boolean {

@@ -2,6 +2,18 @@
   <ion-toolbar>
     <ion-title>Servicios</ion-title>
   </ion-toolbar>
+  <!-- Sin catalogo cargado no hay nada que buscar, asi que la barra no aparece. -->
+  @if (!loading() && servicios().length > 0) {
+    <ion-toolbar>
+      <ion-searchbar
+        [value]="busqueda()"
+        (ionInput)="onBuscar($event)"
+        placeholder="Buscar servicio"
+        inputmode="search"
+        enterkeyhint="search"
+      ></ion-searchbar>
+    </ion-toolbar>
+  }
 </ion-header>
 
 <ion-content>
@@ -19,7 +31,7 @@
     </ion-list>
   } @else {
     <div class="servicios-grid">
-      @for (servicio of servicios(); track servicio.idServicio) {
+      @for (servicio of filtrados(); track servicio.idServicio) {
         <ion-card class="servicio-card">
           @if (servicio.urlImagen) {
             <img
@@ -47,8 +59,12 @@
         </ion-card>
       }
 
-      @if (servicios().length === 0) {
-        <p class="empty-msg">No hay servicios disponibles.</p>
+      @if (filtrados().length === 0) {
+        @if (servicios().length === 0) {
+          <p class="empty-msg">No hay servicios disponibles.</p>
+        } @else {
+          <p class="empty-msg">No hay servicios que coincidan con «{{ busqueda() }}».</p>
+        }
       }
     </div>
   }

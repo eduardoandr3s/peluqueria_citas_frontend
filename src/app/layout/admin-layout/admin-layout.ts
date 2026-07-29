@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AuthService } from '@peluqueria/core';
+import { AuthService, UsuarioService } from '@peluqueria/core';
 
 interface NavItem {
   label: string;
@@ -164,10 +164,24 @@ interface NavItem {
               <p class="text-sm font-semibold text-main">{{ nombre() }}</p>
               <p class="text-xs text-muted">{{ email() }}</p>
             </div>
-            <span
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary"
-              >{{ iniciales() }}</span
+            <a
+              routerLink="/perfil"
+              class="rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              aria-label="Ir a mi perfil"
             >
+              @if (avatarUrl(); as url) {
+                <img
+                  [src]="url"
+                  [alt]="nombre()"
+                  class="h-9 w-9 rounded-full object-cover ring-1 ring-line"
+                />
+              } @else {
+                <span
+                  class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary"
+                  >{{ iniciales() }}</span
+                >
+              }
+            </a>
           </div>
         </header>
 
@@ -180,12 +194,33 @@ interface NavItem {
 })
 export class AdminLayout {
   private readonly auth = inject(AuthService);
+  private readonly usuarioService = inject(UsuarioService);
   private readonly router = inject(Router);
 
   protected readonly sidebarOpen = signal(false);
 
+  constructor() {
+    // El layout se construye una vez por sesión cargada, así que esta es una
+    // petición y no una por navegación. Si ya hay avatar (venimos de cambiarlo en
+    // «Mi perfil»), no se vuelve a pedir.
+    if (this.auth.avatarUrl() === null) {
+      this.usuarioService.me().subscribe({
+        next: (u) => this.auth.setAvatarUrl(u.urlAvatar ?? null),
+        error: () => {
+          // Sin foto se pintan las iniciales; no hay nada que avisar al usuario.
+        },
+      });
+    }
+  }
+
   protected readonly nombre = computed(() => this.auth.user()?.nombre ?? 'Administrador');
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
+  /**
+   * La URL firmada del avatar no viene en la sesión (caduca), así que se pide una
+   * vez al entrar al panel; a partir de ahí la mantiene «Mi perfil» al cambiar la
+   * foto. Si falla, se queda con las iniciales: es decoración, no bloquea nada.
+   */
+  protected readonly avatarUrl = this.auth.avatarUrl;
   protected readonly iniciales = computed(() => {
     const n = this.auth.user()?.nombre?.trim() ?? '';
     if (!n) return 'A';
@@ -229,6 +264,11 @@ export class AdminLayout {
           label: 'Días cerrados',
           path: '/bloqueos',
           icon: 'M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z',
+        },
+        {
+          label: 'Mi perfil',
+          path: '/perfil',
+          icon: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
         },
       ],
     },

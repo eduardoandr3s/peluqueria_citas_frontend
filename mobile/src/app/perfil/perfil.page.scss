@@ -18,6 +18,28 @@
     margin-bottom: 12px;
   }
 
+  // Mismas medidas que .avatar para que la pantalla no salte al cargar la foto.
+  .avatar-foto {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 12px;
+  }
+
+  .avatar-acciones {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .avatar-error {
+    margin: 0 0 8px;
+    color: var(--ion-color-danger);
+    font-size: 13px;
+    text-align: center;
+  }
+
   h2 {
     margin: 0;
     font-size: 20px;

@@ -14,8 +14,19 @@ export class AuthService {
 
   private readonly _user = signal<SessionUser | null>(this.loadUser());
 
+  /**
+   * URL firmada del avatar de la sesión, cuando alguien la ha resuelto ya.
+   *
+   * No se persiste con el resto de la sesión a propósito: la URL caduca (el bucket
+   * es privado), así que guardarla dejaría un enlace muerto en el almacén. Vive
+   * aquí, y no en cada pantalla, para que al cambiar la foto en el perfil se
+   * actualice también donde se muestre en la cabecera.
+   */
+  private readonly _avatarUrl = signal<string | null>(null);
+
   /** Usuario de la sesión actual (o null). */
   readonly user = this._user.asReadonly();
+  readonly avatarUrl = this._avatarUrl.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null);
   readonly isAdmin = computed(() => this._user()?.rol === 'ADMIN');
 
@@ -85,6 +96,12 @@ export class AuthService {
     this.storage.remove(STORAGE_KEYS.refresh);
     this.storage.remove(STORAGE_KEYS.user);
     this._user.set(null);
+    this._avatarUrl.set(null);
+  }
+
+  /** Publica la URL del avatar ya resuelta (o null al quitarlo). */
+  setAvatarUrl(url: string | null): void {
+    this._avatarUrl.set(url ?? null);
   }
 
   getToken(): string | null {
@@ -105,6 +122,12 @@ export class AuthService {
   }
 
   private storeSession(res: AuthResponse): void {
+    // Si entra otra persona, su avatar no es el que hubiera cargado antes. Se compara
+    // el email en vez de limpiar siempre porque esto también corre en cada `refresh()`,
+    // y ahí la foto de la cabecera debe quedarse donde está.
+    if (this._user()?.email !== res.email) {
+      this._avatarUrl.set(null);
+    }
     this.storage.set(STORAGE_KEYS.token, res.token);
     this.storage.set(STORAGE_KEYS.refresh, res.refreshToken);
     const user: SessionUser = { email: res.email, nombre: res.nombre, rol: res.rol };
