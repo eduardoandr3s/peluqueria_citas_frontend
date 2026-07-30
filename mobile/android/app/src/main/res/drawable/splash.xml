@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pantalla de arranque de Android 11 y anteriores (fondo de AppTheme.NoActionBarLaunch,
+  ver values/styles.xml). En Android 12+ manda la SplashScreen API del sistema:
+  values-v31/styles.xml.
+
+  Es un layer-list y no los 26 PNG que genera `capacitor-assets` porque lo que hay
+  que pintar es un color plano con el emblema centrado: en XML son ~30 KB que
+  escalan a cualquier densidad y orientacion, frente a 2,3 MB de bitmaps que ademas
+  habria que regenerar al cambiar el logo. Si alguien vuelve a lanzar la generacion
+  de assets y aparecen drawable-port-*/drawable-land-*, hay que borrarlos: un
+  splash.png junto a este splash.xml es un recurso duplicado y no compila.
+
+  El tema oscuro no necesita un drawable aparte: el color ya tiene variante en
+  values-night/colors.xml.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/marca_splash_fondo" />
+    <item>
+        <bitmap
+            android:src="@drawable/splash_logo"
+            android:gravity="center" />
+    </item>
+</layer-list>

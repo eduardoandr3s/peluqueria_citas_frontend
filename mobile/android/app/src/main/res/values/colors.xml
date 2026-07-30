@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Colores de marca, usados por el icono adaptativo y por la pantalla de arranque.
+
+  Los nombres son propios (no `ic_launcher_background`, que es de la plantilla y lo
+  reescribe `capacitor-assets` a blanco cada vez que se ejecuta): asi lo que
+  regenere la herramienta no puede cambiar el color del icono sin que se vea.
+
+  Cobre = el ion-color-primary de src/theme/variables.scss. Navy = el del emblema.
+-->
+<resources>
+    <color name="marca_cobre">#E07A5F</color>
+    <color name="marca_navy">#16293C</color>
+
+    <!--
+      Fondo de la pantalla de arranque. Indirecto a proposito: la variante oscura
+      vive en values-night/colors.xml, y asi el splash y el tema de Android 12+
+      salen los dos del mismo sitio sin duplicar drawables ni estilos.
+    -->
+    <color name="marca_splash_fondo">@color/marca_cobre</color>
+</resources>

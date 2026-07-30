@@ -8,7 +8,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "assets": "capacitor-assets generate --android && node scripts/optimizar-assets.mjs",
+    "assets:optimizar": "node scripts/optimizar-assets.mjs"
   },
   "dependencies": {
     "@angular/animations": "~21.2.0",
@@ -36,6 +38,7 @@
     "@angular/cli": "~21.2.0",
     "@angular/compiler-cli": "~21.2.0",
     "@angular/language-service": "~21.2.0",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.2",
     "@ionic/angular-toolkit": "^12.0.0",
     "typescript": "~5.9.0"

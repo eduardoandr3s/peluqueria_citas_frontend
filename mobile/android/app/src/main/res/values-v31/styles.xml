@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pantalla de arranque en Android 12+ (API 31), que es donde corre cualquier movil
+  actual. Desde ahi el sistema dibuja el splash el mismo, con su propia API, y el
+  `android:background` del tema base deja de decidir el fondo: sin esto se veria el
+  icono sobre el fondo por defecto (blanco o negro segun el tema), no sobre el cobre.
+
+  Ojo, este estilo NO se fusiona con el de values/styles.xml: lo sustituye entero
+  cuando la API es >= 31, asi que hay que repetir el parent y el background.
+
+  No se fija `windowSplashScreenAnimatedIcon` a proposito: sin el, el sistema usa el
+  icono del lanzador, que ya es el emblema sobre cobre. Al recortarlo en circulo el
+  fondo del icono coincide con el del splash y no se ve costura.
+-->
+<resources>
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <item name="android:windowSplashScreenBackground">@color/marca_splash_fondo</item>
+    </style>
+</resources>

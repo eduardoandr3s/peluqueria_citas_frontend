@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tema oscuro: el emblema se pinta sobre su propio navy en vez de sobre el cobre.
+  A tamano de splash (~480 px) el aro dorado contrasta de sobra; a tamano de icono
+  (192 px) no lo haria, y por eso el icono usa cobre en los dos temas.
+-->
+<resources>
+    <color name="marca_splash_fondo">@color/marca_navy</color>
+</resources>

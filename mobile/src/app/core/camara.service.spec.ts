@@ -42,6 +42,20 @@ describe('CamaraService', () => {
     );
   });
 
+  it('pide la foto con los textos del selector en español', async () => {
+    // El plugin no traduce estas etiquetas: si no se pasan, salen en inglés
+    // aunque el móvil esté en español.
+    await servicio.elegirFoto();
+
+    expect(camera.getPhoto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptLabelHeader: 'Foto de perfil',
+        promptLabelPhoto: 'Elegir de la galería',
+        promptLabelPicture: 'Hacer una foto',
+      }),
+    );
+  });
+
   it('pide los permisos solo si no están concedidos', async () => {
     camera.checkPermissions.mockResolvedValue({ camera: 'prompt', photos: 'prompt' });
 

@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icono adaptativo. El fondo es un @color y no el bitmap con inset que genera
+  `capacitor-assets`: ese solo cubre el 66 % central (justo lo que la mascara deja
+  ver), asi que un lanzador que aplique parallax o escale las capas asomaria los
+  bordes vacios. Un color plano cubre el lienzo entero y ahorra 5 PNG.
+
+  El inset del primer plano SI hace falta: mapea el lienzo entero de
+  assets/icon-foreground.png sobre la zona segura, que es lo unico que la mascara
+  del sistema garantiza que se ve.
+
+  Cuidado: `capacitor-assets` pisa este fichero. Ver assets/LEEME.md.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <background android:drawable="@color/marca_cobre" />
+    <foreground>
+        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
+    </foreground>
 </adaptive-icon>

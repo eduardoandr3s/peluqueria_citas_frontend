@@ -36,6 +36,14 @@ export class CamaraService {
         // El backend rechaza lo que pase de 2 MB y luego se reduce en el cliente:
         // pedir ya 80 de calidad ahorra trabajo sin que se note.
         quality: 80,
+        // Los textos del selector son NUESTROS: el plugin no los traduce y sus
+        // defaults son literales en inglés ('Photo', 'From Photos', 'Take
+        // Picture'), así que sin esto salen en inglés con el móvil en español.
+        // Lo que viene después (cámara y galería del sistema) sí sigue el idioma
+        // del teléfono. `promptLabelCancel` no se pone: es solo de iOS.
+        promptLabelHeader: 'Foto de perfil',
+        promptLabelPhoto: 'Elegir de la galería',
+        promptLabelPicture: 'Hacer una foto',
       });
 
       if (!foto.webPath) {
