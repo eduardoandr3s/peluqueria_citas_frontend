@@ -23,6 +23,11 @@ export interface Cita {
   fechaHora: string; // ISO LocalDateTime, ej. "2026-05-29T14:30:00"
   estado: EstadoCita;
   estadoPago?: EstadoPago | null; // estado del pago asociado; null/ausente si la cita no tiene pago
+  /**
+   * Id de ese pago, para pedir su recibo (`PagoService.descargarRecibo`) sin consultar el
+   * pago aparte. Viaja con la cita porque el backend ya lo trae en la misma consulta.
+   */
+  idPago?: number | null;
 }
 
 /** Cuerpo de POST /api/citas (CitaRequestDTO). */

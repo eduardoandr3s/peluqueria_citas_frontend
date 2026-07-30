@@ -1,13 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AlertController } from '@ionic/angular/standalone';
-import { API_URL, Cita, CitaService, EstadoCita, Servicio } from '@peluqueria/core';
-import { of, throwError } from 'rxjs';
+import { API_URL, Cita, CitaService, EstadoCita, PagoService, Servicio } from '@peluqueria/core';
+import { Subject, of, throwError } from 'rxjs';
+import { FicheroService } from '../core/fichero.service';
 import { MisCitasPage } from './mis-citas.page';
 
 const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
 
-function cita(id: number, fechaHora: string, estado: EstadoCita, estadoPago?: Cita['estadoPago']): Cita {
+function cita(
+  id: number,
+  fechaHora: string,
+  estado: EstadoCita,
+  estadoPago?: Cita['estadoPago'],
+  idPago?: number,
+): Cita {
   return {
     idCita: id,
     usuario: { idUsuario: 1, nombre: 'Ana', email: 'ana@b.com' },
@@ -15,15 +22,37 @@ function cita(id: number, fechaHora: string, estado: EstadoCita, estadoPago?: Ci
     fechaHora,
     estado,
     estadoPago,
+    idPago,
   };
 }
 
-function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
+function setup(
+  cita$: Partial<Record<keyof CitaService, unknown>> = {},
+  extra: { pagoFail?: boolean; ficheroResultado?: unknown } = {},
+) {
   const citaSvc = {
     listar: vi.fn().mockReturnValue(of([])),
     actualizar: vi.fn().mockReturnValue(of({})),
     ...cita$,
   };
+  const pagoSvc = {
+    descargarRecibo: vi
+      .fn()
+      .mockReturnValue(
+        extra.pagoFail
+          ? throwError(() => new Error('x'))
+          : of(new Blob(['%PDF-1.4'], { type: 'application/pdf' })),
+      ),
+    nombreRecibo: (id: number) => `recibo-${id}.pdf`,
+  };
+  // FicheroService va doblado por el proveedor y no con vi.mock: aqui interesa que la
+  // pagina lo llame bien, no como guarda el fichero (eso es fichero.service.spec.ts).
+  const ficheroSvc = {
+    compartir: vi.fn().mockResolvedValue(extra.ficheroResultado ?? { ok: true }),
+  };
+  const alerta = { present: vi.fn() };
+  const alertCtrl = { create: vi.fn().mockResolvedValue(alerta) };
+
   TestBed.configureTestingModule({
     providers: [
       provideRouter([
@@ -32,13 +61,15 @@ function setup(cita$: Partial<Record<keyof CitaService, unknown>> = {}) {
       ]),
       { provide: API_URL, useValue: 'http://test/api' },
       { provide: CitaService, useValue: citaSvc },
-      { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
+      { provide: PagoService, useValue: pagoSvc },
+      { provide: FicheroService, useValue: ficheroSvc },
+      { provide: AlertController, useValue: alertCtrl },
     ],
   });
   const router = TestBed.inject(Router);
   const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
   const c = TestBed.runInInjectionContext(() => new MisCitasPage()) as any;
-  return { c, nav, citaSvc };
+  return { c, nav, citaSvc, pagoSvc, ficheroSvc, alertCtrl };
 }
 
 describe('MisCitasPage', () => {
@@ -124,5 +155,80 @@ describe('MisCitasPage', () => {
     const { c } = setup({ listar: vi.fn().mockReturnValue(of(lista)) });
     c.cargar();
     expect(c.citas()[0].estadoPago).toBe('PAGADO');
+  });
+
+  describe('recibo', () => {
+    const pagada = () => cita(1, '2026-07-01T10:00:00', 'CONFIRMADA', 'PAGADO', 7);
+
+    it('solo hay recibo si el pago esta cobrado o reembolsado', () => {
+      const { c } = setup();
+
+      expect(c.tieneRecibo(pagada())).toBe(true);
+      expect(c.tieneRecibo(cita(2, '2026-07-01T10:00:00', 'CONFIRMADA', 'REEMBOLSADO', 8))).toBe(true);
+      expect(c.tieneRecibo(cita(3, '2026-07-01T10:00:00', 'PENDIENTE', 'PENDIENTE', 9))).toBe(false);
+      // Sin cita pagada no hay pago, asi que tampoco hay recibo.
+      expect(c.tieneRecibo(cita(4, '2026-07-01T10:00:00', 'CONFIRMADA'))).toBe(false);
+    });
+
+    it('sin idPago no se pide nada, aunque el estado diga PAGADO', () => {
+      const { c, pagoSvc } = setup();
+      // Defensivo: un backend viejo podria mandar estadoPago sin idPago.
+      const sinId = cita(5, '2026-07-01T10:00:00', 'CONFIRMADA', 'PAGADO');
+
+      expect(c.tieneRecibo(sinId)).toBe(false);
+      c.descargarRecibo(sinId);
+      expect(pagoSvc.descargarRecibo).not.toHaveBeenCalled();
+    });
+
+    it('pide el PDF por el id del PAGO y lo entrega al servicio de ficheros', async () => {
+      const { c, pagoSvc, ficheroSvc } = setup();
+
+      c.descargarRecibo(pagada());
+      await vi.waitFor(() => expect(c.generandoRecibo()).toBeNull());
+
+      expect(pagoSvc.descargarRecibo).toHaveBeenCalledWith(7);
+      expect(ficheroSvc.compartir).toHaveBeenCalledWith(expect.any(Blob), 'recibo-7.pdf');
+    });
+
+    it('no lanza dos descargas a la vez', () => {
+      const { c, pagoSvc } = setup();
+      pagoSvc.descargarRecibo.mockReturnValue(new Subject());
+
+      c.descargarRecibo(pagada());
+      c.descargarRecibo(pagada());
+
+      expect(pagoSvc.descargarRecibo).toHaveBeenCalledTimes(1);
+      expect(c.generandoRecibo()).toBe(7);
+    });
+
+    it('si falla la peticion avisa y deja volver a intentarlo', async () => {
+      const { c, alertCtrl } = setup({}, { pagoFail: true });
+
+      c.descargarRecibo(pagada());
+      await vi.waitFor(() => expect(alertCtrl.create).toHaveBeenCalled());
+
+      expect(c.generandoRecibo()).toBeNull();
+    });
+
+    it('cancelar el dialogo de compartir no avisa de nada', async () => {
+      const { c, alertCtrl, ficheroSvc } = setup(
+        {},
+        { ficheroResultado: { ok: false, motivo: 'cancelado' } },
+      );
+
+      c.descargarRecibo(pagada());
+      await vi.waitFor(() => expect(ficheroSvc.compartir).toHaveBeenCalled());
+      await vi.waitFor(() => expect(c.generandoRecibo()).toBeNull());
+
+      // El usuario acaba de cerrarlo a proposito: avisarle seria ruido.
+      expect(alertCtrl.create).not.toHaveBeenCalled();
+    });
+
+    it('un fallo al guardar el fichero si avisa', async () => {
+      const { c, alertCtrl } = setup({}, { ficheroResultado: { ok: false, motivo: 'error' } });
+
+      c.descargarRecibo(pagada());
+      await vi.waitFor(() => expect(alertCtrl.create).toHaveBeenCalled());
+    });
   });
 });

@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
   Cita, EstadoCita, CitaService, PagoResponse, PagoService, Servicio, ServicioService,
-  Usuario, UsuarioService, EstadisticasService, EstadisticasResponse,
+  Usuario, UsuarioService, EstadisticasService, EstadisticasResponse, descargarBlob,
 } from '@peluqueria/core';
 import { CitaDetalle } from '../../shared/cita-detalle/cita-detalle';
 import { ListaModal } from '../../shared/lista-modal/lista-modal';
@@ -371,8 +371,25 @@ type ModalLista =
                   {{ (pago.fechaPago ?? pago.fechaCreacion) | date: 'dd/MM/yyyy' }}
                 </p>
               </div>
-              <p class="shrink-0 font-semibold text-main">{{ pago.monto | number: '1.2-2' }} €</p>
+              <div class="flex shrink-0 items-center gap-3">
+                <p class="font-semibold text-main">{{ pago.monto | number: '1.2-2' }} €</p>
+                @if (tieneRecibo(pago)) {
+                  <button
+                    type="button"
+                    class="rounded-md border border-line px-2 py-1 text-xs font-medium text-primary transition hover:bg-elevated disabled:opacity-50"
+                    [disabled]="descargando() === pago.idPago"
+                    (click)="descargarRecibo(pago)"
+                  >
+                    {{ descargando() === pago.idPago ? 'Generando…' : 'Recibo' }}
+                  </button>
+                }
+              </div>
             </div>
+            <!-- El error va en la fila y no en un banner: el modal tapa la cabecera, así que
+                 arriba no se veria. Aparece donde se ha pulsado. -->
+            @if (errorRecibo()?.idPago === pago.idPago) {
+              <p class="mt-1.5 text-xs text-error">{{ errorRecibo()!.mensaje }}</p>
+            }
           </ng-template>
         </app-lista-modal>
       }
@@ -625,6 +642,42 @@ export class Dashboard implements OnInit {
   protected clienteDePago(p: PagoResponse): string {
     const cita = this.citasPorId().get(p.citaId);
     return cita ? `${cita.usuario.nombre} · ${cita.servicio.nombre}` : `Cita #${p.citaId}`;
+  }
+
+  // ---------- Recibo ----------
+
+  /** Id del pago cuyo recibo se está generando, para no permitir pulsar dos veces. */
+  protected readonly descargando = signal<number | null>(null);
+  /** Error de la última descarga, atado al pago que lo produjo. */
+  protected readonly errorRecibo = signal<{ idPago: number; mensaje: string } | null>(null);
+
+  /**
+   * Solo los pagos cobrados o reembolsados tienen justificante; en cualquier otro estado el
+   * backend responde 409. Este listado ya viene filtrado a PAGADO, pero la regla se
+   * comprueba igual para que el botón no dependa de cómo se haya construido la lista.
+   */
+  protected tieneRecibo(p: PagoResponse): boolean {
+    return p.estadoPago === 'PAGADO' || p.estadoPago === 'REEMBOLSADO';
+  }
+
+  protected descargarRecibo(p: PagoResponse): void {
+    if (this.descargando() !== null) return;
+    this.descargando.set(p.idPago);
+    this.errorRecibo.set(null);
+
+    this.pagoService.descargarRecibo(p.idPago).subscribe({
+      next: (blob) => {
+        descargarBlob(blob, this.pagoService.nombreRecibo(p.idPago));
+        this.descargando.set(null);
+      },
+      error: () => {
+        this.descargando.set(null);
+        this.errorRecibo.set({
+          idPago: p.idPago,
+          mensaje: 'No se ha podido generar el recibo. Inténtalo de nuevo.',
+        });
+      },
+    });
   }
 
   // ---------- Rango ----------

@@ -22,8 +22,9 @@ import {
   AlertController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { addOutline } from 'ionicons/icons';
-import { CitaService, Cita, EstadoCita } from '@peluqueria/core';
+import { addOutline, documentTextOutline } from 'ionicons/icons';
+import { CitaService, Cita, EstadoCita, PagoService } from '@peluqueria/core';
+import { FicheroService } from '../core/fichero.service';
 
 @Component({
   selector: 'app-mis-citas',
@@ -39,14 +40,18 @@ import { CitaService, Cita, EstadoCita } from '@peluqueria/core';
 })
 export class MisCitasPage {
   private readonly citaService = inject(CitaService);
+  private readonly pagoService = inject(PagoService);
+  private readonly fichero = inject(FicheroService);
   private readonly router = inject(Router);
   private readonly alertCtrl = inject(AlertController);
 
   readonly citas = signal<Cita[]>([]);
   readonly loading = signal(true);
+  /** Id del pago cuyo recibo se está preparando, para no pulsar dos veces. */
+  readonly generandoRecibo = signal<number | null>(null);
 
   constructor() {
-    addIcons({ addOutline });
+    addIcons({ addOutline, documentTextOutline });
     // ionViewWillEnter no se dispara al volver desde rutas fuera de las tabs
     // (p. ej. /pago/:citaId), asi que la recarga se engancha a la navegacion.
     this.router.events
@@ -110,6 +115,53 @@ export class MisCitasPage {
 
   irPagar(citaId: number): void {
     this.router.navigate(['/pago', citaId]);
+  }
+
+  /**
+   * Solo los pagos cobrados o reembolsados tienen justificante (en el resto el backend
+   * responde 409), y hace falta el id del pago, que viaja con la cita.
+   */
+  tieneRecibo(cita: Cita): boolean {
+    return (
+      cita.idPago != null && (cita.estadoPago === 'PAGADO' || cita.estadoPago === 'REEMBOLSADO')
+    );
+  }
+
+  /**
+   * Pide el PDF y lo entrega: en la app, guardándolo y abriendo la hoja de compartir; en el
+   * navegador, como descarga normal (ver `FicheroService`).
+   */
+  descargarRecibo(cita: Cita): void {
+    const idPago = cita.idPago;
+    if (idPago == null || this.generandoRecibo() !== null) return;
+    this.generandoRecibo.set(idPago);
+
+    this.pagoService.descargarRecibo(idPago).subscribe({
+      next: async (blob) => {
+        const resultado = await this.fichero.compartir(
+          blob,
+          this.pagoService.nombreRecibo(idPago),
+        );
+        this.generandoRecibo.set(null);
+        // Una cancelación no se avisa: el usuario acaba de cerrar el diálogo a propósito.
+        if (!resultado.ok && resultado.motivo === 'error') {
+          await this.avisar('No se ha podido abrir el recibo. Inténtalo de nuevo.');
+        }
+      },
+      error: async () => {
+        this.generandoRecibo.set(null);
+        await this.avisar('No se ha podido generar el recibo. Inténtalo de nuevo.');
+      },
+    });
+  }
+
+  private async avisar(mensaje: string): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Recibo',
+      message: mensaje,
+      buttons: ['Entendido'],
+    });
+    await alert.present();
   }
 
   colorEstado(estado: EstadoCita): string {

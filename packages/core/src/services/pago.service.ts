@@ -55,4 +55,23 @@ export class PagoService {
   reembolsar(citaId: number): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/${citaId}/reembolsar`, {});
   }
+
+  /**
+   * Recibo en PDF de un pago. Ojo: **el id es del pago, no de la cita** (a diferencia
+   * de `obtenerPorCita` y `reembolsar`).
+   *
+   * Va por `HttpClient` con `responseType: 'blob'` y no con un `<a href>` directo porque
+   * el endpoint exige el JWT, que lo pone el interceptor: un enlace normal no pasaría por
+   * él y recibiría un 401. Para disparar la descarga en el navegador, `descargarBlob`.
+   *
+   * Solo existe para pagos PAGADO o REEMBOLSADO; en cualquier otro estado responde 409.
+   */
+  descargarRecibo(idPago: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${idPago}/recibo`, { responseType: 'blob' });
+  }
+
+  /** Nombre con el que el backend sirve el recibo, para no repetirlo en cada llamada. */
+  nombreRecibo(idPago: number): string {
+    return `recibo-${idPago}.pdf`;
+  }
 }

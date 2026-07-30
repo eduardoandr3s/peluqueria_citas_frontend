@@ -23,9 +23,10 @@ Monorepo frontend de un sistema de gestión de citas para una peluquería: un **
 * **Stripe.js / Payment Element** (pago con tarjeta en la app móvil)
 * **Capacitor Native Biometric + Preferences** (login biométrico con almacenamiento seguro de tokens)
 * **Capacitor Camera** (foto de perfil desde la cámara o la galería, con gestión de permisos)
+* **Capacitor Filesystem + Share** (guardar el recibo en PDF y abrirlo con la hoja de compartir del sistema)
 * **Redimensionado de imágenes en el cliente** (`packages/core/src/utils/imagen.ts`, con `createImageBitmap` + canvas) para que una foto de móvil entre en el límite de 2 MB del backend sin gastar CPU del servidor
 * **npm workspaces** (monorepo: admin + `packages/core` + `mobile`)
-* **Vitest** (tests unitarios, 393 en total)
+* **Vitest** (tests unitarios, 414 en total)
 * **GitHub Actions** (CI: tests + builds de producción de ambas apps en cada push y pull request)
 * **Firebase Hosting** (despliegue multi-site)
 
@@ -81,6 +82,7 @@ Panel de gestión para el dueño de la peluquería:
 * **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
 * **Fotos de catálogo**: subir, sustituir o borrar la foto de cada servicio desde un modal, redimensionada en el navegador antes de subirla
 * Pantalla **"Mi perfil"** con los datos propios y la foto de perfil, más el avatar real en la cabecera. En el listado de usuarios **no** se pintan avatares a propósito: la URL firmada se pide solo al abrir la ficha de un usuario, así que recorrer el listado no cuesta ninguna firma
+* **Recibo en PDF** de cada pago desde el desglose de ingresos. El fichero se pide con `HttpClient` como blob y no con un `<a href>` normal: el endpoint exige el JWT, que lo pone el interceptor, así que un enlace directo recibiría un 401
 * Login con JWT + refresh tokens con rotación, recuperación de contraseña
 
 ### App móvil de clientes (`mobile/`)
@@ -92,6 +94,7 @@ App Ionic para los clientes de la peluquería:
 * **Pago online con tarjeta** (Stripe Payment Element) con polling automático del estado, e historial de citas con badges de pago
 * **Login biométrico** (huella/cara) guardando los tokens en almacenamiento nativo seguro
 * **Foto de perfil desde la cámara o la galería**, con gestión de permisos: si se deniegan cámara y galería la app lo dice en vez de fallar en silencio, y cerrar el selector se trata como cancelación, no como error. En el navegador el plugin cae a un selector de ficheros, así que la misma pantalla funciona sin dispositivo
+* **Recibo en PDF** de una cita pagada: el fichero se escribe en el directorio de caché y se abre con la **hoja de compartir del sistema**, que es la que ofrece «Guardar en Archivos», «Abrir con…» o reenviarlo — el WebView no tiene carpeta de descargas ni visor de PDF. En el navegador degrada a una descarga normal, así que la misma pantalla funciona como PWA
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
 ### Librería compartida (`packages/core`)
@@ -102,6 +105,7 @@ App Ionic para los clientes de la peluquería:
 * `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) más `AuthService` y el token storage
 * `utils/fecha.ts`: helpers de `YYYY-MM-DD` en hora local (`toISOString()` desplazaría el día en las zonas con offset positivo)
 * `utils/imagen.ts`: redimensiona la imagen en el navegador antes de subirla, para que una foto de móvil entre en el límite de 2 MB del backend gastando la CPU del usuario y no la del servidor. Solo **optimiza**: si el entorno no ofrece `createImageBitmap` se sube el original y decide el servidor — la utilidad nunca impide una subida
+* `utils/descarga.ts`: convierte un blob en una descarga del navegador. Hace falta porque los ficheros que sirve el API exigen el JWT y no se pueden enlazar directamente; la app móvil lo usa además como respaldo cuando corre en el navegador
 * `jwt.interceptor.ts` y `auth.guard.ts`: manejo del JWT y protección de rutas compartidos por las dos apps
 
 ## Puesta en marcha
@@ -130,12 +134,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**393 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**414 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 225 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 168 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, historial de citas |
+| Admin + core (`npx ng test`) | 234 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 180 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -173,7 +177,7 @@ El icono de lanzador y la pantalla de arranque se generan desde el logo de la pe
 
 ## Backend
 
-La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 245 tests (unitarios + Testcontainers).
+La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 268 tests (unitarios + Testcontainers).
 
 ---
 *Desarrollado por Eduardo Andrés Segovia Román.*

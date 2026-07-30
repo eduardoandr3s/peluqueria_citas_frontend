@@ -47,6 +47,23 @@
               Pagar
             </ion-button>
           }
+          @if (tieneRecibo(cita)) {
+            <ion-button
+              slot="end"
+              fill="clear"
+              color="medium"
+              size="small"
+              [disabled]="generandoRecibo() === cita.idPago"
+              (click)="descargarRecibo(cita)"
+              aria-label="Descargar el recibo"
+            >
+              @if (generandoRecibo() === cita.idPago) {
+                <ion-spinner name="crescent" slot="icon-only"></ion-spinner>
+              } @else {
+                <ion-icon name="document-text-outline" slot="icon-only"></ion-icon>
+              }
+            </ion-button>
+          }
           @if (cita.estado !== 'ANULADA') {
             <ion-button
               slot="end"

@@ -151,4 +151,23 @@ describe('PagoService', () => {
     req.flush(null);
     expect(completed).toBe(true);
   });
+
+  it('descargarRecibo pide el PDF como blob al id del PAGO', () => {
+    let resultado: Blob | undefined;
+    service.descargarRecibo(7).subscribe((b) => (resultado = b));
+
+    // El id es del pago, no de la cita: es lo que distingue esta ruta de /cita/{id}.
+    const req = http.expectOne(`${API}/pagos/7/recibo`);
+    expect(req.request.method).toBe('GET');
+    // Sin blob, HttpClient intentaría parsear el PDF como JSON y fallaría.
+    expect(req.request.responseType).toBe('blob');
+
+    const pdf = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+    req.flush(pdf);
+    expect(resultado).toBe(pdf);
+  });
+
+  it('nombreRecibo usa el mismo nombre que sirve el backend', () => {
+    expect(service.nombreRecibo(7)).toBe('recibo-7.pdf');
+  });
 });

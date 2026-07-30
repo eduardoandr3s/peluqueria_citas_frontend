@@ -4,7 +4,7 @@ import {
   Cita, CitaService, PagoResponse, PagoService, Servicio, ServicioService, Usuario, UsuarioService,
   EstadisticasService, EstadisticasResponse,
 } from '@peluqueria/core';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { Dashboard } from './dashboard';
 
 function pad(n: number): string {
@@ -73,6 +73,8 @@ function setup(opts: {
   stats?: EstadisticasResponse;
   fail?: boolean;
   statsFail?: boolean;
+  /** Hace fallar la descarga del recibo, para probar el mensaje de error. */
+  reciboFail?: boolean;
 }) {
   const fail = opts.fail ?? false;
   const statsFail = opts.statsFail ?? false;
@@ -103,6 +105,12 @@ function setup(opts: {
           listarTodos: vi.fn().mockReturnValue(
             statsFail ? throwError(() => new Error('x')) : of(opts.pagos ?? []),
           ),
+          descargarRecibo: vi.fn().mockReturnValue(
+            opts.reciboFail
+              ? throwError(() => new Error('x'))
+              : of(new Blob(['%PDF-1.4'], { type: 'application/pdf' })),
+          ),
+          nombreRecibo: (id: number) => `recibo-${id}.pdf`,
         },
       },
     ],
@@ -306,6 +314,95 @@ describe('Dashboard', () => {
       expect(c.filtroCita(x, 'c@b.com')).toBe(true);
       expect(c.filtroCita(x, 'corte')).toBe(true);
       expect(c.filtroCita(x, 'zzz')).toBe(false);
+    });
+  });
+
+  describe('recibo del pago', () => {
+    /**
+     * No se mockea `descargarBlob`: se interceptan las APIs del navegador que usa, asi que
+     * el test recorre tambien la utilidad de verdad. (Y de paso se evita el primer
+     * `vi.mock` del panel, que en este builder se comparte entre specs.)
+     */
+    function espiarDescarga() {
+      const crear = vi.fn(() => 'blob:local/recibo');
+      const revocar = vi.fn();
+      const urlOriginal = URL.createObjectURL;
+      const revokeOriginal = URL.revokeObjectURL;
+      URL.createObjectURL = crear as unknown as typeof URL.createObjectURL;
+      URL.revokeObjectURL = revocar as unknown as typeof URL.revokeObjectURL;
+
+      const descargas: string[] = [];
+      const clickOriginal = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+        descargas.push(this.download);
+      };
+
+      return {
+        descargas,
+        restaurar: () => {
+          URL.createObjectURL = urlOriginal;
+          URL.revokeObjectURL = revokeOriginal;
+          HTMLAnchorElement.prototype.click = clickOriginal;
+        },
+      };
+    }
+
+    it('solo los pagos cobrados o reembolsados tienen recibo', () => {
+      const { c } = setup({ citas: [] });
+
+      expect(c.tieneRecibo(pago(1, 10, 30, 'TARJETA', 'PAGADO'))).toBe(true);
+      expect(c.tieneRecibo(pago(2, 11, 30, 'TARJETA', 'REEMBOLSADO'))).toBe(true);
+      // En estos el backend responde 409: el boton no debe ni aparecer.
+      expect(c.tieneRecibo(pago(3, 12, 30, 'TARJETA', 'PENDIENTE'))).toBe(false);
+      expect(c.tieneRecibo(pago(4, 13, 30, 'TARJETA', 'CANCELADO'))).toBe(false);
+    });
+
+    it('descarga el PDF con el nombre del recibo', () => {
+      const espia = espiarDescarga();
+      try {
+        const { c } = setup({ citas: [] });
+        c.descargarRecibo(pago(7, 10, 30, 'TARJETA', 'PAGADO'));
+
+        expect(espia.descargas).toEqual(['recibo-7.pdf']);
+        // Al acabar se puede volver a pulsar.
+        expect(c.descargando()).toBeNull();
+        expect(c.errorRecibo()).toBeNull();
+      } finally {
+        espia.restaurar();
+      }
+    });
+
+    it('si falla, el error se ata al pago que lo produjo y no bloquea el boton', () => {
+      const espia = espiarDescarga();
+      try {
+        const { c } = setup({ citas: [], reciboFail: true });
+        c.descargarRecibo(pago(7, 10, 30, 'TARJETA', 'PAGADO'));
+
+        expect(espia.descargas).toEqual([]);
+        expect(c.errorRecibo()?.idPago).toBe(7);
+        // Si `descargando` no volviera a null, el boton quedaria muerto tras un fallo.
+        expect(c.descargando()).toBeNull();
+      } finally {
+        espia.restaurar();
+      }
+    });
+
+    it('no lanza dos descargas a la vez', () => {
+      const espia = espiarDescarga();
+      try {
+        const { c, fixture } = setup({ citas: [] });
+        const servicio = fixture.debugElement.injector.get(PagoService) as any;
+        // Una peticion que no responde: deja la descarga en curso.
+        servicio.descargarRecibo.mockReturnValue(new Subject());
+
+        c.descargarRecibo(pago(7, 10, 30, 'TARJETA', 'PAGADO'));
+        c.descargarRecibo(pago(8, 11, 30, 'TARJETA', 'PAGADO'));
+
+        expect(servicio.descargarRecibo).toHaveBeenCalledTimes(1);
+        expect(c.descargando()).toBe(7);
+      } finally {
+        espia.restaurar();
+      }
     });
   });
 });

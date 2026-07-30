@@ -23,9 +23,10 @@ Frontend monorepo for a hair salon booking system: an **admin panel** (Angular) 
 * **Stripe.js / Payment Element** (card payments in the mobile app)
 * **Capacitor Native Biometric + Preferences** (biometric login with secure token storage)
 * **Capacitor Camera** (profile photo from the camera or the gallery, with permission handling)
+* **Capacitor Filesystem + Share** (saving the PDF receipt and opening it through the system share sheet)
 * **Client-side image resizing** (`packages/core/src/utils/imagen.ts`, via `createImageBitmap` + canvas) so a phone photo fits the backend's 2 MB limit without spending server CPU
 * **npm workspaces** (monorepo: admin + `packages/core` + `mobile`)
-* **Vitest** (unit tests, 393 in total)
+* **Vitest** (unit tests, 414 in total)
 * **GitHub Actions** (CI: tests + production builds of both apps on every push and pull request)
 * **Firebase Hosting** (multi-site deployment)
 
@@ -81,6 +82,7 @@ Management panel for the salon owner:
 * **Closed days**: block a holiday or a one-off closure (with a reason) and unblock it. Closed days — Sundays included — render as **unselectable** in the booking calendar, so a day with no available times can no longer be picked
 * **Catalog photos**: upload, replace or remove a photo per service from a modal, resized in the browser before uploading
 * **"My profile"** screen with the admin's own details and profile photo, plus a real avatar in the header. Avatars are deliberately **not** shown in the user listing — the signed URL is requested only when opening a user's card, so browsing users costs no signing round-trips
+* **PDF receipt** per payment from the revenue breakdown. The file is fetched with `HttpClient` as a blob and not through a plain `<a href>`: the endpoint requires the JWT, which the interceptor adds, so a direct link would just get a 401
 * Login with JWT + rotating refresh tokens, password recovery
 
 ### Customer mobile app (`mobile/`)
@@ -92,6 +94,7 @@ Ionic app for the salon's customers:
 * **Online card payment** (Stripe Payment Element) with automatic status polling, plus appointment history with payment badges
 * **Biometric login** (fingerprint/face) storing tokens in secure native storage
 * **Profile photo from the camera or the gallery**, with permission handling: if both camera and gallery are denied the app says so instead of failing silently, and cancelling the picker is treated as a cancellation, not an error. In the browser the plugin falls back to a file picker, so the same screen works without a device
+* **PDF receipt** of a paid appointment: the file is written to the cache directory and opened through the **system share sheet**, which is what offers "Save to Files", "Open with…" or sending it on — the WebView has no downloads folder and no PDF viewer. In the browser it degrades to a normal download, so the same screen works as a PWA
 * Built with Capacitor: the same codebase deploys as a web app today and packages as an Android app (`appId com.segovia.peluqueria`), with its own launcher icon and splash screen
 
 ### Shared library (`packages/core`)
@@ -102,6 +105,7 @@ Ionic app for the salon's customers:
 * `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) plus `AuthService` and token storage
 * `utils/fecha.ts`: local-time `YYYY-MM-DD` helpers (`toISOString()` would shift the day in positive-offset timezones)
 * `utils/imagen.ts`: resizes an image in the browser before uploading, so a phone photo fits the backend's 2 MB limit using the user's CPU rather than the server's. It only ever **optimises**: if the environment has no `createImageBitmap`, the original is uploaded and the server decides — the helper never blocks an upload
+* `utils/descarga.ts`: turns a blob into a browser download. Needed because files served by the API require the JWT, so they cannot be linked directly; also used as the mobile app's fallback when it runs in a browser
 * `jwt.interceptor.ts` and `auth.guard.ts`: JWT handling and route protection shared by both apps
 
 ## Getting Started
@@ -130,12 +134,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**393 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**414 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 225 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, and every core service, guard and interceptor |
-| Mobile (`cd mobile && npx ng test`) | 168 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, appointment history |
+| Admin + core (`npx ng test`) | 234 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, and every core service, guard and interceptor |
+| Mobile (`cd mobile && npx ng test`) | 180 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -173,7 +177,7 @@ The launcher icon and splash screen are generated from the salon's logo with `np
 
 ## Backend
 
-The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 245-test suite (unit + Testcontainers).
+The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 268-test suite (unit + Testcontainers).
 
 ---
 *Developed by Eduardo Andres Segovia Roman.*
