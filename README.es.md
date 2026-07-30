@@ -22,8 +22,10 @@ Monorepo frontend de un sistema de gestión de citas para una peluquería: un **
 * **Ionic 8 + Capacitor 8** (app móvil de clientes, lista para empaquetar para Android)
 * **Stripe.js / Payment Element** (pago con tarjeta en la app móvil)
 * **Capacitor Native Biometric + Preferences** (login biométrico con almacenamiento seguro de tokens)
+* **Capacitor Camera** (foto de perfil desde la cámara o la galería, con gestión de permisos)
+* **Redimensionado de imágenes en el cliente** (`packages/core/src/utils/imagen.ts`, con `createImageBitmap` + canvas) para que una foto de móvil entre en el límite de 2 MB del backend sin gastar CPU del servidor
 * **npm workspaces** (monorepo: admin + `packages/core` + `mobile`)
-* **Vitest** (tests unitarios, 264 en total)
+* **Vitest** (tests unitarios, 393 en total)
 * **GitHub Actions** (CI: tests + builds de producción de ambas apps en cada push y pull request)
 * **Firebase Hosting** (despliegue multi-site)
 
@@ -38,23 +40,29 @@ peluqueria_citas_frontend/
 │   │   ├── citas/             # Gestión de citas (calendario, pagos, selector de peluquero)
 │   │   ├── dashboard/         # Dashboard de estadísticas (gráficas solo con CSS)
 │   │   ├── peluqueros/        # CRUD de peluqueros
-│   │   ├── servicios/         # CRUD del catálogo de servicios
+│   │   ├── perfil/            # "Mi perfil": datos propios y foto de perfil
+│   │   ├── servicios/         # CRUD del catálogo de servicios (incluido el modal de foto)
 │   │   └── usuarios/          # Gestión de usuarios (roles, búsqueda, reactivación)
 │   └── app/shared/
-│       └── date-picker/       # Rejilla de mes que deshabilita los días cerrados
+│       ├── cita-detalle/      # Detalle de cita, se abre desde el dashboard
+│       ├── date-picker/       # Rejilla de mes que deshabilita los días cerrados
+│       └── lista-modal/       # Modal de listado con buscador y scroll incremental
 ├── mobile/                    # App clientes (Ionic 8 + Angular + Capacitor)
+│   ├── assets/                # Fuentes del icono + LEEME.md (cómo regenerarlo)
+│   ├── scripts/               # Composición del icono y optimización de los PNG
 │   └── src/app/
 │       ├── agendar/           # Reserva: selección de servicio, fecha, peluquero y hueco
 │       ├── auth/              # Login / registro / recuperación de contraseña
-│       ├── core/              # Login biométrico y almacenamiento seguro de tokens
+│       ├── core/              # Login biométrico, almacenamiento seguro de tokens y cámara
 │       ├── mis-citas/         # Historial de citas con badges de estado y pago
 │       ├── pago/              # Checkout con Stripe Payment Element y polling
-│       └── perfil/            # Perfil y ajustes de biometría
+│       ├── perfil/            # Perfil, foto de perfil y ajustes de biometría
+│       └── servicios/         # Catálogo de servicios con fotos
 ├── packages/core/             # @peluqueria/core — librería compartida
 │   └── src/
 │       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas
 │       ├── services/          # Servicios HTTP de cada recurso de la API + token storage
-│       ├── utils/             # Helpers de fechas ISO compartidos por los dos calendarios
+│       ├── utils/             # Helpers de fechas ISO y redimensionado de imágenes en cliente
 │       ├── auth.guard.ts      # Guard de rutas
 │       └── jwt.interceptor.ts # Adjunta el JWT y gestiona el refresh
 └── package.json               # npm workspaces (packages/*, mobile)
@@ -71,6 +79,8 @@ Panel de gestión para el dueño de la peluquería:
 * **Dashboard de estadísticas**: citas por estado, ingresos por método de pago, top servicios y clientes nuevos, con selector de rango (mes / últimos 30 días / año) — gráficas hechas con `div` + Tailwind, sin librería de charts, manteniendo la app zoneless
 * CRUD de servicios, **peluqueros** y usuarios (roles, búsqueda, soft delete y reactivación)
 * **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
+* **Fotos de catálogo**: subir, sustituir o borrar la foto de cada servicio desde un modal, redimensionada en el navegador antes de subirla
+* Pantalla **"Mi perfil"** con los datos propios y la foto de perfil, más el avatar real en la cabecera. En el listado de usuarios **no** se pintan avatares a propósito: la URL firmada se pide solo al abrir la ficha de un usuario, así que recorrer el listado no cuesta ninguna firma
 * Login con JWT + refresh tokens con rotación, recuperación de contraseña
 
 ### App móvil de clientes (`mobile/`)
@@ -81,7 +91,8 @@ App Ionic para los clientes de la peluquería:
 * Flujo de reserva: elegir servicio, fecha, opcionalmente **peluquero** ("Cualquiera" por defecto) y un hueco libre. El calendario (`ion-datetime` con `isDateEnabled`) **deshabilita domingos y días cerrados**, que quedan en gris y no se pueden pulsar
 * **Pago online con tarjeta** (Stripe Payment Element) con polling automático del estado, e historial de citas con badges de pago
 * **Login biométrico** (huella/cara) guardando los tokens en almacenamiento nativo seguro
-* Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`)
+* **Foto de perfil desde la cámara o la galería**, con gestión de permisos: si se deniegan cámara y galería la app lo dice en vez de fallar en silencio, y cerrar el selector se trata como cancelación, no como error. En el navegador el plugin cae a un selector de ficheros, así que la misma pantalla funciona sin dispositivo
+* Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
 ### Librería compartida (`packages/core`)
 
@@ -90,6 +101,7 @@ App Ionic para los clientes de la peluquería:
 * `models/`: interfaces TypeScript de cada recurso de la API (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`) y sus enums
 * `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) más `AuthService` y el token storage
 * `utils/fecha.ts`: helpers de `YYYY-MM-DD` en hora local (`toISOString()` desplazaría el día en las zonas con offset positivo)
+* `utils/imagen.ts`: redimensiona la imagen en el navegador antes de subirla, para que una foto de móvil entre en el límite de 2 MB del backend gastando la CPU del usuario y no la del servidor. Solo **optimiza**: si el entorno no ofrece `createImageBitmap` se sube el original y decide el servidor — la utilidad nunca impide una subida
 * `jwt.interceptor.ts` y `auth.guard.ts`: manejo del JWT y protección de rutas compartidos por las dos apps
 
 ## Puesta en marcha
@@ -118,17 +130,19 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**292 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**393 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 168 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, dashboard, auth), el date picker de días cerrados y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 124 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, historial de citas |
+| Admin + core (`npx ng test`) | 225 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 168 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, historial de citas |
 
 ```bash
 npx ng test --watch=false            # admin + core
 cd mobile && npx ng test --watch=false   # mobile
 ```
+
+> Una regla para la suite del móvil: **dos ficheros de spec nunca deben hacer `vi.mock` del mismo módulo.** El builder `@angular/build:unit-test` empaqueta los specs, así que el registro de mocks es compartido: cuando dos ficheros registran un factory para el mismo módulo sobrevive uno solo y el otro acaba usando los dobles del primero sin avisar. No se reproduce en local, solo en el runner de 2 cores de CI, así que verde en local no dice nada al respecto. Los specs que necesitan el mismo doble van en el mismo fichero.
 
 ## Build y despliegue
 
@@ -155,9 +169,11 @@ npx cap sync android
 npx cap open android    # abre Android Studio para generar el AAB
 ```
 
+El icono de lanzador y la pantalla de arranque se generan desde el logo de la peluquería con `npm run assets` (dentro de `mobile/`). **Leer antes `mobile/assets/LEEME.md`**: la herramienta pisa en cada ejecución unas cuantas decisiones hechas a mano, y el splash es un único drawable XML en vez de los 26 bitmaps que ella produce — dejar los dos es un recurso duplicado y la build falla.
+
 ## Backend
 
-La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, estadísticas, recordatorios por correo y una suite de 167 tests (unitarios + Testcontainers).
+La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 245 tests (unitarios + Testcontainers).
 
 ---
 *Desarrollado por Eduardo Andrés Segovia Román.*
