@@ -54,6 +54,7 @@ peluqueria_citas_frontend/
 │   └── src/app/
 │       ├── agendar/           # Reserva: selección de servicio, fecha, peluquero y hueco
 │       ├── auth/              # Login / registro / recuperación de contraseña
+│       ├── contacto/          # Dirección, teléfono y email del salón
 │       ├── core/              # Login biométrico, almacenamiento seguro de tokens y cámara
 │       ├── mis-citas/         # Historial de citas con badges de estado y pago
 │       ├── pago/              # Checkout con Stripe Payment Element y polling
@@ -95,6 +96,7 @@ App Ionic para los clientes de la peluquería:
 * **Login biométrico** (huella/cara) guardando los tokens en almacenamiento nativo seguro
 * **Foto de perfil desde la cámara o la galería**, con gestión de permisos: si se deniegan cámara y galería la app lo dice en vez de fallar en silencio, y cerrar el selector se trata como cancelación, no como error. En el navegador el plugin cae a un selector de ficheros, así que la misma pantalla funciona sin dispositivo
 * **Recibo en PDF** de una cita pagada: el fichero se escribe en el directorio de caché y se abre con la **hoja de compartir del sistema**, que es la que ofrece «Guardar en Archivos», «Abrir con…» o reenviarlo — el WebView no tiene carpeta de descargas ni visor de PDF. En el navegador degrada a una descarga normal, así que la misma pantalla funciona como PWA
+* **Pantalla de contacto** con la dirección, el teléfono y el email del salón. El teléfono y el email son enlaces `tel:` y `mailto:`, que Capacitor saca al marcador y al cliente de correo del sistema en vez de abrirlos dentro del WebView
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
 ### Librería compartida (`packages/core`)
@@ -134,12 +136,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**414 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**423 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 234 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 180 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas |
+| Admin + core (`npx ng test`) | 236 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 187 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto y las rutas de las pestañas |
 
 ```bash
 npx ng test --watch=false            # admin + core

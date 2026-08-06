@@ -56,3 +56,18 @@ describe('ruta raíz de la app', () => {
     expect(router.url).toBe('/auth/login');
   });
 });
+
+/**
+ * La barra inferior navega por href, así que un botón sin su ruta detrás no
+ * falla al compilar: se ve el botón y al pulsarlo la app se va al login.
+ */
+describe('pestañas de cliente', () => {
+  const hijas = routes.find((r) => r.path === 'tabs')?.children ?? [];
+
+  it.each(['servicios', 'mis-citas', 'contacto', 'perfil'])(
+    '/tabs/%s tiene ruta',
+    (tab) => {
+      expect(hijas.some((r) => r.path === tab)).toBe(true);
+    },
+  );
+});

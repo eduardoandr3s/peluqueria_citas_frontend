@@ -75,6 +75,10 @@ export const routes: Routes = [
         loadComponent: () => import('./agendar/agendar.page').then((m) => m.AgendarPage),
       },
       {
+        path: 'contacto',
+        loadComponent: () => import('./contacto/contacto.page').then((m) => m.ContactoPage),
+      },
+      {
         path: 'perfil',
         loadComponent: () => import('./perfil/perfil.page').then((m) => m.PerfilPage),
       },

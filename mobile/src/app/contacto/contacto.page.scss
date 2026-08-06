@@ -1,0 +1,36 @@
+.cabecera {
+  padding: 24px 24px 4px;
+  text-align: center;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--ion-placeholder-color);
+  }
+}
+
+ion-item {
+  ion-icon {
+    color: var(--ion-color-primary);
+  }
+
+  // La etiqueta («Dirección», «Teléfono»…) va sobre el dato, en pequeño.
+  ion-label p {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
+  }
+
+  ion-label h2 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+}

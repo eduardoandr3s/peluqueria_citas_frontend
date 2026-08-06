@@ -54,6 +54,7 @@ peluqueria_citas_frontend/
 │   └── src/app/
 │       ├── agendar/           # Booking: service, date, barber and slot selection
 │       ├── auth/              # Login / registration / password recovery
+│       ├── contacto/          # Salon address, phone and email
 │       ├── core/              # Biometric login, secure token storage, camera
 │       ├── mis-citas/         # Appointment history with status and payment badges
 │       ├── pago/              # Stripe Payment Element checkout with polling
@@ -95,6 +96,7 @@ Ionic app for the salon's customers:
 * **Biometric login** (fingerprint/face) storing tokens in secure native storage
 * **Profile photo from the camera or the gallery**, with permission handling: if both camera and gallery are denied the app says so instead of failing silently, and cancelling the picker is treated as a cancellation, not an error. In the browser the plugin falls back to a file picker, so the same screen works without a device
 * **PDF receipt** of a paid appointment: the file is written to the cache directory and opened through the **system share sheet**, which is what offers "Save to Files", "Open with…" or sending it on — the WebView has no downloads folder and no PDF viewer. In the browser it degrades to a normal download, so the same screen works as a PWA
+* **Contact screen** with the salon's address, phone number and email. Phone and email are `tel:` and `mailto:` links, which Capacitor hands to the system dialler and mail client instead of opening them inside the WebView
 * Built with Capacitor: the same codebase deploys as a web app today and packages as an Android app (`appId com.segovia.peluqueria`), with its own launcher icon and splash screen
 
 ### Shared library (`packages/core`)
@@ -134,12 +136,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**414 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**423 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 234 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, and every core service, guard and interceptor |
-| Mobile (`cd mobile && npx ng test`) | 180 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history |
+| Admin + core (`npx ng test`) | 236 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, and every core service, guard and interceptor |
+| Mobile (`cd mobile && npx ng test`) | 187 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen and the tab routes |
 
 ```bash
 npx ng test --watch=false            # admin + core
