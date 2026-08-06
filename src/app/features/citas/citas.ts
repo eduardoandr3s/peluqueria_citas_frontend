@@ -184,25 +184,30 @@ interface Feedback {
                               Confirmar
                             </button>
                           }
+                          @if (c.estado !== 'ANULADA' && puedePagoManual(c)) {
+                            <button
+                              type="button"
+                              (click)="abrirPagoManual(c)"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                            >
+                              Pago manual
+                            </button>
+                          }
+                          <!--
+                            Reembolsar queda FUERA del bloque de «no anulada»: cobrar y devolver
+                            son decisiones separadas de anular (el backend tampoco mira el estado
+                            de la cita). Dentro, el dinero de una cita anulada se quedaba cogido.
+                          -->
+                          @if (puedeReembolsar(c)) {
+                            <button
+                              type="button"
+                              (click)="pendingReembolso.set(c)"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
+                            >
+                              Reembolsar
+                            </button>
+                          }
                           @if (c.estado !== 'ANULADA') {
-                            @if (puedePagoManual(c)) {
-                              <button
-                                type="button"
-                                (click)="abrirPagoManual(c)"
-                                class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
-                              >
-                                Pago manual
-                              </button>
-                            }
-                            @if (puedeReembolsar(c)) {
-                              <button
-                                type="button"
-                                (click)="pendingReembolso.set(c)"
-                                class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
-                              >
-                                Reembolsar
-                              </button>
-                            }
                             <button
                               type="button"
                               (click)="abrirEditar(c)"
@@ -518,9 +523,15 @@ interface Feedback {
           <p class="mt-2 text-sm text-main">
             Se reembolsará el pago de {{ c.servicio.nombre }} ({{ c.servicio.precio | number:'1.2-2' }} €) de {{ c.usuario.nombre }}.
           </p>
-          <p class="mt-2 text-sm text-warning font-medium">
-            El reembolso no anula la cita; anúlala aparte si procede.
-          </p>
+          @if (c.estado === 'ANULADA') {
+            <p class="mt-2 text-sm text-muted">
+              La cita ya está anulada: esto solo devuelve el importe.
+            </p>
+          } @else {
+            <p class="mt-2 text-sm text-warning font-medium">
+              El reembolso no anula la cita; anúlala aparte si procede.
+            </p>
+          }
           @if (reembolsoError()) {
             <p class="mt-3 text-sm text-error">{{ reembolsoError() }}</p>
           }

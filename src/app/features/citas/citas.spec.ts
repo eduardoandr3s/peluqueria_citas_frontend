@@ -312,6 +312,29 @@ describe('Citas', () => {
     expect(c.feedback().type).toBe('success');
   });
 
+  it('una cita ANULADA con pago PAGADO sigue ofreciendo «Reembolsar» y ninguna otra acción de gestión', () => {
+    const { fixture, c } = setup({});
+    c.citas.set([cita(9, '2026-07-09T10:00:00', 'ANULADA', 'Ana López', 'PAGADO')]);
+    fixture.detectChanges();
+
+    expect(botonEnTabla(fixture, 'Reembolsar')).toBeTruthy();
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Anular')).toBeUndefined();
+  });
+
+  it('el modal de reembolso de una cita anulada no pide anularla aparte', () => {
+    const { fixture, c } = setup({});
+    c.citas.set([cita(9, '2026-07-09T10:00:00', 'ANULADA', 'Ana López', 'PAGADO')]);
+    fixture.detectChanges();
+
+    botonEnTabla(fixture, 'Reembolsar')!.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('La cita ya está anulada');
+    expect(fixture.nativeElement.textContent).not.toContain('anúlala aparte');
+  });
+
   it('reembolsar llama al servicio y marca la cita como REEMBOLSADO', () => {
     const reembolsar = vi.fn().mockReturnValue(of(undefined));
     const { c } = setup({ pago: { reembolsar } });
