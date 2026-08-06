@@ -96,7 +96,7 @@ export class ServiciosPage implements OnInit {
   }
 
   formatPrecio(precio: number): string {
-    return `$${precio.toFixed(2)}`;
+    return `${precio.toFixed(2)} €`;
   }
 
   formatDuracion(minutos: number): string {

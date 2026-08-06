@@ -20,7 +20,7 @@
           <ion-label>
             <h2>{{ s.nombre }}</h2>
             @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
-            <p>${{ s.precio }} · {{ s.duracion }} min</p>
+            <p>{{ s.precio }} € · {{ s.duracion }} min</p>
           </ion-label>
           @if (!s.activo) {
             <ion-badge slot="end" color="medium">Inactivo</ion-badge>
