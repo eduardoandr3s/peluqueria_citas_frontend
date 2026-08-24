@@ -1,0 +1,69 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Asistente</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content #contenido class="ion-padding">
+  @if (conversacionVacia()) {
+    <div class="bienvenida">
+      <ion-icon name="sparkles-outline" aria-hidden="true"></ion-icon>
+      <h2>¿En qué te ayudo?</h2>
+      <p>
+        Pregúntame por nuestros servicios, precios, horario o si queda hueco un día
+        concreto. Para reservar, anular o consultar tus citas usa la pantalla de citas.
+      </p>
+
+      <div class="sugerencias">
+        @for (sugerencia of sugerencias; track sugerencia) {
+          <ion-chip [disabled]="enviando()" (click)="usarSugerencia(sugerencia)">
+            <ion-label>{{ sugerencia }}</ion-label>
+          </ion-chip>
+        }
+      </div>
+    </div>
+  }
+
+  @for (mensaje of mensajes(); track $index) {
+    <div class="burbuja" [class.mia]="mensaje.delCliente" [class.suya]="!mensaje.delCliente">
+      {{ mensaje.texto }}
+    </div>
+  }
+
+  @if (enviando()) {
+    <div class="burbuja suya escribiendo">
+      <ion-spinner name="dots" aria-label="El asistente está escribiendo"></ion-spinner>
+    </div>
+  }
+
+  @if (error()) {
+    <ion-note color="danger" class="error" role="alert">{{ error() }}</ion-note>
+  }
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-item lines="none">
+      <ion-input
+        [ngModel]="borrador()"
+        (ngModelChange)="borrador.set($event)"
+        (keyup.enter)="enviar()"
+        [maxlength]="maxCaracteres"
+        [disabled]="enviando()"
+        placeholder="Escribe tu pregunta"
+        aria-label="Tu pregunta para el asistente"
+        autocomplete="off"
+      ></ion-input>
+
+      <ion-button
+        slot="end"
+        fill="clear"
+        [disabled]="!puedeEnviar()"
+        (click)="enviar()"
+        aria-label="Enviar pregunta"
+      >
+        <ion-icon slot="icon-only" name="send-outline"></ion-icon>
+      </ion-button>
+    </ion-item>
+  </ion-toolbar>
+</ion-footer>

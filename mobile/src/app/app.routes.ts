@@ -79,11 +79,23 @@ export const routes: Routes = [
         loadComponent: () => import('./contacto/contacto.page').then((m) => m.ContactoPage),
       },
       {
+        path: 'asistente',
+        loadComponent: () => import('./asistente/asistente.page').then((m) => m.AsistentePage),
+      },
+      {
         path: 'perfil',
         loadComponent: () => import('./perfil/perfil.page').then((m) => m.PerfilPage),
       },
       { path: '', redirectTo: 'servicios', pathMatch: 'full' },
     ],
+  },
+  // El asistente tambien fuera de /tabs y SIN guard. Su endpoint es publico porque se
+  // pregunta por precios y horarios ANTES de registrarse, y todo /tabs exige sesion: sin
+  // esta ruta ese diseno no lo aprovecharia ningun cliente. Es la unica pantalla, aparte
+  // del login, a la que llega alguien que todavia no tiene cuenta.
+  {
+    path: 'asistente',
+    loadComponent: () => import('./asistente/asistente.page').then((m) => m.AsistentePage),
   },
   {
     path: 'pago/:citaId',

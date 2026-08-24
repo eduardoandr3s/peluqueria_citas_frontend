@@ -73,4 +73,13 @@
     ¿No tienes cuenta?
     <a routerLink="/auth/register">Regístrate</a>
   </p>
+
+  <!--
+    Unica salida del login que no pide cuenta: el asistente responde precios y horario sin
+    sesion, y sin este enlace nadie llegaria a esa ruta antes de registrarse.
+  -->
+  <p class="register-link">
+    ¿Solo quieres preguntar algo?
+    <a routerLink="/asistente">Habla con el asistente</a>
+  </p>
 </ion-content>

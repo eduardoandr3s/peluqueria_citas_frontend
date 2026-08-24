@@ -54,6 +54,7 @@ peluqueria_citas_frontend/
 │   └── src/app/
 │       ├── agendar/           # Booking: service, date, barber and slot selection
 │       ├── auth/              # Login / registration / password recovery
+│       ├── asistente/         # Assistant chat (also reachable without a session)
 │       ├── contacto/          # Salon address, phone and email
 │       ├── core/              # Biometric login, secure token storage, camera
 │       ├── mis-citas/         # Appointment history with status and payment badges
@@ -96,6 +97,10 @@ Ionic app for the salon's customers:
 * **Biometric login** (fingerprint/face) storing tokens in secure native storage
 * **Profile photo from the camera or the gallery**, with permission handling: if both camera and gallery are denied the app says so instead of failing silently, and cancelling the picker is treated as a cancellation, not an error. In the browser the plugin falls back to a file picker, so the same screen works without a device
 * **PDF receipt** of a paid appointment: the file is written to the cache directory and opened through the **system share sheet**, which is what offers "Save to Files", "Open with…" or sending it on — the WebView has no downloads folder and no PDF viewer. In the browser it degrades to a normal download, so the same screen works as a PWA
+* **Conversational assistant** in its own tab: ask about services, prices, opening hours or whether a day has a free slot, and the backend answers by querying the real data through tool calling. Three decisions:
+    * **It is the only screen besides login reachable without an account.** Its endpoint is public because people ask about prices *before* registering, and all of `/tabs` requires a session — so besides the tab there is an `/asistente` route **outside the guards**, linked from the login screen. Without it no client would ever exercise that backend design. The routing spec asserts it carries no guards and is declared before the wildcard.
+    * **The conversation lives in memory only.** The backend is stateless: the history is resent on every turn. Leaving the screen clears it, which is right here — there is nothing worth persisting, and nothing that was asked is left on the device. The history is trimmed to the **10 most recent turns** (not the first ones: the context needed to understand "and Thursday?" is what was just said), which is what the backend accepts and what stops each new message from costing more tokens than the last.
+    * **Each error status says something different**, because the customer has to be able to act on it: **429** means wait, **503** means retrying won't help and offers the phone number, **404** means the assistant is not deployed on that backend, and no connectivity is said plainly. If the request fails the question **stays on screen** so it doesn't have to be retyped.
 * **Contact screen** with the salon's address, phone number and email. Phone and email are `tel:` and `mailto:` links, which Capacitor hands to the system dialler and mail client instead of opening them inside the WebView
 * Built with Capacitor: the same codebase deploys as a web app today and packages as an Android app (`appId com.segovia.peluqueria`), with its own launcher icon and splash screen
 
@@ -136,12 +141,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**423 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**448 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 236 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, and every core service, guard and interceptor |
-| Mobile (`cd mobile && npx ng test`) | 187 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen and the tab routes |
+| Admin + core (`npx ng test`) | 241 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor |
+| Mobile (`cd mobile && npx ng test`) | 207 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming) and the tab routes |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -179,7 +184,7 @@ The launcher icon and splash screen are generated from the salon's logo with `np
 
 ## Backend
 
-The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 267-test suite (unit + Testcontainers).
+The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 295-test suite (unit + Testcontainers).
 
 ---
 *Developed by Eduardo Andres Segovia Roman.*

@@ -54,6 +54,7 @@ peluqueria_citas_frontend/
 │   └── src/app/
 │       ├── agendar/           # Reserva: selección de servicio, fecha, peluquero y hueco
 │       ├── auth/              # Login / registro / recuperación de contraseña
+│       ├── asistente/         # Chat con el asistente (también accesible sin sesión)
 │       ├── contacto/          # Dirección, teléfono y email del salón
 │       ├── core/              # Login biométrico, almacenamiento seguro de tokens y cámara
 │       ├── mis-citas/         # Historial de citas con badges de estado y pago
@@ -96,6 +97,10 @@ App Ionic para los clientes de la peluquería:
 * **Login biométrico** (huella/cara) guardando los tokens en almacenamiento nativo seguro
 * **Foto de perfil desde la cámara o la galería**, con gestión de permisos: si se deniegan cámara y galería la app lo dice en vez de fallar en silencio, y cerrar el selector se trata como cancelación, no como error. En el navegador el plugin cae a un selector de ficheros, así que la misma pantalla funciona sin dispositivo
 * **Recibo en PDF** de una cita pagada: el fichero se escribe en el directorio de caché y se abre con la **hoja de compartir del sistema**, que es la que ofrece «Guardar en Archivos», «Abrir con…» o reenviarlo — el WebView no tiene carpeta de descargas ni visor de PDF. En el navegador degrada a una descarga normal, así que la misma pantalla funciona como PWA
+* **Asistente conversacional** en una pestaña propia: pregunta por servicios, precios, horario o si queda hueco un día, y el backend responde consultando los datos reales con *tool calling*. Tres decisiones:
+    * **Es la única pantalla, aparte del login, a la que se llega sin cuenta.** Su endpoint es público porque se pregunta por precios *antes* de registrarse, y todo `/tabs` exige sesión, así que además de la pestaña hay una ruta `/asistente` **fuera de los guards**, enlazada desde el login. Sin ella ese diseño del backend no lo aprovecharía ningún cliente. El spec de rutas comprueba que no tenga guards y que esté declarada antes del comodín.
+    * **La conversación vive solo en memoria.** El backend no guarda estado: en cada turno se le reenvía el historial. Salir de la pantalla la borra, que es lo correcto aquí — no hay nada que valga la pena persistir y no queda en el dispositivo nada de lo que se haya preguntado. El historial se recorta a los **10 turnos más recientes** (no a los primeros: el contexto que hace falta para entender «y el jueves?» es lo último que se dijo), que es lo que acepta el backend y lo que evita que cada mensaje nuevo cueste más tokens que el anterior.
+    * **Cada estado de error dice algo distinto**, porque el cliente tiene que poder actuar: con **429** espera, con **503** no vale reintentar y se le ofrece el teléfono, con **404** el asistente no está desplegado en ese backend, y sin conexión se dice tal cual. Si la petición falla, la pregunta **se queda en pantalla** para no obligar a reescribirla.
 * **Pantalla de contacto** con la dirección, el teléfono y el email del salón. El teléfono y el email son enlaces `tel:` y `mailto:`, que Capacitor saca al marcador y al cliente de correo del sistema en vez de abrirlos dentro del WebView
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
@@ -136,12 +141,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**423 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**448 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 236 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 187 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto y las rutas de las pestañas |
+| Admin + core (`npx ng test`) | 241 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 207 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial) y las rutas de las pestañas |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -179,7 +184,7 @@ El icono de lanzador y la pantalla de arranque se generan desde el logo de la pe
 
 ## Backend
 
-La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 267 tests (unitarios + Testcontainers).
+La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 295 tests (unitarios + Testcontainers).
 
 ---
 *Desarrollado por Eduardo Andrés Segovia Román.*

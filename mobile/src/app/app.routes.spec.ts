@@ -64,10 +64,34 @@ describe('ruta raíz de la app', () => {
 describe('pestañas de cliente', () => {
   const hijas = routes.find((r) => r.path === 'tabs')?.children ?? [];
 
-  it.each(['servicios', 'mis-citas', 'contacto', 'perfil'])(
+  it.each(['servicios', 'mis-citas', 'contacto', 'asistente', 'perfil'])(
     '/tabs/%s tiene ruta',
     (tab) => {
       expect(hijas.some((r) => r.path === tab)).toBe(true);
     },
   );
+});
+
+/**
+ * El asistente responde sin sesión (su endpoint es público), y todo /tabs exige login.
+ * Si esta ruta cayera dentro de los guards, un visitante sin cuenta acabaría en el login
+ * y la única pantalla pensada para él sería inalcanzable.
+ */
+describe('ruta pública del asistente', () => {
+  const asistente = routes.find((r) => r.path === 'asistente');
+
+  it('existe fuera de /tabs', () => {
+    expect(asistente).toBeDefined();
+  });
+
+  it('no tiene guards', () => {
+    expect(asistente?.canActivate).toBeUndefined();
+  });
+
+  it('está declarada antes del comodín, o nunca se alcanzaría', () => {
+    const posicionAsistente = routes.findIndex((r) => r.path === 'asistente');
+    const posicionComodin = routes.findIndex((r) => r.path === '**');
+    expect(posicionAsistente).toBeGreaterThanOrEqual(0);
+    expect(posicionAsistente).toBeLessThan(posicionComodin);
+  });
 });

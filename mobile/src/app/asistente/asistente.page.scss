@@ -1,0 +1,79 @@
+.bienvenida {
+  padding: 24px 16px 8px;
+  text-align: center;
+
+  ion-icon {
+    font-size: 40px;
+    color: var(--ion-color-primary);
+  }
+
+  h2 {
+    margin: 12px 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--ion-placeholder-color);
+  }
+}
+
+.sugerencias {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.burbuja {
+  max-width: 80%;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.4;
+  // El modelo responde en texto plano, asi que los saltos de linea que envie hay que
+  // respetarlos aqui o la respuesta se ve como un parrafo unico.
+  white-space: pre-wrap;
+  // Una URL o un numero largo sin espacios desbordaria la burbuja.
+  overflow-wrap: anywhere;
+}
+
+// Propia: alineada a la derecha y en el color de marca.
+.burbuja.mia {
+  margin-left: auto;
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  border-bottom-right-radius: 4px;
+}
+
+// Del asistente: a la izquierda y en gris, para que se distinga de un vistazo.
+.burbuja.suya {
+  margin-right: auto;
+  background: var(--ion-color-light);
+  color: var(--ion-text-color);
+  border-bottom-left-radius: 4px;
+}
+
+.burbuja.escribiendo {
+  display: flex;
+  align-items: center;
+  // Sin esto la burbuja del spinner queda tan ancha como una respuesta entera.
+  width: fit-content;
+  padding: 8px 16px;
+}
+
+.error {
+  display: block;
+  margin: 4px 0 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+ion-footer ion-item {
+  --background: transparent;
+}

@@ -16,6 +16,7 @@ export * from './models/pago.model';
 export * from './models/estadisticas.model';
 export * from './models/peluquero.model';
 export * from './models/dia-bloqueado.model';
+export * from './models/asistente.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
@@ -27,6 +28,7 @@ export * from './services/pago.service';
 export * from './services/estadisticas.service';
 export * from './services/peluquero.service';
 export * from './services/dia-bloqueado.service';
+export * from './services/asistente.service';
 
 // Utilidades
 export * from './utils/fecha';
