@@ -179,7 +179,7 @@ El icono de lanzador y la pantalla de arranque se generan desde el logo de la pe
 
 ## Backend
 
-La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 268 tests (unitarios + Testcontainers).
+La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo y una suite de 267 tests (unitarios + Testcontainers).
 
 ---
 *Desarrollado por Eduardo Andrés Segovia Román.*

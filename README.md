@@ -179,7 +179,7 @@ The launcher icon and splash screen are generated from the salon's logo with `np
 
 ## Backend
 
-The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 268-test suite (unit + Testcontainers).
+The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 267-test suite (unit + Testcontainers).
 
 ---
 *Developed by Eduardo Andres Segovia Roman.*
