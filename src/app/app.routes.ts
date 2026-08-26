@@ -47,6 +47,10 @@ export const routes: Routes = [
           import('./features/peluqueros/peluqueros').then((m) => m.Peluqueros),
       },
       {
+        path: 'galeria',
+        loadComponent: () => import('./features/galeria/galeria').then((m) => m.Galeria),
+      },
+      {
         path: 'bloqueos',
         loadComponent: () => import('./features/bloqueos/bloqueos').then((m) => m.Bloqueos),
       },

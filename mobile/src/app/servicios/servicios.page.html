@@ -1,6 +1,15 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>Servicios</ion-title>
+    <!--
+      La galeria entra por aqui y no como pestana nueva: la barra ya tiene cinco y
+      una sexta se aprieta en pantallas pequenas.
+    -->
+    <ion-buttons slot="end">
+      <ion-button (click)="verGaleria()" aria-label="Ver nuestros trabajos">
+        <ion-icon slot="icon-only" name="images-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
   <!-- Sin catalogo cargado no hay nada que buscar, asi que la barra no aparece. -->
   @if (!loading() && servicios().length > 0) {

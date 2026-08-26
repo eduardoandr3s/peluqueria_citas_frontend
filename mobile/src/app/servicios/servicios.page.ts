@@ -17,7 +17,11 @@ import {
   IonItem,
   IonList,
   IonSearchbar,
+  IonButtons,
+  IonIcon,
 } from '@ionic/angular/standalone';
+import { addIcons } from 'ionicons';
+import { imagesOutline } from 'ionicons/icons';
 import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
 
 @Component({
@@ -29,6 +33,7 @@ import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
     IonRefresher, IonRefresherContent,
     IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent,
     IonButton, IonSkeletonText, IonItem, IonList, IonSearchbar,
+    IonButtons, IonIcon,
   ],
 })
 export class ServiciosPage implements OnInit {
@@ -38,6 +43,10 @@ export class ServiciosPage implements OnInit {
   readonly servicios = signal<Servicio[]>([]);
   readonly loading = signal(true);
   readonly busqueda = signal('');
+
+  constructor() {
+    addIcons({ imagesOutline });
+  }
 
   /**
    * Servicios que coinciden con la busqueda, por nombre o descripcion. El catalogo
@@ -89,6 +98,10 @@ export class ServiciosPage implements OnInit {
         (event?.target as HTMLIonRefresherElement)?.complete();
       },
     });
+  }
+
+  verGaleria(): void {
+    this.router.navigate(['/tabs/galeria']);
   }
 
   agendar(servicio: Servicio): void {

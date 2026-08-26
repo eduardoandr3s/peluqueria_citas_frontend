@@ -1,0 +1,58 @@
+.galeria-grid {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.galeria-celda {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+
+  img {
+    display: block;
+    width: 100%;
+    // Altura fija, como en las tarjetas de servicio: sin ella la rejilla salta de
+    // tamano a medida que van llegando las imagenes y se mueve bajo el dedo.
+    height: 150px;
+    object-fit: cover;
+    background: var(--ion-color-step-100, #f2f2f2);
+  }
+}
+
+.galeria-titulo {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.galeria-hueco {
+  height: 150px;
+  border-radius: 12px;
+  margin: 0;
+}
+
+.galeria-grande {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.galeria-mensaje {
+  text-align: center;
+  color: var(--ion-placeholder-color);
+  padding: 48px 24px;
+}

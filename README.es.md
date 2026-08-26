@@ -40,6 +40,7 @@ peluqueria_citas_frontend/
 │   │   ├── bloqueos/          # Días cerrados (festivos y cierres puntuales)
 │   │   ├── citas/             # Gestión de citas (calendario, pagos, selector de peluquero)
 │   │   ├── dashboard/         # Dashboard de estadísticas (gráficas solo con CSS)
+│   │   ├── galeria/           # Galería de trabajos: subida múltiple, orden y títulos
 │   │   ├── peluqueros/        # CRUD de peluqueros
 │   │   ├── perfil/            # "Mi perfil": datos propios y foto de perfil
 │   │   ├── servicios/         # CRUD del catálogo de servicios (incluido el modal de foto)
@@ -57,13 +58,14 @@ peluqueria_citas_frontend/
 │       ├── asistente/         # Chat con el asistente (también accesible sin sesión)
 │       ├── contacto/          # Dirección, teléfono y email del salón
 │       ├── core/              # Login biométrico, almacenamiento seguro de tokens y cámara
+│       ├── galeria/           # Escaparate de trabajos: rejilla de miniaturas y visor
 │       ├── mis-citas/         # Historial de citas con badges de estado y pago
 │       ├── pago/              # Checkout con Stripe Payment Element y polling
 │       ├── perfil/            # Perfil, foto de perfil y ajustes de biometría
 │       └── servicios/         # Catálogo de servicios con fotos
 ├── packages/core/             # @peluqueria/core — librería compartida
 │   └── src/
-│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas
+│       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas, GaleriaFoto
 │       ├── services/          # Servicios HTTP de cada recurso de la API + token storage
 │       ├── utils/             # Helpers de fechas ISO y redimensionado de imágenes en cliente
 │       ├── auth.guard.ts      # Guard de rutas
@@ -83,6 +85,7 @@ Panel de gestión para el dueño de la peluquería:
 * CRUD de servicios, **peluqueros** y usuarios (roles, búsqueda, soft delete y reactivación)
 * **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
 * **Fotos de catálogo**: subir, sustituir o borrar la foto de cada servicio desde un modal, redimensionada en el navegador antes de subirla
+* **Galería de trabajos** (bajo «Configuración»): subida de **varias fotos a la vez**, títulos editables y orden manual con ↑/↓ —dos botones en vez de *drag and drop*: es el 90 % del valor con el 10 % del código—. De cada fichero se generan **dos tamaños en el navegador**, la imagen y una miniatura, y se suben en el mismo multipart: el servidor tiene 0,1 CPU en producción. Las subidas van **en serie**, porque el orden en que se guardan es el orden en que los clientes las verán. Mover una foto **renumera la rejilla** y solo manda al servidor lo que cambia de posición; intercambiar los dos `orden` sería una petición menos pero no movería nada si las dos fotos comparten número
 * Pantalla **"Mi perfil"** con los datos propios y la foto de perfil, más el avatar real en la cabecera. En el listado de usuarios **no** se pintan avatares a propósito: la URL firmada se pide solo al abrir la ficha de un usuario, así que recorrer el listado no cuesta ninguna firma
 * **Recibo en PDF** de cada pago desde el desglose de ingresos. El fichero se pide con `HttpClient` como blob y no con un `<a href>` normal: el endpoint exige el JWT, que lo pone el interceptor, así que un enlace directo recibiría un 401
 * Login con JWT + refresh tokens con rotación, recuperación de contraseña
@@ -101,6 +104,7 @@ App Ionic para los clientes de la peluquería:
     * **Es la única pantalla, aparte del login, a la que se llega sin cuenta.** Su endpoint es público porque se pregunta por precios *antes* de registrarse, y todo `/tabs` exige sesión, así que además de la pestaña hay una ruta `/asistente` **fuera de los guards**, enlazada desde el login. Sin ella ese diseño del backend no lo aprovecharía ningún cliente. El spec de rutas comprueba que no tenga guards y que esté declarada antes del comodín.
     * **La conversación vive solo en memoria.** El backend no guarda estado: en cada turno se le reenvía el historial. Salir de la pantalla la borra, que es lo correcto aquí — no hay nada que valga la pena persistir y no queda en el dispositivo nada de lo que se haya preguntado. El historial se recorta a los **10 turnos más recientes** (no a los primeros: el contexto que hace falta para entender «y el jueves?» es lo último que se dijo), que es lo que acepta el backend y lo que evita que cada mensaje nuevo cueste más tokens que el anterior.
     * **Cada estado de error dice algo distinto**, porque el cliente tiene que poder actuar: con **429** espera, con **503** no vale reintentar y se le ofrece el teléfono, con **404** el asistente no está desplegado en ese backend, y sin conexión se dice tal cual. Si la petición falla, la pregunta **se queda en pantalla** para no obligar a reescribirla.
+* **Galería de trabajos**, a la que se entra desde la cabecera de Servicios y no como sexta pestaña (la barra ya tiene cinco y una más se aprieta). La rejilla se pinta **siempre con la miniatura**, con `loading="lazy"` y altura fija para que no salte al cargar, y la imagen grande se pide solo al abrir una foto: es la única pantalla que carga muchas imágenes de golpe y el límite del plan gratuito de almacenamiento es el tráfico
 * **Pantalla de contacto** con la dirección, el teléfono y el email del salón. El teléfono y el email son enlaces `tel:` y `mailto:`, que Capacitor saca al marcador y al cliente de correo del sistema en vez de abrirlos dentro del WebView
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
@@ -141,12 +145,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**448 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**479 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 241 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 207 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial) y las rutas de las pestañas |
+| Admin + core (`npx ng test`) | 264 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guard e interceptor del core |
+| Mobile (`cd mobile && npx ng test`) | 215 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos y las rutas de las pestañas |
 
 ```bash
 npx ng test --watch=false            # admin + core

@@ -1,0 +1,71 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/servicios" text="Servicios"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Nuestros trabajos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="galeria-grid">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <ion-skeleton-text animated class="galeria-hueco"></ion-skeleton-text>
+      }
+    </div>
+  } @else if (error()) {
+    <p class="galeria-mensaje">
+      No se pudieron cargar las fotos.
+      <ion-button fill="clear" size="small" (click)="cargar()">Reintentar</ion-button>
+    </p>
+  } @else if (fotos().length === 0) {
+    <p class="galeria-mensaje">Todavía no hay fotos publicadas.</p>
+  } @else {
+    <div class="galeria-grid">
+      @for (foto of fotos(); track foto.idFoto) {
+        <button type="button" class="galeria-celda" (click)="abrir(foto)">
+          <!--
+            Siempre la miniatura: son 20 imágenes por visita y el límite del plan
+            gratuito de almacenamiento es el tráfico. La grande solo al abrir una.
+          -->
+          <img
+            [src]="foto.urlMiniatura"
+            [alt]="foto.titulo || 'Trabajo de la peluquería'"
+            loading="lazy"
+            decoding="async"
+          />
+          @if (foto.titulo) {
+            <span class="galeria-titulo">{{ foto.titulo }}</span>
+          }
+        </button>
+      }
+    </div>
+  }
+
+  <ion-modal [isOpen]="abierta() !== null" (didDismiss)="cerrar()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ abierta()?.titulo || 'Trabajo' }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="cerrar()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        @if (abierta(); as foto) {
+          <img
+            class="galeria-grande"
+            [src]="foto.urlImagen"
+            [alt]="foto.titulo || 'Trabajo de la peluquería'"
+          />
+        }
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+</ion-content>
