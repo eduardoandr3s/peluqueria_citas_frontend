@@ -67,7 +67,7 @@ peluqueria_citas_frontend/
 │   └── src/
 │       ├── models/            # Interfaces: Cita, Servicio, Usuario, Pago, Peluquero, DiaBloqueado, Estadisticas, GaleriaFoto
 │       ├── services/          # HTTP services for every API resource + token storage
-│       ├── utils/             # ISO date helpers and client-side image resizing
+│       ├── utils/             # ISO dates, image resizing, money formatting and downloads
 │       ├── auth.guard.ts      # Route guard
 │       └── jwt.interceptor.ts # Attaches the JWT and handles refresh
 └── package.json               # npm workspaces (packages/*, mobile)
@@ -112,10 +112,11 @@ Ionic app for the salon's customers:
 
 `@peluqueria/core`, consumed by both apps:
 
-* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`) and their enums
-* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, ...) plus `AuthService` and token storage
+* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`, `GaleriaFoto`) and their enums
+* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, `GaleriaService`, ...) plus `AuthService` and token storage
 * `utils/fecha.ts`: local-time `YYYY-MM-DD` helpers (`toISOString()` would shift the day in positive-offset timezones)
 * `utils/imagen.ts`: resizes an image in the browser before uploading, so a phone photo fits the backend's 2 MB limit using the user's CPU rather than the server's. It only ever **optimises**: if the environment has no `createImageBitmap`, the original is uploaded and the server decides — the helper never blocks an upload
+* `utils/precio.ts`: money formatting, one implementation for both apps. It exists because the format used to come from two places — the `number` pipe, which depends on the `LOCALE_ID` each app registers, and `toFixed(2)`, which always prints a dot — so the same price rendered as "15.00 €" in the panel and "15,00 €" in the mobile app. The separator is pinned to `es-ES` here instead of being left to each app's locale: an amount should not change shape depending on which screen you look at
 * `utils/descarga.ts`: turns a blob into a browser download. Needed because files served by the API require the JWT, so they cannot be linked directly; also used as the mobile app's fallback when it runs in a browser
 * `jwt.interceptor.ts` and `auth.guard.ts`: JWT handling and route protection shared by both apps
 
@@ -188,7 +189,7 @@ The launcher icon and splash screen are generated from the salon's logo with `np
 
 ## Backend
 
-The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders and a 298-test suite (unit + Testcontainers).
+The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders, a work gallery and a 329-test suite (unit + Testcontainers).
 
 ---
 *Developed by Eduardo Andres Segovia Roman.*
