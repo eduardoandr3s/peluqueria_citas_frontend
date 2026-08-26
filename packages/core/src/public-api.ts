@@ -33,6 +33,7 @@ export * from './services/asistente.service';
 // Utilidades
 export * from './utils/fecha';
 export * from './utils/imagen';
+export * from './utils/precio';
 export * from './utils/descarga';
 
 // Guards e interceptor

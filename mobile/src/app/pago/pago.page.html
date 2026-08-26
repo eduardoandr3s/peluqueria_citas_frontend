@@ -23,7 +23,7 @@
       <div class="resumen-card">
         <h2>{{ cita()!.servicio.nombre }}</h2>
         <p>{{ cita()!.fechaHora | date: 'EEEE d MMM, HH:mm' }}</p>
-        <p class="precio">{{ cita()!.servicio.precio | number:'1.2-2' }} €</p>
+        <p class="precio">{{ importe(cita()!.servicio.precio) }} €</p>
       </div>
 
       <div id="payment-element" class="payment-element"></div>
@@ -38,7 +38,7 @@
           <ion-spinner name="crescent" slot="start"></ion-spinner>
           Procesando…
         } @else {
-          Pagar {{ cita()!.servicio.precio | number:'1.2-2' }} €
+          Pagar {{ importe(cita()!.servicio.precio) }} €
         }
       </ion-button>
 

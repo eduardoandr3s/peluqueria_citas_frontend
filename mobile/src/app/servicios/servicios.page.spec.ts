@@ -39,7 +39,7 @@ describe('ServiciosPage', () => {
 
   it('formatPrecio formatea en euros con dos decimales', () => {
     const { c } = setup();
-    expect(c.formatPrecio(15)).toBe('15.00 €');
+    expect(c.formatPrecio(15)).toBe('15,00 €');
   });
 
   it('formatDuracion muestra minutos y horas', () => {

@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -15,7 +15,7 @@ import {
   ToastController,
 } from '@ionic/angular/standalone';
 import { loadStripe, Stripe, StripeElements } from '@stripe/stripe-js';
-import { PagoService, CitaService, Cita } from '@peluqueria/core';
+import { PagoService, CitaService, Cita, formatearImporte } from '@peluqueria/core';
 import { environment } from '../../environments/environment';
 
 type PageState = 'cargando' | 'error-inicial' | 'listo' | 'verificando' | 'timeout';
@@ -27,7 +27,7 @@ type PageState = 'cargando' | 'error-inicial' | 'listo' | 'verificando' | 'timeo
   imports: [
     IonHeader, IonToolbar, IonTitle, IonButtons, IonBackButton,
     IonContent, IonSpinner, IonButton,
-    DatePipe, DecimalPipe,
+    DatePipe,
   ],
 })
 export class PagoPage {
@@ -36,6 +36,9 @@ export class PagoPage {
   private readonly pagoService = inject(PagoService);
   private readonly citaService = inject(CitaService);
   private readonly toast = inject(ToastController);
+
+  /** Formato de importes, uno solo para panel y móvil. */
+  readonly importe = formatearImporte;
 
   readonly cita = signal<Cita | null>(null);
   readonly estado = signal<PageState>('cargando');

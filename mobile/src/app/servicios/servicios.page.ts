@@ -18,7 +18,7 @@ import {
   IonList,
   IonSearchbar,
 } from '@ionic/angular/standalone';
-import { ServicioService, Servicio } from '@peluqueria/core';
+import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
 
 @Component({
   selector: 'app-servicios',
@@ -96,7 +96,7 @@ export class ServiciosPage implements OnInit {
   }
 
   formatPrecio(precio: number): string {
-    return `${precio.toFixed(2)} €`;
+    return formatearEuros(precio);
   }
 
   formatDuracion(minutos: number): string {

@@ -1,10 +1,11 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
   Cita, EstadoCita, CitaService, PagoResponse, PagoService, Servicio, ServicioService,
   Usuario, UsuarioService, EstadisticasService, EstadisticasResponse, descargarBlob,
+  formatearImporte,
 } from '@peluqueria/core';
 import { CitaDetalle } from '../../shared/cita-detalle/cita-detalle';
 import { ListaModal } from '../../shared/lista-modal/lista-modal';
@@ -35,7 +36,7 @@ type ModalLista =
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, DatePipe, DecimalPipe, ListaModal, CitaDetalle],
+  imports: [RouterLink, DatePipe, ListaModal, CitaDetalle],
   template: `
     <div class="space-y-6">
       <div>
@@ -195,7 +196,7 @@ type ModalLista =
                   (click)="abrirIngresos()"
                   class="rounded-lg px-1 text-left text-2xl font-bold text-main transition hover:bg-elevated"
                 >
-                  {{ ingresosTotal() | number:'1.2-2' }} €
+                  {{ importe(ingresosTotal()) }} €
                 </button>
                 <div class="mt-3 space-y-2">
                   @for (entry of ingresosPorMetodo(); track entry[0]) {
@@ -206,7 +207,7 @@ type ModalLista =
                     >
                       <div class="flex items-center justify-between text-sm">
                         <span class="text-muted">{{ entry[0] }}</span>
-                        <span class="font-medium text-main">{{ entry[1] | number:'1.2-2' }} €</span>
+                        <span class="font-medium text-main">{{ importe(entry[1]) }} €</span>
                       </div>
                       <div class="mt-1 h-2 w-full rounded-full bg-elevated">
                         <div
@@ -317,7 +318,7 @@ type ModalLista =
                 <p class="truncate text-xs text-muted">{{ servicio.duracion }} min</p>
               </div>
               <p class="shrink-0 font-semibold text-main">
-                {{ servicio.precio | number: '1.2-2' }} €
+                {{ importe(servicio.precio) }} €
               </p>
             </div>
           </ng-template>
@@ -372,7 +373,7 @@ type ModalLista =
                 </p>
               </div>
               <div class="flex shrink-0 items-center gap-3">
-                <p class="font-semibold text-main">{{ pago.monto | number: '1.2-2' }} €</p>
+                <p class="font-semibold text-main">{{ importe(pago.monto) }} €</p>
                 @if (tieneRecibo(pago)) {
                   <button
                     type="button"
@@ -406,6 +407,9 @@ export class Dashboard implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly pagoService = inject(PagoService);
   private readonly estadisticasService = inject(EstadisticasService);
+
+  /** Formato de importes, uno solo para panel y móvil. */
+  protected readonly importe = formatearImporte;
 
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -631,8 +635,12 @@ export class Dashboard implements OnInit {
 
   protected readonly filtroPago = (p: PagoResponse, q: string): boolean => {
     const cita = this.citasPorId().get(p.citaId);
+    // Se busca sobre el importe ya formateado, y también con el punto, porque
+    // se ve «15,00 €» pero hay quien teclea «15.00».
+    const importe = this.importe(p.monto);
     return (
-      p.monto.toFixed(2).includes(q) ||
+      importe.includes(q) ||
+      importe.replace(',', '.').includes(q) ||
       p.metodoPago.toLowerCase().includes(q) ||
       (cita?.usuario.nombre.toLowerCase().includes(q) ?? false) ||
       (cita?.servicio.nombre.toLowerCase().includes(q) ?? false)

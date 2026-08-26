@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -19,6 +19,7 @@ import {
   PeluqueroService,
   hoyIso,
   sumarMeses,
+  formatearImporte,
 } from '@peluqueria/core';
 import { DatePicker } from '../../shared/date-picker/date-picker';
 
@@ -31,7 +32,7 @@ interface Feedback {
 
 @Component({
   selector: 'app-citas',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe, DecimalPipe, DatePicker],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, DatePicker],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -396,7 +397,7 @@ interface Feedback {
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
           <h2 class="text-lg font-semibold text-main">Registrar pago manual</h2>
           <p class="mt-2 text-sm text-main">
-            Cita de {{ c.usuario.nombre }} — {{ c.servicio.nombre }} ({{ c.servicio.precio | number:'1.2-2' }} €)
+            Cita de {{ c.usuario.nombre }} — {{ c.servicio.nombre }} ({{ importe(c.servicio.precio) }} €)
           </p>
           <div class="mt-4 space-y-3">
             <label class="mb-1.5 block text-sm font-medium text-main">Método de pago</label>
@@ -521,7 +522,7 @@ interface Feedback {
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
           <h2 class="text-lg font-semibold text-main">Reembolsar pago</h2>
           <p class="mt-2 text-sm text-main">
-            Se reembolsará el pago de {{ c.servicio.nombre }} ({{ c.servicio.precio | number:'1.2-2' }} €) de {{ c.usuario.nombre }}.
+            Se reembolsará el pago de {{ c.servicio.nombre }} ({{ importe(c.servicio.precio) }} €) de {{ c.usuario.nombre }}.
           </p>
           @if (c.estado === 'ANULADA') {
             <p class="mt-2 text-sm text-muted">
@@ -567,6 +568,9 @@ export class Citas implements OnInit {
   private readonly servicioService = inject(ServicioService);
   private readonly pagoService = inject(PagoService);
   private readonly peluqueroService = inject(PeluqueroService);
+
+  /** Formato de importes, uno solo para panel y móvil. */
+  protected readonly importe = formatearImporte;
   private readonly fb = inject(FormBuilder);
 
   protected readonly citas = signal<Cita[]>([]);
@@ -773,7 +777,7 @@ export class Citas implements OnInit {
 
   protected labelPago(c: Cita): string {
     // El importe cobrado es el precio del servicio de la cita.
-    const importe = c.servicio.precio.toFixed(2);
+    const importe = formatearImporte(c.servicio.precio);
     switch (c.estadoPago) {
       case 'PENDIENTE': return 'Pago pendiente';
       case 'PAGADO': return `${importe} € pagado`;

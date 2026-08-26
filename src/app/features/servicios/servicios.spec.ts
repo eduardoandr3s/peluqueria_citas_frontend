@@ -45,7 +45,7 @@ describe('Servicios', () => {
 
   it('formatPrecio formatea con 2 decimales y €', () => {
     const { c } = setup({});
-    expect(c.formatPrecio(15)).toBe('15.00 €');
+    expect(c.formatPrecio(15)).toBe('15,00 €');
   });
 
   it('guardar no llama al servicio si el form es inválido', () => {

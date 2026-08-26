@@ -2,7 +2,13 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Servicio, ServicioRequest, ServicioService, redimensionarImagen } from '@peluqueria/core';
+import {
+  Servicio,
+  ServicioRequest,
+  ServicioService,
+  redimensionarImagen,
+  formatearEuros,
+} from '@peluqueria/core';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -405,7 +411,7 @@ export class Servicios implements OnInit {
   }
 
   protected formatPrecio(precio: number): string {
-    return `${Number(precio).toFixed(2)} €`;
+    return formatearEuros(Number(precio));
   }
 
   protected invalid(control: 'nombre' | 'precio' | 'duracion'): boolean {

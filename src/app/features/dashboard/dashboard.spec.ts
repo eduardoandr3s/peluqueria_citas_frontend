@@ -301,7 +301,8 @@ describe('Dashboard', () => {
       const { c } = setup({ citas, pagos });
 
       expect(c.filtroPago(pagos[0], 'cliente')).toBe(true); // nombre del cliente de la cita
-      expect(c.filtroPago(pagos[0], '30.00')).toBe(true);
+      expect(c.filtroPago(pagos[0], '30,00')).toBe(true); // formato que se ve
+      expect(c.filtroPago(pagos[0], '30.00')).toBe(true); // y el que teclea quien usa el punto
       expect(c.filtroPago(pagos[0], 'tarjeta')).toBe(true);
       expect(c.filtroPago(pagos[0], 'zzz')).toBe(false);
     });

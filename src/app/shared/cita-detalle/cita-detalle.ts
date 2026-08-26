@@ -1,6 +1,6 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, computed, input, output } from '@angular/core';
-import { Cita, EstadoCita, EstadoPago } from '@peluqueria/core';
+import { Cita, EstadoCita, EstadoPago, formatearImporte } from '@peluqueria/core';
 import { registrarOverlay } from '../overlay-stack';
 
 /**
@@ -9,7 +9,7 @@ import { registrarOverlay } from '../overlay-stack';
  */
 @Component({
   selector: 'app-cita-detalle',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe],
   host: { '(document:keydown.escape)': 'alPulsarEscape()' },
   template: `
     <div
@@ -105,7 +105,7 @@ import { registrarOverlay } from '../overlay-stack';
             <h3 class="text-xs font-medium uppercase tracking-wide text-muted">Servicio</h3>
             <div class="mt-1 flex items-baseline justify-between gap-3">
               <p class="font-medium text-main">{{ cita().servicio.nombre }}</p>
-              <p class="font-semibold text-main">{{ cita().servicio.precio | number: '1.2-2' }} €</p>
+              <p class="font-semibold text-main">{{ importe(cita().servicio.precio) }} €</p>
             </div>
             @if (cita().servicio.descripcion; as descripcion) {
               <p class="mt-1 text-sm text-muted">{{ descripcion }}</p>
@@ -128,6 +128,9 @@ export class CitaDetalle {
 
   private readonly esTope = registrarOverlay();
 
+  /** Formato de importes, uno solo para panel y móvil. */
+  protected readonly importe = formatearImporte;
+
   protected readonly horaFin = computed(() => {
     const c = this.cita();
     const fin = new Date(new Date(c.fechaHora).getTime() + c.servicio.duracion * 60000);
@@ -136,7 +139,7 @@ export class CitaDetalle {
 
   protected readonly etiquetaPago = computed(() => {
     const c = this.cita();
-    const importe = c.servicio.precio.toFixed(2);
+    const importe = formatearImporte(c.servicio.precio);
     switch (c.estadoPago) {
       case 'PENDIENTE':
         return 'Pago pendiente';
