@@ -39,8 +39,11 @@ function setup(svc: Partial<Record<keyof UsuarioService, unknown>> = {}) {
     ],
   });
   const c = TestBed.runInInjectionContext(() => new AdminUsuariosPage()) as any;
-  const pulsar = (text: string) => lastAlert.buttons.find((b: any) => b.text === text).handler();
-  return { c, usuarioSvc: usuarioSvc as any, toast, pulsar };
+  // `datos` es lo que el alert pasa al handler: el valor del radio elegido, o los campos
+  // del formulario en los alerts que los tienen.
+  const pulsar = (text: string, datos?: unknown) =>
+    lastAlert.buttons.find((b: any) => b.text === text).handler(datos);
+  return { c, usuarioSvc: usuarioSvc as any, toast, pulsar, alertCtrl };
 }
 
 describe('AdminUsuariosPage', () => {
@@ -139,22 +142,49 @@ describe('AdminUsuariosPage', () => {
     expect(c.formError()).toContain('Ya existe');
   });
 
-  it('confirmarRol cambia el rol al pulsar Cambiar', async () => {
-    const cambiarRol = vi.fn().mockReturnValue(of({ ...OTRO, rol: 'ADMIN' }));
+  it('elegirRol ofrece los tres roles y marca el actual', async () => {
+    const { c, alertCtrl } = setup();
+
+    await c.elegirRol(OTRO); // OTRO es cliente
+
+    const inputs = alertCtrl.create.mock.calls.at(-1)![0].inputs;
+    expect(inputs.map((i: any) => i.value)).toEqual(['USER', 'PELUQUERO', 'ADMIN']);
+    expect(inputs.map((i: any) => i.label)).toEqual(['Cliente', 'Peluquero', 'Administrador']);
+    expect(inputs.find((i: any) => i.checked).value).toBe('USER');
+  });
+
+  it('elegirRol cambia el rol al elegir otro y confirmar', async () => {
+    const cambiarRol = vi.fn().mockReturnValue(of({ ...OTRO, rol: 'PELUQUERO' }));
     const { c, usuarioSvc, pulsar } = setup({ cambiarRol });
     usuarioSvc.listar.mockClear();
-    await c.confirmarRol(OTRO, 'ADMIN');
-    pulsar('Cambiar');
-    expect(cambiarRol).toHaveBeenCalledWith(2, 'ADMIN');
+
+    await c.elegirRol(OTRO);
+    pulsar('Cambiar', 'PELUQUERO');
+
+    expect(cambiarRol).toHaveBeenCalledWith(2, 'PELUQUERO');
     expect(usuarioSvc.listar).toHaveBeenCalled(); // recarga
   });
 
-  it('confirmarRol con 409 notifica que no se puede degradar al último ADMIN', async () => {
-    const cambiarRol = vi.fn().mockReturnValue(throwError(() => ({ status: 409 })));
+  it('elegir el mismo rol que ya tiene no gasta una llamada que cerraría sus sesiones', async () => {
+    const cambiarRol = vi.fn();
+    const { c, pulsar } = setup({ cambiarRol });
+
+    await c.elegirRol(OTRO);
+    pulsar('Cambiar', 'USER'); // el que ya tiene
+
+    expect(cambiarRol).not.toHaveBeenCalled();
+  });
+
+  it('un error al cambiar el rol avisa de que no se puede dejar el sistema sin administradores', async () => {
+    const cambiarRol = vi.fn().mockReturnValue(throwError(() => ({ status: 400 })));
     const { c, toast, pulsar } = setup({ cambiarRol });
-    await c.confirmarRol(ME, 'USER');
-    pulsar('Cambiar');
-    expect(toast.create).toHaveBeenCalledWith(expect.objectContaining({ color: 'danger' }));
+
+    await c.elegirRol(ME); // ME es el admin
+    pulsar('Cambiar', 'PELUQUERO');
+
+    expect(toast.create).toHaveBeenCalledWith(
+      expect.objectContaining({ color: 'danger', message: expect.stringContaining('último administrador') }),
+    );
   });
 
   it('confirmarDesactivar elimina (borrado lógico) al pulsar Desactivar', async () => {

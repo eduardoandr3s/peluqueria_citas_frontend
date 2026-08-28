@@ -87,7 +87,7 @@ Management panel for the salon owner:
 * **`PELUQUERO` role**: signs into the same panel with their schedule and their sales, and nothing from administration. The menu, the buttons and even the requests change with the role: as a barber the user list is not requested at all, since that ADMIN-only 403 inside the screen's `forkJoin` would take the appointments down with it
 * Payments: manual payments (cash/transfer), Stripe payment status, refunds
 * **Statistics dashboard**: appointments by status, revenue by payment method, top services and new customers, with range selector (month / last 30 days / year) — charts built with plain `div` + Tailwind, no chart library, keeping the app zoneless
-* CRUD for services and users (roles, search, soft delete and reactivation)
+* CRUD for services and users (search, soft delete and reactivation). **The role is picked from a dropdown inside "Edit"** and is read-only in the listing: as long as it was a "make/remove admin" toggle it rendered a barber as if they were an administrator. The dropdown spells out what each role can do, warns that changing it signs that account out everywhere, and is disabled on your own account — the silly way to lock yourself out of the panel. The role does not travel in the user `PUT`: it has its own endpoint because it invalidates that account's tokens, so it is sent separately and only when it actually changed
 * **Barbers**: on top of the CRUD, the **commission percentage** with **per-service exceptions** (a dye job does not pay like a haircut) and the **linked account** the professional signs in with. The screen never offers to link a customer account: the backend rejects it, and without the role the owner of that profile would not see a single appointment
 * **Closed days**: block a holiday or a one-off closure (with a reason) and unblock it. Closed days — Sundays included — render as **unselectable** in the booking calendar, so a day with no available times can no longer be picked
 * **Catalog photos**: upload, replace or remove a photo per service from a modal, resized in the browser before uploading
@@ -154,12 +154,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**542 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**550 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 300 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, produccion, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor. What is tested about the `PELUQUERO` role is mostly what it does **not** do: never requests the user list (that 403 would take the appointments down), never shows the cash or delete buttons, and never has menu links its own guard would reject |
-| Mobile (`cd mobile && npx ng test`) | 242 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming), the work gallery, appointment closing with its paid/unpaid warnings, own sales and the staff comparison, and the tab routes and guards |
+| Admin + core (`npx ng test`) | 306 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, produccion, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor. What is tested about the `PELUQUERO` role is mostly what it does **not** do: never requests the user list (that 403 would take the appointments down), never shows the cash or delete buttons, and never has menu links its own guard would reject |
+| Mobile (`cd mobile && npx ng test`) | 244 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming), the work gallery, appointment closing with its paid/unpaid warnings, own sales and the staff comparison, and the tab routes and guards |
 
 ```bash
 npx ng test --watch=false            # admin + core

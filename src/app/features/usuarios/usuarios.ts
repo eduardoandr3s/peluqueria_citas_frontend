@@ -4,7 +4,10 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { HttpErrorResponse } from '@angular/common/http';
 import { Rol, Usuario, UsuarioRequest, UsuarioUpdate, AuthService, UsuarioService } from '@peluqueria/core';
 
-type PendingType = 'promote' | 'demote' | 'deactivate' | 'activate';
+// El rol ya no se cambia desde el listado con un interruptor: se elige en el desplegable
+// del modal de edicion. Con tres roles, un boton de «hacer/quitar admin» no solo se queda
+// corto, es que miente: pintaba a un PELUQUERO como si fuera administrador.
+type PendingType = 'deactivate' | 'activate';
 
 interface PendingAction {
   type: PendingType;
@@ -154,8 +157,8 @@ interface Feedback {
                     <td class="px-5 py-3">
                       <span
                         class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                        [class]="u.rol === 'ADMIN' ? 'bg-primary/15 text-primary' : 'bg-elevated text-main'"
-                        >{{ u.rol }}</span
+                        [class]="rolClass(u.rol)"
+                        >{{ etiquetaRol(u.rol) }}</span
                       >
                     </td>
                     <td class="px-5 py-3">
@@ -181,30 +184,13 @@ interface Feedback {
                           @if (esYo(u)) {
                             <span class="text-xs text-muted">Cuenta actual</span>
                           } @else {
-                          @if (u.rol === 'USER') {
                             <button
                               type="button"
-                              (click)="pedirConfirmacion('promote', u)"
-                              class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                              (click)="pedirConfirmacion('deactivate', u)"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
                             >
-                              Hacer admin
+                              Desactivar
                             </button>
-                          } @else {
-                            <button
-                              type="button"
-                              (click)="pedirConfirmacion('demote', u)"
-                              class="rounded-md px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning/10"
-                            >
-                              Quitar admin
-                            </button>
-                          }
-                          <button
-                            type="button"
-                            (click)="pedirConfirmacion('deactivate', u)"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
-                          >
-                            Desactivar
-                          </button>
                           }
                         }
                       </div>
@@ -267,8 +253,8 @@ interface Feedback {
             <p class="font-semibold text-main">{{ u.nombre }}</p>
             <span
               class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
-              [class]="u.rol === 'ADMIN' ? 'bg-primary/15 text-primary' : 'bg-elevated text-main'"
-              >{{ u.rol }}</span
+              [class]="rolClass(u.rol)"
+              >{{ etiquetaRol(u.rol) }}</span
             >
           </div>
 
@@ -319,7 +305,7 @@ interface Feedback {
           </h2>
           @if (!editando()) {
             <p class="mt-1 text-xs text-muted">
-              La cuenta se crea con rol USER; podrás cambiarle el rol desde el listado.
+              La cuenta se crea como cliente; el rol se cambia después editándola.
             </p>
           }
 
@@ -370,6 +356,37 @@ interface Feedback {
                 <p class="mt-1 text-xs text-error">El teléfono debe tener entre 9 y 15 caracteres.</p>
               }
             </div>
+
+            @if (editando(); as edit) {
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-main">Rol</label>
+                <!-- Deshabilitar va por el control (ver abrirEditar) y no por el atributo:
+                     con formularios reactivos, poner disabled en la plantilla es justo lo
+                     que Angular avisa de no hacer. -->
+                <select
+                  formControlName="rol"
+                  (change)="rolElegido.set($any($event.target).value)"
+                  class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+                >
+                  @for (r of roles; track r.valor) {
+                    <option [value]="r.valor">{{ r.etiqueta }}</option>
+                  }
+                </select>
+                @if (esYo(edit)) {
+                  <p class="mt-1 text-xs text-muted">
+                    No puedes cambiar el rol de tu propia cuenta.
+                  </p>
+                } @else {
+                  <p class="mt-1 text-xs text-muted">{{ descripcionRol(rolElegido()) }}</p>
+                  @if (rolElegido() !== edit.rol) {
+                    <p class="mt-1 text-xs text-warning">
+                      Al cambiar el rol se cierran las sesiones abiertas de esa cuenta: tendrá que
+                      volver a entrar.
+                    </p>
+                  }
+                }
+              </div>
+            }
 
             <div>
               <label class="mb-1.5 block text-sm font-medium text-main">
@@ -495,7 +512,18 @@ export class Usuarios implements OnInit {
     email: ['', [Validators.required, Validators.email]],
     telefono: ['', [Validators.minLength(9), Validators.maxLength(15)]],
     password: [''],
+    // Solo se usa al editar: al crear, el backend fija USER y no acepta otro valor.
+    rol: ['USER' as Rol],
   });
+
+  protected readonly roles: { valor: Rol; etiqueta: string }[] = [
+    { valor: 'USER', etiqueta: 'Cliente' },
+    { valor: 'PELUQUERO', etiqueta: 'Peluquero' },
+    { valor: 'ADMIN', etiqueta: 'Administrador' },
+  ];
+
+  /** El rol elegido en el desplegable, para poder avisar de lo que implica antes de guardar. */
+  protected readonly rolElegido = signal<Rol>('USER');
 
   private readonly miEmail = computed(() => this.auth.user()?.email ?? null);
 
@@ -613,7 +641,11 @@ export class Usuarios implements OnInit {
     this.verPassword.set(false);
     this.editando.set(null);
     this.form.controls.password.setValidators([Validators.required, Validators.minLength(6)]);
-    this.form.reset({ nombre: '', email: '', telefono: '', password: '' });
+    this.form.reset({ nombre: '', email: '', telefono: '', password: '', rol: 'USER' });
+    // El desplegable de rol no se pinta al crear (el backend fija USER), pero el control se
+    // deja habilitado para que un reset posterior no arrastre un disabled de la edicion.
+    this.form.controls.rol.enable();
+    this.rolElegido.set('USER');
     this.formOpen.set(true);
   }
 
@@ -628,7 +660,16 @@ export class Usuarios implements OnInit {
       email: u.email,
       telefono: u.telefono ?? '',
       password: '',
+      rol: u.rol,
     });
+    this.rolElegido.set(u.rol);
+    // Nadie se cambia el rol a si mismo: es la forma tonta de quedarse fuera del panel, y
+    // el backend ademas protege al ultimo administrador activo.
+    if (this.esYo(u)) {
+      this.form.controls.rol.disable();
+    } else {
+      this.form.controls.rol.enable();
+    }
     this.formOpen.set(true);
   }
 
@@ -650,14 +691,38 @@ export class Usuarios implements OnInit {
         telefono: v.telefono?.trim() || undefined,
         password: v.password?.trim() || undefined,
       };
+      // El rol NO va en el PUT: tiene su propio endpoint porque invalida los tokens de esa
+      // cuenta. Se manda solo si ha cambiado, y despues de los datos, que es la parte que
+      // el backend puede rechazar por email duplicado.
+      const rolNuevo = v.rol as Rol;
+      const cambiaRol = !this.esYo(editando) && rolNuevo !== editando.rol;
+
       this.usuarioService.actualizar(editando.idUsuario, payload).subscribe({
         next: (actualizado) => {
-          this.saving.set(false);
-          this.formOpen.set(false);
-          this.usuarios.update((list) =>
-            list.map((u) => (u.idUsuario === actualizado.idUsuario ? actualizado : u)),
-          );
-          this.feedback.set({ type: 'success', text: `${actualizado.nombre} fue actualizado.` });
+          if (!cambiaRol) {
+            this.terminarEdicion(actualizado, `${actualizado.nombre} fue actualizado.`);
+            return;
+          }
+          this.usuarioService.cambiarRol(editando.idUsuario, rolNuevo).subscribe({
+            next: (conRol) => {
+              this.terminarEdicion(
+                conRol,
+                `${conRol.nombre} fue actualizado y ahora es ${this.etiquetaRol(conRol.rol).toLowerCase()}.`,
+              );
+            },
+            error: (err: HttpErrorResponse) => {
+              // Los datos si se guardaron: decirlo evita que reintente el cambio entero.
+              // El caso tipico es el guard del ultimo administrador activo.
+              this.saving.set(false);
+              this.usuarios.update((list) =>
+                list.map((u) => (u.idUsuario === actualizado.idUsuario ? actualizado : u)),
+              );
+              this.formError.set(
+                (this.extraerError(err) ?? 'No se pudo cambiar el rol.') +
+                  ' El resto de los datos sí se guardaron.',
+              );
+            },
+          });
         },
         error: (err: HttpErrorResponse) => {
           this.saving.set(false);
@@ -688,6 +753,33 @@ export class Usuarios implements OnInit {
     });
   }
 
+  protected etiquetaRol(rol: Rol): string {
+    return this.roles.find((r) => r.valor === rol)?.etiqueta ?? rol;
+  }
+
+  protected rolClass(rol: Rol): string {
+    switch (rol) {
+      case 'ADMIN':
+        return 'bg-primary/15 text-primary';
+      case 'PELUQUERO':
+        // Verde salvia: se distingue del cobre del admin sin parecer un aviso.
+        return 'bg-secondary/20 text-secondary';
+      default:
+        return 'bg-elevated text-main';
+    }
+  }
+
+  protected descripcionRol(rol: Rol): string {
+    switch (rol) {
+      case 'ADMIN':
+        return 'Acceso total: usuarios, servicios, caja, estadísticas y configuración.';
+      case 'PELUQUERO':
+        return 'Ve su agenda y su producción, cierra sus citas. Sin acceso a caja ni a usuarios.';
+      default:
+        return 'Cliente: solo sus propias citas desde la app.';
+    }
+  }
+
   protected pedirConfirmacion(type: PendingType, usuario: Usuario): void {
     this.feedback.set(null);
     this.pending.set({ type, usuario });
@@ -695,10 +787,6 @@ export class Usuarios implements OnInit {
 
   protected confirmTitulo(p: PendingAction): string {
     switch (p.type) {
-      case 'promote':
-        return 'Dar permisos de administrador';
-      case 'demote':
-        return 'Quitar permisos de administrador';
       case 'deactivate':
         return 'Desactivar usuario';
       case 'activate':
@@ -709,10 +797,6 @@ export class Usuarios implements OnInit {
   protected confirmMensaje(p: PendingAction): string {
     const n = p.usuario.nombre;
     switch (p.type) {
-      case 'promote':
-        return `${n} podrá acceder al panel de administración y gestionar todo el sistema.`;
-      case 'demote':
-        return `${n} dejará de tener acceso de administrador y pasará a ser un usuario normal.`;
       case 'deactivate':
         return `${n} dejará de tener acceso y no aparecerá en el listado. Esta acción es un borrado lógico.`;
       case 'activate':
@@ -721,14 +805,7 @@ export class Usuarios implements OnInit {
   }
 
   protected confirmAccion(p: PendingAction): string {
-    switch (p.type) {
-      case 'deactivate':
-        return 'Desactivar';
-      case 'activate':
-        return 'Reactivar';
-      default:
-        return 'Confirmar';
-    }
+    return p.type === 'deactivate' ? 'Desactivar' : 'Reactivar';
   }
 
   protected confirmar(p: PendingAction): void {
@@ -756,34 +833,23 @@ export class Usuarios implements OnInit {
       return;
     }
 
-    if (p.type === 'activate') {
-      this.usuarioService.activar(id).subscribe({
-        next: (actualizado) => {
-          this.usuarios.update((list) =>
-            list.map((u) => (u.idUsuario === id ? actualizado : u)),
-          );
-          this.busyId.set(null);
-          this.feedback.set({ type: 'success', text: `${actualizado.nombre} fue reactivado.` });
-        },
-        error: (err) => this.onError(err),
-      });
-      return;
-    }
-
-    const nuevoRol: Rol = p.type === 'promote' ? 'ADMIN' : 'USER';
-    this.usuarioService.cambiarRol(id, nuevoRol).subscribe({
+    this.usuarioService.activar(id).subscribe({
       next: (actualizado) => {
-        this.usuarios.update((list) =>
-          list.map((u) => (u.idUsuario === id ? actualizado : u)),
-        );
+        this.usuarios.update((list) => list.map((u) => (u.idUsuario === id ? actualizado : u)));
         this.busyId.set(null);
-        this.feedback.set({
-          type: 'success',
-          text: `${actualizado.nombre} ahora es ${actualizado.rol}.`,
-        });
+        this.feedback.set({ type: 'success', text: `${actualizado.nombre} fue reactivado.` });
       },
       error: (err) => this.onError(err),
     });
+  }
+
+  private terminarEdicion(actualizado: Usuario, mensaje: string): void {
+    this.saving.set(false);
+    this.formOpen.set(false);
+    this.usuarios.update((list) =>
+      list.map((u) => (u.idUsuario === actualizado.idUsuario ? actualizado : u)),
+    );
+    this.feedback.set({ type: 'success', text: mensaje });
   }
 
   private onError(err: HttpErrorResponse): void {

@@ -200,10 +200,9 @@ export class AdminUsuariosPage {
   // ── Acciones ─────────────────────────────────────────────────────────────
   async abrirAcciones(u: Usuario): Promise<void> {
     const buttons = [{ text: 'Editar', handler: () => this.abrirEditar(u) }];
-    buttons.push({
-      text: u.rol === 'ADMIN' ? 'Cambiar a USER' : 'Cambiar a ADMIN',
-      handler: () => this.confirmarRol(u, u.rol === 'ADMIN' ? 'USER' : 'ADMIN'),
-    } as never);
+    // Con tres roles ya no vale un interruptor: «Cambiar a ADMIN» pintaba a un PELUQUERO
+    // como si fuera administrador. Se elige el rol en un alert con las tres opciones.
+    buttons.push({ text: 'Cambiar rol', handler: () => this.elegirRol(u) } as never);
     if (u.activo === false) {
       buttons.push({ text: 'Reactivar', handler: () => this.activar(u) } as never);
     } else {
@@ -214,30 +213,57 @@ export class AdminUsuariosPage {
     await sheet.present();
   }
 
-  private async confirmarRol(u: Usuario, rol: Rol): Promise<void> {
+  /** Etiquetas de los tres roles, para no enseñar el valor crudo del enum. */
+  readonly etiquetasRol: Record<Rol, string> = {
+    USER: 'Cliente',
+    PELUQUERO: 'Peluquero',
+    ADMIN: 'Administrador',
+  };
+
+  etiquetaRol(rol: Rol): string {
+    return this.etiquetasRol[rol] ?? rol;
+  }
+
+  async elegirRol(u: Usuario): Promise<void> {
     const alert = await this.alertCtrl.create({
       header: 'Cambiar rol',
-      message: `${u.nombre} pasará a rol ${rol}.`,
+      message: `${u.nombre} · ${this.etiquetaRol(u.rol)} ahora mismo. Al cambiarlo se cierran sus sesiones abiertas.`,
+      inputs: (['USER', 'PELUQUERO', 'ADMIN'] as Rol[]).map((rol) => ({
+        type: 'radio',
+        label: this.etiquetaRol(rol),
+        value: rol,
+        checked: rol === u.rol,
+      })) as never,
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
         {
           text: 'Cambiar',
-          handler: () =>
-            this.usuarioService.cambiarRol(u.idUsuario, rol).subscribe({
-              next: () => {
-                this.notificar(`Rol cambiado a ${rol}.`, 'success');
-                this.recargar();
-              },
-              error: (err: HttpErrorResponse) =>
-                this.notificar(
-                  err.status === 409 ? 'No puedes degradar al último ADMIN activo.' : 'No se pudo cambiar el rol.',
-                  'danger',
-                ),
-            }),
+          handler: (rol: Rol) => {
+            // Elegir el mismo rol que ya tiene no es un cambio: no se gasta una peticion
+            // que ademas invalidaria sus sesiones por nada.
+            if (!rol || rol === u.rol) return;
+            this.confirmarRol(u, rol);
+          },
         },
       ],
     });
     await alert.present();
+  }
+
+  private confirmarRol(u: Usuario, rol: Rol): void {
+    this.usuarioService.cambiarRol(u.idUsuario, rol).subscribe({
+      next: () => {
+        this.notificar(`${u.nombre} ahora es ${this.etiquetaRol(rol).toLowerCase()}.`, 'success');
+        this.recargar();
+      },
+      error: (err: HttpErrorResponse) =>
+        this.notificar(
+          err.status === 409 || err.status === 400
+            ? 'No puedes quitarle el rol al último administrador activo.'
+            : 'No se pudo cambiar el rol.',
+          'danger',
+        ),
+    });
   }
 
   private activar(u: Usuario): void {

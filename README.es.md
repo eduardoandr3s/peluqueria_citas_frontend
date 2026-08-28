@@ -87,7 +87,7 @@ Panel de gestión para el dueño de la peluquería:
 * **Rol `PELUQUERO`**: entra al mismo panel con su agenda y su producción, y sin nada de administración. El menú, los botones y hasta las peticiones cambian con el rol: siendo peluquero no se pide la lista de usuarios, que es de ADMIN, porque ese 403 dentro del `forkJoin` de la pantalla se llevaría por delante también las citas
 * Pagos: pagos manuales (efectivo/transferencia), estado del pago Stripe, reembolsos
 * **Dashboard de estadísticas**: citas por estado, ingresos por método de pago, top servicios y clientes nuevos, con selector de rango (mes / últimos 30 días / año) — gráficas hechas con `div` + Tailwind, sin librería de charts, manteniendo la app zoneless
-* CRUD de servicios y usuarios (roles, búsqueda, soft delete y reactivación)
+* CRUD de servicios y usuarios (búsqueda, soft delete y reactivación). **El rol se elige en un desplegable dentro de «Editar»** y en el listado solo se lee: mientras fue un interruptor de «hacer/quitar admin» pintaba a un peluquero como si fuera administrador. El desplegable explica qué puede hacer cada rol, avisa de que el cambio cierra las sesiones abiertas de esa cuenta, y está deshabilitado sobre la propia — que es la forma tonta de quedarse fuera del panel. El rol no viaja en el `PUT` del usuario: tiene su propio endpoint porque invalida sus tokens, así que se manda aparte y solo si ha cambiado
 * **Peluqueros**: además del CRUD, el **porcentaje de comisión** con **excepciones por servicio** (un tinte no comisiona como un corte) y la **cuenta vinculada** con la que el profesional entra al panel. La pantalla no ofrece vincular una cuenta de cliente: el backend lo rechaza, y sin el rol el dueño de esa ficha no vería ni una cita
 * **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
 * **Fotos de catálogo**: subir, sustituir o borrar la foto de cada servicio desde un modal, redimensionada en el navegador antes de subirla
@@ -154,12 +154,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**542 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**550 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 300 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, producción, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guards e interceptor del core. Del rol `PELUQUERO` se comprueba lo que **no** hace: no pide la lista de usuarios (ese 403 tumbaría las citas), no ve los botones de caja ni de borrado, y no tiene en el menú los enlaces que su guard rechazaría |
-| Mobile (`cd mobile && npx ng test`) | 242 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos, el cierre de citas con sus avisos según haya pago o no, la producción propia y la comparativa, y las rutas y guards de las pestañas |
+| Admin + core (`npx ng test`) | 306 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, producción, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guards e interceptor del core. Del rol `PELUQUERO` se comprueba lo que **no** hace: no pide la lista de usuarios (ese 403 tumbaría las citas), no ve los botones de caja ni de borrado, y no tiene en el menú los enlaces que su guard rechazaría |
+| Mobile (`cd mobile && npx ng test`) | 244 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos, el cierre de citas con sus avisos según haya pago o no, la producción propia y la comparativa, y las rutas y guards de las pestañas |
 
 ```bash
 npx ng test --watch=false            # admin + core

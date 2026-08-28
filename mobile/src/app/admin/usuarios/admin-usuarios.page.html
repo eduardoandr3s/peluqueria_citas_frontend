@@ -36,8 +36,11 @@
             <p>{{ u.email }}</p>
             @if (u.telefono) { <p>{{ u.telefono }}</p> }
           </ion-label>
-          @if (u.rol === 'ADMIN') {
-            <ion-badge slot="end" color="primary">ADMIN</ion-badge>
+          @if (u.rol !== 'USER') {
+            <!-- Un cliente no lleva insignia: es el caso normal y la lista se llenaria de ruido. -->
+            <ion-badge slot="end" [color]="u.rol === 'ADMIN' ? 'primary' : 'secondary'">
+              {{ etiquetaRol(u.rol) }}
+            </ion-badge>
           }
           @if (u.activo === false) {
             <ion-badge slot="end" color="medium">Inactivo</ion-badge>

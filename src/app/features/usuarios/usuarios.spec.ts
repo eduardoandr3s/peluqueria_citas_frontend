@@ -83,7 +83,7 @@ describe('Usuarios', () => {
     const crear = vi.fn().mockReturnValue(of({ ...OTRO, idUsuario: 9, nombre: 'Nuevo' }));
     const { c, svc } = setup({ svc: { crear } });
     c.abrirCrear();
-    c.form.setValue({ nombre: 'Nuevo', email: 'nuevo@b.com', telefono: '', password: 'secreta' });
+    c.form.setValue({ nombre: 'Nuevo', email: 'nuevo@b.com', telefono: '', password: 'secreta', rol: 'USER' });
     svc.listar.mockClear();
     c.guardar();
     expect(crear).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Nuevo', email: 'nuevo@b.com', password: 'secreta' }));
@@ -106,24 +106,107 @@ describe('Usuarios', () => {
     const crear = vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'Email en uso' } })));
     const { c } = setup({ svc: { crear } });
     c.abrirCrear();
-    c.form.setValue({ nombre: 'X', email: 'x@b.com', telefono: '', password: 'secreta' });
+    c.form.setValue({ nombre: 'X', email: 'x@b.com', telefono: '', password: 'secreta', rol: 'USER' });
     c.guardar();
     expect(c.formError()).toBe('Email en uso');
   });
 
-  it('confirmar (promote) cambia el rol y refleja el resultado', () => {
-    const cambiarRol = vi.fn().mockReturnValue(of({ ...OTRO, rol: 'ADMIN' }));
-    const { c } = setup({ svc: { cambiarRol } });
-    c.confirmar({ type: 'promote', usuario: OTRO });
-    expect(cambiarRol).toHaveBeenCalledWith(2, 'ADMIN');
-    expect(c.usuarios().find((u: Usuario) => u.idUsuario === 2).rol).toBe('ADMIN');
+  it('el listado no cambia roles: solo edita, desactiva y reactiva', () => {
+    const { fixture } = setup();
+
+    // El interruptor «Hacer/Quitar admin» ya no existe: con tres roles pintaba a un
+    // PELUQUERO como administrador. El rol se elige en el desplegable de «Editar».
+    const textos = Array.from(fixture.nativeElement.querySelectorAll('table button')).map((b: any) =>
+      b.textContent?.trim(),
+    );
+    expect(textos).not.toContain('Hacer admin');
+    expect(textos).not.toContain('Quitar admin');
   });
 
-  it('confirmar (demote) pasa a USER', () => {
-    const cambiarRol = vi.fn().mockReturnValue(of({ ...ME, rol: 'USER' }));
-    const { c } = setup({ svc: { cambiarRol } });
-    c.confirmar({ type: 'demote', usuario: ME });
-    expect(cambiarRol).toHaveBeenCalledWith(1, 'USER');
+  it('el listado muestra el rol con su etiqueta, no con el valor del enum', () => {
+    const { fixture, c } = setup();
+
+    expect(c.etiquetaRol('PELUQUERO')).toBe('Peluquero');
+    expect(c.etiquetaRol('ADMIN')).toBe('Administrador');
+    expect(c.etiquetaRol('USER')).toBe('Cliente');
+    // Y cada rol tiene su color, para no confundir un peluquero con un administrador.
+    expect(c.rolClass('ADMIN')).not.toBe(c.rolClass('PELUQUERO'));
+    expect(fixture.nativeElement.textContent).not.toContain('PELUQUERO');
+  });
+
+  it('editar con otro rol manda el PUT y luego el PATCH del rol', () => {
+    const peluquero = { ...OTRO, rol: 'PELUQUERO' as const };
+    const actualizar = vi.fn().mockReturnValue(of(OTRO));
+    const cambiarRol = vi.fn().mockReturnValue(of(peluquero));
+    const { c } = setup({ svc: { actualizar, cambiarRol } });
+
+    c.abrirEditar(OTRO);
+    c.form.patchValue({ rol: 'PELUQUERO' });
+    c.guardar();
+
+    // El rol NO viaja en el PUT: tiene su endpoint porque invalida los tokens.
+    expect(actualizar).toHaveBeenCalledWith(2, expect.not.objectContaining({ rol: 'PELUQUERO' }));
+    expect(cambiarRol).toHaveBeenCalledWith(2, 'PELUQUERO');
+    expect(c.usuarios().find((u: Usuario) => u.idUsuario === 2).rol).toBe('PELUQUERO');
+    expect(c.formOpen()).toBe(false);
+  });
+
+  it('editar sin tocar el rol no gasta una llamada que cerraría sus sesiones', () => {
+    const actualizar = vi.fn().mockReturnValue(of(OTRO));
+    const cambiarRol = vi.fn();
+    const { c } = setup({ svc: { actualizar, cambiarRol } });
+
+    c.abrirEditar(OTRO);
+    c.form.patchValue({ nombre: 'Ana Nueva' });
+    c.guardar();
+
+    expect(actualizar).toHaveBeenCalled();
+    expect(cambiarRol).not.toHaveBeenCalled();
+  });
+
+  it('si el cambio de rol falla, avisa de que los datos sí se guardaron', () => {
+    const actualizar = vi.fn().mockReturnValue(of(OTRO));
+    const cambiarRol = vi
+      .fn()
+      .mockReturnValue(throwError(() => ({ error: { error: 'No se puede quitar el rol ADMIN al único administrador activo.' } })));
+    const { c } = setup({ svc: { actualizar, cambiarRol } });
+
+    c.abrirEditar(OTRO);
+    c.form.patchValue({ rol: 'ADMIN' });
+    c.guardar();
+
+    expect(c.formError()).toContain('único administrador activo');
+    expect(c.formError()).toContain('El resto de los datos sí se guardaron');
+    // El modal se queda abierto para corregir, y no se pierde lo escrito.
+    expect(c.formOpen()).toBe(true);
+    expect(c.saving()).toBe(false);
+  });
+
+  it('nadie se cambia el rol a sí mismo: el desplegable queda deshabilitado', () => {
+    const actualizar = vi.fn().mockReturnValue(of(ME));
+    const cambiarRol = vi.fn();
+    const { c } = setup({ svc: { actualizar, cambiarRol } });
+
+    c.abrirEditar(ME);
+
+    expect(c.form.controls.rol.disabled).toBe(true);
+
+    // Aunque el valor llegue cambiado (por ejemplo, tocando el DOM a mano), guardar no
+    // manda el cambio de rol: es la forma tonta de quedarse fuera del panel.
+    c.form.controls.rol.setValue('USER');
+    c.guardar();
+
+    expect(actualizar).toHaveBeenCalled();
+    expect(cambiarRol).not.toHaveBeenCalled();
+  });
+
+  it('al volver a «Nuevo usuario» el desplegable no arrastra el disabled de la edición', () => {
+    const { c } = setup();
+
+    c.abrirEditar(ME); // deshabilita
+    c.abrirCrear();
+
+    expect(c.form.controls.rol.disabled).toBe(false);
   });
 
   it('confirmar (deactivate) quita de la lista cuando no se muestran inactivos', () => {
@@ -145,19 +228,26 @@ describe('Usuarios', () => {
   });
 
   it('una acción con error muestra feedback de error', () => {
-    const cambiarRol = vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'No permitido' } })));
-    const { c } = setup({ svc: { cambiarRol } });
-    c.confirmar({ type: 'promote', usuario: OTRO });
+    const eliminar = vi.fn().mockReturnValue(throwError(() => ({ error: { error: 'No permitido' } })));
+    const { c } = setup({ svc: { eliminar } });
+    c.confirmar({ type: 'deactivate', usuario: OTRO });
     expect(c.feedback()).toEqual({ type: 'error', text: 'No permitido' });
     expect(c.busyId()).toBeNull();
   });
 
   it('textos de confirmación según el tipo de acción', () => {
     const { c } = setup();
-    expect(c.confirmTitulo({ type: 'promote', usuario: OTRO })).toContain('administrador');
+    expect(c.confirmTitulo({ type: 'deactivate', usuario: OTRO })).toContain('Desactivar');
     expect(c.confirmAccion({ type: 'deactivate', usuario: OTRO })).toBe('Desactivar');
     expect(c.confirmAccion({ type: 'activate', usuario: OTRO })).toBe('Reactivar');
     expect(c.confirmMensaje({ type: 'activate', usuario: OTRO })).toContain('volverá a tener acceso');
+  });
+
+  it('cada rol explica lo que puede hacer, para no elegir a ciegas', () => {
+    const { c } = setup();
+    expect(c.descripcionRol('ADMIN')).toContain('Acceso total');
+    expect(c.descripcionRol('PELUQUERO')).toContain('agenda');
+    expect(c.descripcionRol('USER')).toContain('Cliente');
   });
 
   it('el listado no pide ninguna foto: solo al abrir la ficha', () => {
