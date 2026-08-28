@@ -1,6 +1,6 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Citas</ion-title>
+    <ion-title>{{ esAdmin() ? 'Citas' : 'Mi agenda' }}</ion-title>
   </ion-toolbar>
   <ion-toolbar>
     <ion-segment
@@ -41,19 +41,24 @@
             <h2>{{ c.usuario.nombre }}</h2>
             <p>{{ c.servicio.nombre }} · {{ c.servicio.duracion }} min</p>
             <p>{{ c.fechaHora | date: 'EEE d MMM, HH:mm' }}@if (c.peluquero) { · {{ c.peluquero.nombre }} }</p>
+            @if (c.observaciones) {
+              <p class="observaciones">{{ c.observaciones }}</p>
+            }
           </ion-label>
-          <ion-badge slot="end" [color]="colorEstado(c.estado)">{{ c.estado }}</ion-badge>
+          <ion-badge slot="end" [color]="colorEstado(c.estado)">{{ etiqueta(c.estado) }}</ion-badge>
           <ion-icon slot="end" name="ellipsis-vertical-outline" aria-hidden="true"></ion-icon>
         </ion-item>
       }
     </ion-list>
   }
 
-  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-    <ion-fab-button (click)="abrirAgendar()">
-      <ion-icon name="add-outline"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
+  @if (esAdmin()) {
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button (click)="abrirAgendar()">
+        <ion-icon name="add-outline"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  }
 </ion-content>
 
 <!-- Modal agendar / reprogramar -->

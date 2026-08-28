@@ -29,6 +29,16 @@ export class AuthService {
   readonly avatarUrl = this._avatarUrl.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null);
   readonly isAdmin = computed(() => this._user()?.rol === 'ADMIN');
+  readonly isPeluquero = computed(() => this._user()?.rol === 'PELUQUERO');
+  /**
+   * Personal del negocio: ADMIN o PELUQUERO. Es lo que abre el panel; dentro, cada
+   * pantalla sigue pidiendo el rol que le corresponde. Ocultar en el cliente no es
+   * seguridad: quien decide sigue siendo el backend.
+   */
+  readonly isStaff = computed(() => {
+    const rol = this._user()?.rol;
+    return rol === 'ADMIN' || rol === 'PELUQUERO';
+  });
 
   /**
    * Rotación en curso compartida: si varias peticiones caducan a la vez,

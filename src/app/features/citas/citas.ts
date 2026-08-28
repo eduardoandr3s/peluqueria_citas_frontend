@@ -2,12 +2,16 @@ import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import {
+  AuthService,
   Cita,
+  CitaCierre,
   CitaRequest,
   CitaUpdate,
   DiaCerrado,
+  ESTADOS_CIERRE,
+  ETIQUETA_ESTADO,
   EstadoCita,
   Servicio,
   Usuario,
@@ -37,9 +41,16 @@ interface Feedback {
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-main">Citas</h1>
-          <p class="text-sm text-muted">Agenda y gestiona el estado de las citas.</p>
+          <h1 class="text-2xl font-bold text-main">{{ esAdmin() ? 'Citas' : 'Mi agenda' }}</h1>
+          <p class="text-sm text-muted">
+            @if (esAdmin()) {
+              Agenda y gestiona el estado de las citas.
+            } @else {
+              Tus citas asignadas. Al cerrarlas cuentan en tu producción.
+            }
+          </p>
         </div>
+        @if (esAdmin()) {
         <button
           type="button"
           (click)="abrirAgendar()"
@@ -50,6 +61,7 @@ interface Feedback {
           </svg>
           Agendar cita
         </button>
+        }
       </div>
 
       @if (feedback(); as fb) {
@@ -160,7 +172,7 @@ interface Feedback {
                         <span
                           class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
                           [class]="estadoClass(c.estado)"
-                          >{{ c.estado }}</span
+                          >{{ etiqueta(c.estado) }}</span
                         >
                         @if (c.estadoPago; as estadoPago) {
                           <span
@@ -168,6 +180,16 @@ interface Feedback {
                             [class]="pagoClass(estadoPago)"
                             >{{ labelPago(c) }}</span
                           >
+                        }
+                        @if (c.observaciones) {
+                          <!-- El texto completo va en el title: la fila no puede crecer con
+                               dos mil caracteres de notas. -->
+                          <p class="max-w-[16rem] truncate text-xs italic text-muted" [title]="c.observaciones">
+                            {{ c.observaciones }}
+                          </p>
+                        }
+                        @if (c.estado === 'ANULADA' && c.clienteContactado) {
+                          <span class="text-xs text-muted">Cliente avisado</span>
                         }
                       </div>
                     </td>
@@ -185,7 +207,16 @@ interface Feedback {
                               Confirmar
                             </button>
                           }
-                          @if (c.estado !== 'ANULADA' && puedePagoManual(c)) {
+                          @if (!estaCerrada(c.estado)) {
+                            <button
+                              type="button"
+                              (click)="abrirCierre(c, 'COMPLETADA')"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                            >
+                              Cerrar
+                            </button>
+                          }
+                          @if (esAdmin() && c.estado !== 'ANULADA' && puedePagoManual(c)) {
                             <button
                               type="button"
                               (click)="abrirPagoManual(c)"
@@ -199,7 +230,7 @@ interface Feedback {
                             son decisiones separadas de anular (el backend tampoco mira el estado
                             de la cita). Dentro, el dinero de una cita anulada se quedaba cogido.
                           -->
-                          @if (puedeReembolsar(c)) {
+                          @if (esAdmin() && puedeReembolsar(c)) {
                             <button
                               type="button"
                               (click)="pendingReembolso.set(c)"
@@ -208,7 +239,7 @@ interface Feedback {
                               Reembolsar
                             </button>
                           }
-                          @if (c.estado !== 'ANULADA') {
+                          @if (esAdmin() && !estaCerrada(c.estado)) {
                             <button
                               type="button"
                               (click)="abrirEditar(c)"
@@ -216,21 +247,25 @@ interface Feedback {
                             >
                               Reprogramar
                             </button>
+                          }
+                          @if (!estaCerrada(c.estado)) {
                             <button
                               type="button"
-                              (click)="pendingAnular.set(c)"
+                              (click)="abrirCierre(c, 'ANULADA')"
                               class="rounded-md px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning/10"
                             >
                               Anular
                             </button>
                           }
-                          <button
-                            type="button"
-                            (click)="pendingDelete.set(c)"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
-                          >
-                            Eliminar
-                          </button>
+                          @if (esAdmin()) {
+                            <button
+                              type="button"
+                              (click)="pendingDelete.set(c)"
+                              class="rounded-md px-2.5 py-1 text-xs font-medium text-error hover:bg-error/10"
+                            >
+                              Eliminar
+                            </button>
+                          }
                         }
                       </div>
                     </td>
@@ -448,34 +483,112 @@ interface Feedback {
       </div>
     }
 
-    <!-- Modal: anular cita -->
-    @if (pendingAnular(); as c) {
+    <!-- Modal: cerrar cita (realizada / no asistió / anulada) -->
+    @if (pendingCierre(); as c) {
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-        <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
-          <h2 class="text-lg font-semibold text-main">Anular cita</h2>
+        <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-6 shadow-xl">
+          <h2 class="text-lg font-semibold text-main">Cerrar cita</h2>
           <p class="mt-2 text-sm text-main">
-            La cita de {{ c.usuario.nombre }} ({{ c.servicio.nombre }},
-            {{ c.fechaHora | date: "dd/MM/yyyy 'a las' HH:mm" }}) pasará a ANULADA y el hueco
-            volverá a quedar libre.
+            {{ c.usuario.nombre }} · {{ c.servicio.nombre }} ·
+            {{ c.fechaHora | date: "dd/MM/yyyy 'a las' HH:mm" }}
           </p>
-          <p class="mt-2 text-sm text-muted">
-            Se avisará al cliente por correo. La cita sigue en el listado; si hay un pago
-            cobrado, el reembolso se hace aparte.
-          </p>
+
+          <div class="mt-4 space-y-2">
+            @for (e of estadosCierre; track e) {
+              <label
+                class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition"
+                [class]="
+                  estadoCierre() === e
+                    ? 'border-primary bg-primary/5'
+                    : 'border-line hover:bg-elevated'
+                "
+              >
+                <input
+                  type="radio"
+                  name="estadoCierre"
+                  class="mt-0.5 h-4 w-4 text-primary focus:ring-primary/30"
+                  [checked]="estadoCierre() === e"
+                  (change)="estadoCierre.set(e)"
+                />
+                <span>
+                  <span class="block text-sm font-medium text-main">{{ etiqueta(e) }}</span>
+                  <span class="block text-xs text-muted">{{ explicacionCierre(e) }}</span>
+                </span>
+              </label>
+            }
+          </div>
+
+          @if (estadoCierre() === 'COMPLETADA' && !puedeContarEnProduccion(c)) {
+            <p class="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-xs text-main">
+              Esta cita no tiene el pago registrado, así que se marcará como realizada pero
+              <strong>no sumará en la producción</strong> hasta que se cobre.
+              @if (esAdmin()) {
+                Puedes registrarlo con «Pago manual».
+              }
+            </p>
+          }
+          @if (estadoCierre() === 'ANULADA' && c.estadoPago === 'PAGADO') {
+            <p class="mt-3 rounded-lg bg-error/10 px-3 py-2 text-xs text-main">
+              La cita está pagada. Anularla no devuelve el dinero: el reembolso lo hace un
+              administrador aparte.
+            </p>
+          }
+
+          <div class="mt-4">
+            <label class="mb-1.5 block text-sm font-medium text-main">
+              Observaciones
+              <span class="font-normal text-muted">(opcional)</span>
+            </label>
+            <textarea
+              rows="3"
+              [ngModel]="observacionesCierre()"
+              (ngModelChange)="observacionesCierre.set($event)"
+              maxlength="2000"
+              placeholder="Qué ha pasado: lo que se hizo, por qué se anula…"
+              class="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-main outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/30"
+            ></textarea>
+            <p class="mt-1 text-xs text-muted">
+              Nota interna: el cliente no la ve.
+            </p>
+          </div>
+
+          @if (estadoCierre() === 'ANULADA') {
+            <div class="mt-3 flex items-start gap-2">
+              <input
+                id="cliente-contactado"
+                type="checkbox"
+                [ngModel]="clienteContactado()"
+                (ngModelChange)="clienteContactado.set($event)"
+                class="mt-0.5 h-4 w-4 rounded border-line text-primary focus:ring-primary/30"
+              />
+              <label for="cliente-contactado" class="text-sm text-main">
+                Ya he avisado al cliente
+                <span class="block text-xs text-muted">
+                  Queda registrado. El correo automático de anulación se envía igual.
+                </span>
+              </label>
+            </div>
+          }
+
+          @if (cierreError(); as err) {
+            <p class="mt-3 rounded-lg bg-error/15 px-3 py-2 text-xs text-error">{{ err }}</p>
+          }
+
           <div class="mt-6 flex justify-end gap-3">
             <button
               type="button"
-              (click)="pendingAnular.set(null)"
+              (click)="cerrarModalCierre()"
               class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
               Cancelar
             </button>
             <button
               type="button"
-              (click)="anular(c)"
-              class="rounded-lg bg-warning px-4 py-2 text-sm font-semibold text-white transition hover:bg-warning/80"
+              [disabled]="cierreSaving()"
+              (click)="confirmarCierre(c)"
+              class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
             >
-              Anular cita
+              {{ cierreSaving() ? 'Guardando…' : 'Cerrar cita' }}
             </button>
           </div>
         </div>
@@ -573,6 +686,15 @@ export class Citas implements OnInit {
   protected readonly importe = formatearImporte;
   private readonly fb = inject(FormBuilder);
 
+  private readonly auth = inject(AuthService);
+  /**
+   * Un PELUQUERO usa esta misma pantalla, pero solo con lo que es suyo: confirmar, cerrar y
+   * anular. Agendar, reprogramar, cobrar, reembolsar y eliminar son de ADMIN. Ocultarlo no
+   * es la seguridad —esa la pone el backend— pero enseñar botones que van a dar 403 sí es
+   * una pantalla rota.
+   */
+  protected readonly esAdmin = this.auth.isAdmin;
+
   protected readonly citas = signal<Cita[]>([]);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly servicios = signal<Servicio[]>([]);
@@ -591,7 +713,14 @@ export class Citas implements OnInit {
   protected readonly editando = signal<Cita | null>(null);
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
-  protected readonly pendingAnular = signal<Cita | null>(null);
+  /** Cita cuyo cierre se está editando en el modal. */
+  protected readonly pendingCierre = signal<Cita | null>(null);
+  protected readonly estadoCierre = signal<EstadoCita>('COMPLETADA');
+  protected readonly observacionesCierre = signal('');
+  protected readonly clienteContactado = signal(false);
+  protected readonly cierreSaving = signal(false);
+  protected readonly cierreError = signal<string | null>(null);
+  protected readonly estadosCierre = ESTADOS_CIERRE;
   protected readonly pendingDelete = signal<Cita | null>(null);
 
   // Pago manual
@@ -620,6 +749,8 @@ export class Citas implements OnInit {
     { value: 'TODAS', label: 'Todas' },
     { value: 'PENDIENTE', label: 'Pendientes' },
     { value: 'CONFIRMADA', label: 'Confirmadas' },
+    { value: 'COMPLETADA', label: 'Realizadas' },
+    { value: 'NO_ASISTIO', label: 'No asistió' },
     { value: 'ANULADA', label: 'Anuladas' },
   ];
 
@@ -690,7 +821,10 @@ export class Citas implements OnInit {
     this.loadError.set(null);
     forkJoin({
       citas: this.citaService.listar(),
-      usuarios: this.usuarioService.listarTodos(),
+      // La lista de usuarios es de ADMIN: un PELUQUERO recibiría un 403 y, dentro de un
+      // forkJoin, ese 403 tumbaría también las citas y dejaría la pantalla vacía. Solo la
+      // necesita el formulario de agendar, que él no tiene.
+      usuarios: this.esAdmin() ? this.usuarioService.listarTodos() : of<Usuario[]>([]),
       servicios: this.servicioService.listar(),
       peluqueros: this.peluqueroService.listar(),
       // Un año de cierres de golpe: es lo que se puede navegar en el calendario, así
@@ -812,11 +946,41 @@ export class Citas implements OnInit {
     switch (estado) {
       case 'CONFIRMADA':
         return 'bg-success/15 text-success';
+      case 'COMPLETADA':
+        // Más marcado que «confirmada»: es el estado que genera producción.
+        return 'bg-success/25 text-success';
+      case 'NO_ASISTIO':
+        return 'bg-error/15 text-error';
       case 'ANULADA':
         return 'bg-elevated text-muted';
       default:
         return 'bg-warning/15 text-warning';
     }
+  }
+
+  protected etiqueta(estado: EstadoCita): string {
+    return ETIQUETA_ESTADO[estado] ?? estado;
+  }
+
+  /** Una cita cerrada ya no se mueve; solo un ADMIN puede corregir el cierre. */
+  protected estaCerrada(estado: EstadoCita): boolean {
+    return ESTADOS_CIERRE.includes(estado);
+  }
+
+  protected explicacionCierre(estado: EstadoCita): string {
+    switch (estado) {
+      case 'COMPLETADA':
+        return 'El servicio se hizo. Suma en la producción si el pago está registrado.';
+      case 'NO_ASISTIO':
+        return 'El cliente no vino. No genera producción ni comisión.';
+      default:
+        return 'La cita no se hace. Se avisa al cliente por correo y el hueco queda libre.';
+    }
+  }
+
+  /** Si al completar va a contar como vendido, o si se queda pendiente de cobro. */
+  protected puedeContarEnProduccion(c: Cita): boolean {
+    return c.estadoPago === 'PAGADO';
   }
 
   protected invalid(control: 'usuarioId' | 'servicioId' | 'fecha' | 'hora'): boolean {
@@ -966,9 +1130,48 @@ export class Citas implements OnInit {
     });
   }
 
-  protected anular(c: Cita): void {
-    this.pendingAnular.set(null);
-    this.cambiarEstado(c, 'ANULADA');
+  protected abrirCierre(c: Cita, estado: EstadoCita): void {
+    this.feedback.set(null);
+    this.cierreError.set(null);
+    this.estadoCierre.set(estado);
+    // Se parte de lo que ya hubiera: reabrir el modal no borra las notas de un cierre previo.
+    this.observacionesCierre.set(c.observaciones ?? '');
+    this.clienteContactado.set(c.clienteContactado ?? false);
+    this.pendingCierre.set(c);
+  }
+
+  protected cerrarModalCierre(): void {
+    this.pendingCierre.set(null);
+    this.cierreError.set(null);
+  }
+
+  protected confirmarCierre(c: Cita): void {
+    const id = c.idCita;
+    const payload: CitaCierre = {
+      estado: this.estadoCierre(),
+      observaciones: this.observacionesCierre().trim() || undefined,
+      clienteContactado: this.estadoCierre() === 'ANULADA' ? this.clienteContactado() : false,
+    };
+
+    this.cierreSaving.set(true);
+    this.cierreError.set(null);
+    this.citaService.cerrar(id, payload).subscribe({
+      next: (actualizada) => {
+        this.citas.update((list) => list.map((x) => (x.idCita === id ? actualizada : x)));
+        this.cierreSaving.set(false);
+        this.pendingCierre.set(null);
+        this.feedback.set({
+          type: 'success',
+          text: `Cita de ${c.usuario.nombre} cerrada como «${this.etiqueta(payload.estado)}».`,
+        });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.cierreSaving.set(false);
+        // El error se queda DENTRO del modal: el 403 del cierre ya hecho y el 400 de la
+        // cita que no ha empezado se corrigen sin salir de aquí.
+        this.cierreError.set(this.extraerError(err) ?? 'No se pudo cerrar la cita.');
+      },
+    });
   }
 
   protected eliminar(c: Cita): void {

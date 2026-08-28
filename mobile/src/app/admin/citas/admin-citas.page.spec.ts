@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { ActionSheetController, AlertController, ToastController } from '@ionic/angular/standalone';
 import {
+  AuthService,
   Cita,
   CitaService,
   EstadoCita,
@@ -32,30 +34,48 @@ const CITAS = [
   cita(3, '2026-07-03T12:00:00', 'ANULADA'),
 ];
 
-function setup(overrides: { cita?: Partial<Record<keyof CitaService, unknown>>; failLoad?: boolean } = {}) {
+function setup(
+  overrides: {
+    cita?: Partial<Record<keyof CitaService, unknown>>;
+    failLoad?: boolean;
+    /** Rol de la sesión: un PELUQUERO ve la misma pantalla con menos acciones. */
+    rol?: 'ADMIN' | 'PELUQUERO';
+  } = {},
+) {
   const toast = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
+  const rol = overrides.rol ?? 'ADMIN';
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
     diasCerrados: vi.fn().mockReturnValue(of([{ fecha: '2026-07-05', motivo: 'Cerrado (domingo)' }])),
     agendar: vi.fn(),
     actualizar: vi.fn(),
+    cerrar: vi.fn(),
     eliminar: vi.fn(),
     ...overrides.cita,
   };
+  const usuarioSvc = { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) };
+  const actionSheet = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
+  const alertCtrl = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
   TestBed.configureTestingModule({
     providers: [
       { provide: CitaService, useValue: citaSvc },
-      { provide: UsuarioService, useValue: { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) } },
+      { provide: UsuarioService, useValue: usuarioSvc },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
-      { provide: ActionSheetController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
-      { provide: AlertController, useValue: { create: vi.fn().mockResolvedValue({ present: vi.fn() }) } },
+      { provide: ActionSheetController, useValue: actionSheet },
+      { provide: AlertController, useValue: alertCtrl },
       { provide: ToastController, useValue: toast },
+      { provide: AuthService, useValue: { isAdmin: signal(rol === 'ADMIN') } },
     ],
   });
   const c = TestBed.runInInjectionContext(() => new AdminCitasPage()) as any;
-  return { c, citaSvc, toast };
+  return { c, citaSvc, toast, actionSheet, alertCtrl, usuarioSvc };
+}
+
+/** Textos de los botones del último action sheet abierto. */
+function opciones(actionSheet: { create: ReturnType<typeof vi.fn> }): string[] {
+  return actionSheet.create.mock.calls.at(-1)![0].buttons.map((b: { text: string }) => b.text);
 }
 
 describe('AdminCitasPage', () => {
@@ -217,5 +237,146 @@ describe('AdminCitasPage', () => {
     c.abrirEditar(cita(5, '2026-07-05T16:45:00', 'PENDIENTE'));
     expect(c.esHoraActual('16:45')).toBe(true);
     expect(c.esHoraActual('09:00')).toBe(false);
+  });
+
+  // ── Cierre de cita y rol PELUQUERO ─────────────────────────────────────────
+
+  /** Ejecuta el botón «Cerrar cita» del último alert con los datos que devolvería el form. */
+  function confirmarEnAlert(
+    alertCtrl: { create: ReturnType<typeof vi.fn> },
+    datos: Record<string, unknown> = {},
+  ): void {
+    const buttons = alertCtrl.create.mock.calls.at(-1)![0].buttons;
+    const boton = buttons.find((b: { text: string }) => b.text === 'Cerrar cita');
+    boton.handler(datos);
+  }
+
+  it('las acciones de una cita abierta incluyen los tres cierres', async () => {
+    const { c, actionSheet } = setup();
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toEqual([
+      'Confirmar',
+      'Marcar realizada',
+      'No asistió',
+      'Reprogramar',
+      'Anular',
+      'Eliminar',
+      'Cancelar',
+    ]);
+  });
+
+  it('una cita ya cerrada solo ofrece eliminar: el cierre no se reescribe desde aquí', async () => {
+    const { c, actionSheet } = setup();
+    await c.abrirAcciones(cita(9, '2026-07-09T10:00:00', 'COMPLETADA'));
+
+    expect(opciones(actionSheet)).toEqual(['Eliminar', 'Cancelar']);
+  });
+
+  it('un PELUQUERO no pide usuarios: ese 403 se llevaría también sus citas', () => {
+    const { c, usuarioSvc } = setup({ rol: 'PELUQUERO' });
+    c.cargar();
+
+    expect(usuarioSvc.listarTodos).not.toHaveBeenCalled();
+    expect(c.citas().length).toBe(3);
+    expect(c.loading()).toBe(false);
+  });
+
+  it('un PELUQUERO no ve reprogramar ni eliminar', async () => {
+    const { c, actionSheet } = setup({ rol: 'PELUQUERO' });
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toEqual([
+      'Confirmar',
+      'Marcar realizada',
+      'No asistió',
+      'Anular',
+      'Cancelar',
+    ]);
+    expect(c.esAdmin()).toBe(false);
+  });
+
+  it('anular manda las observaciones recortadas y el «cliente avisado»', async () => {
+    const anulada = { ...CITAS[0], estado: 'ANULADA' as const };
+    const cerrar = vi.fn().mockReturnValue(of(anulada));
+    const { c, alertCtrl } = setup({ cita: { cerrar } });
+    c.cargar();
+
+    await c.pedirCierre(CITAS[0], 'ANULADA');
+    confirmarEnAlert(alertCtrl, { observaciones: '  Llamó para cambiar  ', contactado: ['si'] });
+
+    expect(cerrar).toHaveBeenCalledWith(1, {
+      estado: 'ANULADA',
+      observaciones: 'Llamó para cambiar',
+      clienteContactado: true,
+    });
+    expect(c.citas()[0].estado).toBe('ANULADA');
+  });
+
+  it('el «cliente avisado» no se manda en un cierre que no es una anulación', async () => {
+    const cerrar = vi.fn().mockReturnValue(of({ ...CITAS[0], estado: 'COMPLETADA' as const }));
+    const { c, alertCtrl } = setup({ cita: { cerrar } });
+
+    await c.pedirCierre(CITAS[0], 'COMPLETADA');
+    // El checkbox no se pinta en este cierre, así que el alert no devuelve nada suyo.
+    const inputs = alertCtrl.create.mock.calls.at(-1)![0].inputs;
+    expect(inputs.length).toBe(1);
+    confirmarEnAlert(alertCtrl, { observaciones: '' });
+
+    expect(cerrar).toHaveBeenCalledWith(1, {
+      estado: 'COMPLETADA',
+      observaciones: undefined,
+      clienteContactado: false,
+    });
+  });
+
+  it('avisa antes de marcar realizada una cita sin cobrar', async () => {
+    const { c, alertCtrl } = setup();
+
+    await c.pedirCierre(CITAS[0], 'COMPLETADA');
+
+    expect(alertCtrl.create.mock.calls.at(-1)![0].message).toContain('no sumará en la producción');
+  });
+
+  it('si la cita está pagada, marcarla realizada dice que contará', async () => {
+    const { c, alertCtrl } = setup();
+    const pagada = { ...CITAS[0], estadoPago: 'PAGADO' as const };
+
+    await c.pedirCierre(pagada, 'COMPLETADA');
+
+    expect(alertCtrl.create.mock.calls.at(-1)![0].message).toContain('contará en la producción');
+  });
+
+  it('anular una cita pagada avisa de que eso no devuelve el dinero', async () => {
+    const { c, alertCtrl } = setup();
+    const pagada = { ...CITAS[0], estadoPago: 'PAGADO' as const };
+
+    await c.pedirCierre(pagada, 'ANULADA');
+
+    expect(alertCtrl.create.mock.calls.at(-1)![0].message).toContain('no devuelve el dinero');
+  });
+
+  it('el error del backend se muestra tal cual: explica por qué no se pudo cerrar', async () => {
+    const cerrar = vi
+      .fn()
+      .mockReturnValue(throwError(() => ({ error: 'La cita ya se cerro como COMPLETADA.' })));
+    const { c, alertCtrl, toast } = setup({ cita: { cerrar } });
+
+    await c.pedirCierre(CITAS[0], 'NO_ASISTIO');
+    confirmarEnAlert(alertCtrl);
+
+    expect(toast.create).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'La cita ya se cerro como COMPLETADA.', color: 'danger' }),
+    );
+  });
+
+  it('etiqueta y color cubren los estados nuevos', () => {
+    const { c } = setup();
+    expect(c.etiqueta('COMPLETADA')).toBe('Realizada');
+    expect(c.etiqueta('NO_ASISTIO')).toBe('No asistió');
+    expect(c.colorEstado('COMPLETADA')).toBe('primary');
+    expect(c.colorEstado('NO_ASISTIO')).toBe('danger');
+    expect(c.estaCerrada('CONFIRMADA')).toBe(false);
+    expect(c.estaCerrada('NO_ASISTIO')).toBe(true);
   });
 });

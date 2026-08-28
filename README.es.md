@@ -41,7 +41,9 @@ peluqueria_citas_frontend/
 │   │   ├── citas/             # Gestión de citas (calendario, pagos, selector de peluquero)
 │   │   ├── dashboard/         # Dashboard de estadísticas (gráficas solo con CSS)
 │   │   ├── galeria/           # Galería de trabajos: subida múltiple, orden y títulos
-│   │   ├── peluqueros/        # CRUD de peluqueros
+│   │   ├── inicio/           # Redirector de entrada: cada rol a su pantalla
+│   │   ├── peluqueros/        # Peluqueros: ficha, comisión y cuenta vinculada
+│   │   ├── produccion/        # Producción y comisión (la propia, o la de la plantilla)
 │   │   ├── perfil/            # "Mi perfil": datos propios y foto de perfil
 │   │   ├── servicios/         # CRUD del catálogo de servicios (incluido el modal de foto)
 │   │   └── usuarios/          # Gestión de usuarios (roles, búsqueda, reactivación)
@@ -80,9 +82,13 @@ peluqueria_citas_frontend/
 Panel de gestión para el dueño de la peluquería:
 
 * Gestión de citas: calendario con filtros, paginación, agendado/reprogramación con **slots de disponibilidad en vivo** y **selector de peluquero** opcional
+* **Cierre de cita** (realizada / no asistió / anulada) con observaciones y un «ya he avisado al cliente». Va por un endpoint propio y no por el PUT de siempre: cerrar congela en la cita el importe y la comisión, y el PUT responde 400 a esos estados para que no queden citas realizadas sin precio congelado. Al marcar realizada una cita sin pago registrado **avisa de que no sumará en la producción** hasta que se cobre — en el momento en que aún se puede hacer algo
+* **Producción y comisión**: lo vendido, lo cobrado y la comisión por peluquero, con desglose por servicio y por mes y comparativa de toda la plantilla. Solo suma lo **realizado y cobrado**; lo realizado y sin cobrar sale aparte para que no se pierda de vista
+* **Rol `PELUQUERO`**: entra al mismo panel con su agenda y su producción, y sin nada de administración. El menú, los botones y hasta las peticiones cambian con el rol: siendo peluquero no se pide la lista de usuarios, que es de ADMIN, porque ese 403 dentro del `forkJoin` de la pantalla se llevaría por delante también las citas
 * Pagos: pagos manuales (efectivo/transferencia), estado del pago Stripe, reembolsos
 * **Dashboard de estadísticas**: citas por estado, ingresos por método de pago, top servicios y clientes nuevos, con selector de rango (mes / últimos 30 días / año) — gráficas hechas con `div` + Tailwind, sin librería de charts, manteniendo la app zoneless
-* CRUD de servicios, **peluqueros** y usuarios (roles, búsqueda, soft delete y reactivación)
+* CRUD de servicios y usuarios (roles, búsqueda, soft delete y reactivación)
+* **Peluqueros**: además del CRUD, el **porcentaje de comisión** con **excepciones por servicio** (un tinte no comisiona como un corte) y la **cuenta vinculada** con la que el profesional entra al panel. La pantalla no ofrece vincular una cuenta de cliente: el backend lo rechaza, y sin el rol el dueño de esa ficha no vería ni una cita
 * **Días cerrados**: bloquear un festivo o un cierre puntual (con motivo) y desbloquearlo. Los días cerrados —domingos incluidos— se pintan **no seleccionables** en el calendario de agendar, así que ya no se puede elegir un día sin horas disponibles
 * **Fotos de catálogo**: subir, sustituir o borrar la foto de cada servicio desde un modal, redimensionada en el navegador antes de subirla
 * **Galería de trabajos** (bajo «Configuración»): subida de **varias fotos a la vez**, títulos editables y orden manual con ↑/↓ —dos botones en vez de *drag and drop*: es el 90 % del valor con el 10 % del código—. De cada fichero se generan **dos tamaños en el navegador**, la imagen y una miniatura, y se suben en el mismo multipart: el servidor tiene 0,1 CPU en producción. Las subidas van **en serie**, porque el orden en que se guardan es el orden en que los clientes las verán. Mover una foto **renumera la rejilla** y solo manda al servidor lo que cambia de posición; intercambiar los dos `orden` sería una petición menos pero no movería nada si las dos fotos comparten número
@@ -105,6 +111,7 @@ App Ionic para los clientes de la peluquería:
     * **La conversación vive solo en memoria.** El backend no guarda estado: en cada turno se le reenvía el historial. Salir de la pantalla la borra, que es lo correcto aquí — no hay nada que valga la pena persistir y no queda en el dispositivo nada de lo que se haya preguntado. El historial se recorta a los **10 turnos más recientes** (no a los primeros: el contexto que hace falta para entender «y el jueves?» es lo último que se dijo), que es lo que acepta el backend y lo que evita que cada mensaje nuevo cueste más tokens que el anterior.
     * **Cada estado de error dice algo distinto**, porque el cliente tiene que poder actuar: con **429** espera, con **503** no vale reintentar y se le ofrece el teléfono, con **404** el asistente no está desplegado en ese backend, y sin conexión se dice tal cual. Si la petición falla, la pregunta **se queda en pantalla** para no obligar a reescribirla.
 * **Galería de trabajos**, a la que se entra desde la cabecera de Servicios y no como sexta pestaña (la barra ya tiene cinco y una más se aprieta). La rejilla se pinta **siempre con la miniatura**, con `loading="lazy"` y altura fija para que no salte al cargar, y la imagen grande se pide solo al abrir una foto: es la única pantalla que carga muchas imágenes de golpe y el límite del plan gratuito de almacenamiento es el tráfico
+* Para el personal, el área de trabajo tiene su propia barra de pestañas: **agenda** (con el cierre de citas en un *action sheet*, y las observaciones y el aviso de «no sumará en la producción» en el propio diálogo) y **producción**. Un peluquero no ve las pestañas de servicios ni usuarios, y sus rutas lo devuelven a su área en un solo salto
 * **Pantalla de contacto** con la dirección, el teléfono y el email del salón. El teléfono y el email son enlaces `tel:` y `mailto:`, que Capacitor saca al marcador y al cliente de correo del sistema en vez de abrirlos dentro del WebView
 * Construida con Capacitor: el mismo código se despliega hoy como web y se empaqueta como app Android (`appId com.segovia.peluqueria`), con icono de lanzador y pantalla de arranque propios
 
@@ -112,8 +119,9 @@ App Ionic para los clientes de la peluquería:
 
 `@peluqueria/core`, consumida por ambas apps:
 
-* `models/`: interfaces TypeScript de cada recurso de la API (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`, `GaleriaFoto`) y sus enums
-* `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, `GaleriaService`, ...) más `AuthService` y el token storage
+* `models/`: interfaces TypeScript de cada recurso de la API (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`, `GaleriaFoto`, `Produccion`) y sus enums
+* `services/`: un servicio HTTP por recurso (`CitaService`, `PagoService`, `PeluqueroService`, `ProduccionService`, `DiaBloqueadoService`, `EstadisticasService`, `GaleriaService`, ...) más `AuthService` y el token storage
+* `guards/`: `authGuard`, `adminGuard` y `staffGuard` (ADMIN o PELUQUERO). La puerta del área de trabajo es `staffGuard` y las pantallas de administración repiten `adminGuard` en su propia ruta: ocultar un enlace no es seguridad, pero enseñar una puerta cerrada es un panel roto
 * `utils/fecha.ts`: helpers de `YYYY-MM-DD` en hora local (`toISOString()` desplazaría el día en las zonas con offset positivo)
 * `utils/imagen.ts`: redimensiona la imagen en el navegador antes de subirla, para que una foto de móvil entre en el límite de 2 MB del backend gastando la CPU del usuario y no la del servidor. Solo **optimiza**: si el entorno no ofrece `createImageBitmap` se sube el original y decide el servidor — la utilidad nunca impide una subida
 * `utils/precio.ts`: el formato de los importes, uno solo para las dos apps. Existe porque el formato salía de dos sitios —el pipe `number`, que depende del `LOCALE_ID` que registre cada app, y `toFixed(2)`, que siempre pone punto—, así que el mismo precio se veía «15.00 €» en el panel y «15,00 €» en el móvil. El separador se fija aquí a `es-ES` en vez de dejarlo en manos del locale de cada app: un importe no debería cambiar de forma según por qué pantalla se mire
@@ -146,12 +154,12 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**479 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**542 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 264 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guard e interceptor del core |
-| Mobile (`cd mobile && npx ng test`) | 215 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos y las rutas de las pestañas |
+| Admin + core (`npx ng test`) | 300 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, producción, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guards e interceptor del core. Del rol `PELUQUERO` se comprueba lo que **no** hace: no pide la lista de usuarios (ese 403 tumbaría las citas), no ve los botones de caja ni de borrado, y no tiene en el menú los enlaces que su guard rechazaría |
+| Mobile (`cd mobile && npx ng test`) | 242 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos, el cierre de citas con sus avisos según haya pago o no, la producción propia y la comparativa, y las rutas y guards de las pestañas |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -189,7 +197,7 @@ El icono de lanzador y la pantalla de arranque se generan desde el logo de la pe
 
 ## Backend
 
-La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo, galería de trabajos y una suite de 329 tests (unitarios + Testcontainers).
+La API REST (Java 21 + Spring Boot 4) vive en [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): autenticación JWT con refresh tokens, citas con disponibilidad por peluquero, pagos Stripe con webhooks firmados, almacenamiento de imágenes en Supabase Storage validadas por magic bytes, estadísticas, recordatorios por correo, galería de trabajos, rol `PELUQUERO` con producción y comisiones, y una suite de 381 tests (unitarios + Testcontainers).
 
 ---
 *Desarrollado por Eduardo Andrés Segovia Román.*

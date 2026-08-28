@@ -1,4 +1,8 @@
-export type Rol = 'USER' | 'ADMIN';
+/**
+ * Roles, de menos a más privilegios. `PELUQUERO` es el intermedio: ve su agenda y su
+ * producción, pero no gestiona usuarios, servicios ni caja.
+ */
+export type Rol = 'USER' | 'PELUQUERO' | 'ADMIN';
 
 /** Respuesta de GET /api/usuarios (UsuarioResponseDTO). */
 export interface Usuario {

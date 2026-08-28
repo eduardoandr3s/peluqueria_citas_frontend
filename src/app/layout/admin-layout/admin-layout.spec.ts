@@ -5,7 +5,10 @@ import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminLayout } from './admin-layout';
 
-function setup(opts: { urlAvatar?: string | null; meFalla?: boolean } = {}) {
+function setup(
+  opts: { urlAvatar?: string | null; meFalla?: boolean; rol?: 'ADMIN' | 'PELUQUERO' } = {},
+) {
+  const rol = opts.rol ?? 'ADMIN';
   // Señal real (no un vi.fn suelto) para poder comprobar que la cabecera reacciona
   // a la URL que publica el layout tras pedir /usuarios/me.
   const avatarUrl = signal<string | null>(null);
@@ -16,7 +19,7 @@ function setup(opts: { urlAvatar?: string | null; meFalla?: boolean } = {}) {
           idUsuario: 1,
           nombre: 'Ana Ruiz',
           email: 'ana@test.com',
-          rol: 'ADMIN',
+          rol,
           urlAvatar: opts.urlAvatar ?? null,
         }),
   );
@@ -28,7 +31,8 @@ function setup(opts: { urlAvatar?: string | null; meFalla?: boolean } = {}) {
       {
         provide: AuthService,
         useValue: {
-          user: signal({ idUsuario: 1, nombre: 'Ana Ruiz', email: 'ana@test.com', rol: 'ADMIN' }),
+          user: signal({ idUsuario: 1, nombre: 'Ana Ruiz', email: 'ana@test.com', rol }),
+          isAdmin: signal(rol === 'ADMIN'),
           logout: vi.fn(),
           avatarUrl,
           setAvatarUrl: (url: string | null) => avatarUrl.set(url),
@@ -91,7 +95,14 @@ describe('AdminLayout', () => {
   it('mantiene los enlaces de primer nivel', () => {
     const { fixture } = setup();
 
-    for (const path of ['/dashboard', '/citas', '/servicios', '/usuarios', '/peluqueros']) {
+    for (const path of [
+      '/dashboard',
+      '/citas',
+      '/produccion',
+      '/servicios',
+      '/usuarios',
+      '/peluqueros',
+    ]) {
       expect(enlace(fixture, path)).toBeTruthy();
     }
   });
@@ -129,6 +140,39 @@ describe('AdminLayout', () => {
     const img = fixture.nativeElement.querySelector('header img') as HTMLImageElement;
     expect(img.getAttribute('src')).toBe('https://almacen/firmada/1/yo.jpg');
     expect(img.closest('a')?.getAttribute('href')).toBe('/perfil');
+  });
+
+  it('un PELUQUERO solo ve su agenda, su producción y su perfil', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO' });
+
+    expect(enlace(fixture, '/citas')).toBeTruthy();
+    expect(enlace(fixture, '/produccion')).toBeTruthy();
+    // Nada de administración: el guard de esas rutas lo mandaría al login, así que
+    // enseñarle el enlace sería enseñarle una puerta cerrada.
+    for (const path of ['/dashboard', '/servicios', '/usuarios', '/peluqueros']) {
+      expect(enlace(fixture, path)).toBeUndefined();
+    }
+    // Y las entradas que sí ve están en su idioma: son las suyas, no las de la casa.
+    expect(fixture.nativeElement.textContent).toContain('Mi agenda');
+    expect(fixture.nativeElement.textContent).toContain('Mi producción');
+  });
+
+  it('a un PELUQUERO el grupo Configuración le queda solo con «Mi perfil»', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO' });
+
+    boton(fixture, 'Configuración')!.click();
+    fixture.detectChanges();
+
+    expect(enlace(fixture, '/perfil')).toBeTruthy();
+    expect(enlace(fixture, '/galeria')).toBeUndefined();
+    expect(enlace(fixture, '/bloqueos')).toBeUndefined();
+  });
+
+  it('el logo de un PELUQUERO lleva a su agenda y no al dashboard', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO' });
+
+    const logo = fixture.nativeElement.querySelector('img[alt*="Panel Admin"]') as HTMLImageElement;
+    expect(logo.closest('a')?.getAttribute('href')).toBe('/citas');
   });
 
   it('si /usuarios/me falla, la cabecera sigue viva con las iniciales', () => {

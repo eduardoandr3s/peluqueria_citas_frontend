@@ -1,0 +1,77 @@
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--ion-color-medium);
+}
+
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 12px;
+  background: var(--ion-color-step-100, #f2f2f2);
+  text-align: center;
+
+  &.destacada {
+    background: rgba(var(--ion-color-primary-rgb), 0.12);
+  }
+
+  .etiqueta {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ion-color-medium);
+  }
+
+  /* El importe manda sobre la etiqueta: es lo que se viene a mirar. */
+  .valor {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+}
+
+.aviso {
+  margin: 0 0.75rem 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(var(--ion-color-warning-rgb), 0.15);
+  font-size: 0.8rem;
+}
+
+.cabecera ion-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ion-color-medium);
+}
+
+.importe {
+  font-weight: 600;
+  text-align: right;
+
+  .comision {
+    display: block;
+    font-weight: 400;
+    font-size: 0.72rem;
+    color: var(--ion-color-medium);
+  }
+}
+
+.total {
+  --background: var(--ion-color-step-100, #f2f2f2);
+  font-weight: 700;
+}

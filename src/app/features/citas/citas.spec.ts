@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import {
+  AuthService,
   Cita,
   CitaService,
   PagoService,
@@ -42,6 +44,8 @@ function setup(overrides: {
   cita?: Partial<Record<keyof CitaService, unknown>>;
   failLoad?: boolean;
   pago?: Partial<Record<keyof PagoService, unknown>>;
+  /** Rol de la sesión. Un PELUQUERO ve la misma pantalla con menos acciones. */
+  rol?: 'ADMIN' | 'PELUQUERO';
 }) {
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
@@ -49,9 +53,12 @@ function setup(overrides: {
     diasCerrados: vi.fn().mockReturnValue(of([{ fecha: '2026-07-05', motivo: 'Cerrado (domingo)' }])),
     agendar: vi.fn(),
     actualizar: vi.fn(),
+    cerrar: vi.fn(),
     eliminar: vi.fn(),
     ...overrides.cita,
   };
+  const rol = overrides.rol ?? 'ADMIN';
+  const usuarioSvc = { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) };
   const pagoSvc = {
     registrarManual: vi.fn(),
     reembolsar: vi.fn(),
@@ -62,15 +69,22 @@ function setup(overrides: {
     providers: [
       { provide: CitaService, useValue: citaSvc },
       { provide: PagoService, useValue: pagoSvc },
-      { provide: UsuarioService, useValue: { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) } },
+      { provide: UsuarioService, useValue: usuarioSvc },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
+      {
+        provide: AuthService,
+        useValue: {
+          user: signal({ nombre: 'Ana Ruiz', email: 'ana@test.com', rol }),
+          isAdmin: signal(rol === 'ADMIN'),
+        },
+      },
     ],
   });
   const fixture = TestBed.createComponent(Citas);
   fixture.detectChanges(); // ngOnInit -> cargar (forkJoin)
   const c = fixture.componentInstance as any;
-  return { fixture, c, citaSvc };
+  return { fixture, c, citaSvc, usuarioSvc };
 }
 
 /** Botón de una fila de la tabla, por su texto exacto (el de la primera cita listada). */
@@ -183,28 +197,124 @@ describe('Citas', () => {
     expect(c.busyId()).toBeNull();
   });
 
-  it('anular marca la cita como ANULADA', () => {
+  it('anular va por el cierre, no por el PUT: el backend rechazaría los otros estados ahí', () => {
     const anulada = { ...CITAS[0], estado: 'ANULADA' as const };
-    const actualizar = vi.fn().mockReturnValue(of(anulada));
-    const { c } = setup({ cita: { actualizar } });
-    c.anular(CITAS[0]);
-    expect(actualizar).toHaveBeenCalledWith(1, { estado: 'ANULADA' });
+    const cerrar = vi.fn().mockReturnValue(of(anulada));
+    const actualizar = vi.fn();
+    const { c } = setup({ cita: { cerrar, actualizar } });
+
+    c.abrirCierre(CITAS[0], 'ANULADA');
+    c.observacionesCierre.set('  Llamó para cambiar de día  ');
+    c.clienteContactado.set(true);
+    c.confirmarCierre(CITAS[0]);
+
+    expect(cerrar).toHaveBeenCalledWith(1, {
+      estado: 'ANULADA',
+      observaciones: 'Llamó para cambiar de día',
+      clienteContactado: true,
+    });
+    expect(actualizar).not.toHaveBeenCalled();
+    expect(c.citas()[0].estado).toBe('ANULADA');
   });
 
-  it('«Anular» de la tabla pide confirmación y no anula hasta aceptarla', () => {
-    const actualizar = vi.fn().mockReturnValue(of({ ...CITAS[0], estado: 'ANULADA' as const }));
-    const { fixture } = setup({ cita: { actualizar } });
+  it('cerrar como realizada manda COMPLETADA y no arrastra el «cliente avisado»', () => {
+    const completada = { ...CITAS[0], estado: 'COMPLETADA' as const };
+    const cerrar = vi.fn().mockReturnValue(of(completada));
+    const { c } = setup({ cita: { cerrar } });
+
+    c.abrirCierre(CITAS[0], 'COMPLETADA');
+    c.clienteContactado.set(true); // pertenece a la anulación
+    c.confirmarCierre(CITAS[0]);
+
+    expect(cerrar).toHaveBeenCalledWith(1, {
+      estado: 'COMPLETADA',
+      observaciones: undefined,
+      clienteContactado: false,
+    });
+  });
+
+  it('«Anular» de la tabla abre el cierre y no anula hasta aceptarlo', () => {
+    const cerrar = vi.fn().mockReturnValue(of({ ...CITAS[0], estado: 'ANULADA' as const }));
+    const { fixture } = setup({ cita: { cerrar } });
 
     botonEnTabla(fixture, 'Anular')!.click();
     fixture.detectChanges();
 
-    expect(actualizar).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('volverá a quedar libre');
+    expect(cerrar).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('el hueco queda libre');
 
-    botonEnModal(fixture, 'Anular cita')!.click();
+    botonEnModal(fixture, 'Cerrar cita')!.click();
     fixture.detectChanges();
 
-    expect(actualizar).toHaveBeenCalledWith(1, { estado: 'ANULADA' });
+    expect(cerrar).toHaveBeenCalledWith(1, {
+      estado: 'ANULADA',
+      observaciones: undefined,
+      clienteContactado: false,
+    });
+  });
+
+  it('el error del cierre se queda dentro del modal, que sigue abierto para corregir', () => {
+    const cerrar = vi.fn().mockReturnValue(
+      throwError(() => ({ error: 'La cita ya se cerro como COMPLETADA.' })),
+    );
+    const { c } = setup({ cita: { cerrar } });
+
+    c.abrirCierre(CITAS[0], 'NO_ASISTIO');
+    c.confirmarCierre(CITAS[0]);
+
+    expect(c.cierreError()).toContain('ya se cerro');
+    expect(c.pendingCierre()).not.toBeNull();
+    expect(c.feedback()).toBeNull();
+  });
+
+  it('una cita ya cerrada no ofrece cerrar, anular ni reprogramar', () => {
+    const { fixture, c } = setup({});
+    c.citas.set([cita(9, '2026-07-09T10:00:00', 'COMPLETADA')]);
+    fixture.detectChanges();
+
+    expect(botonEnTabla(fixture, 'Cerrar')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Anular')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeUndefined();
+  });
+
+  it('un PELUQUERO no pide la lista de usuarios: es de ADMIN y el 403 tumbaría las citas', () => {
+    const { c, usuarioSvc } = setup({ rol: 'PELUQUERO' });
+
+    expect(usuarioSvc.listarTodos).not.toHaveBeenCalled();
+    // Y las citas sí llegan: es lo que el forkJoin se llevaba por delante.
+    expect(c.citas().length).toBe(3);
+  });
+
+  it('un ADMIN sí la pide: la necesita el formulario de agendar', () => {
+    const { usuarioSvc } = setup({ rol: 'ADMIN' });
+    expect(usuarioSvc.listarTodos).toHaveBeenCalledOnce();
+  });
+
+  it('un PELUQUERO solo ve confirmar, cerrar y anular: ni caja ni agendar ni borrar', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO' });
+
+    expect(fixture.nativeElement.textContent).toContain('Mi agenda');
+    expect(botonEnTabla(fixture, 'Confirmar')).toBeDefined();
+    expect(botonEnTabla(fixture, 'Cerrar')).toBeDefined();
+    expect(botonEnTabla(fixture, 'Anular')).toBeDefined();
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Eliminar')).toBeUndefined();
+    const agendar = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b: any) => b.textContent?.trim() === 'Agendar cita',
+    );
+    expect(agendar).toBeUndefined();
+  });
+
+  it('avisa de que completar una cita sin cobrar no sumará en la producción', () => {
+    const { fixture, c } = setup({});
+    c.citas.set([cita(9, '2026-07-09T10:00:00', 'CONFIRMADA', 'Ana López', 'PENDIENTE')]);
+    fixture.detectChanges();
+
+    botonEnTabla(fixture, 'Cerrar')!.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('no sumará en la producción');
   });
 
   it('«Eliminar» de la tabla pide confirmación y no borra hasta aceptarla', () => {
@@ -223,17 +333,17 @@ describe('Citas', () => {
     expect(eliminar).toHaveBeenCalledWith(1);
   });
 
-  it('cancelar la confirmación cierra el modal sin tocar nada', () => {
-    const actualizar = vi.fn();
-    const { fixture, c } = setup({ cita: { actualizar } });
+  it('cancelar el cierre lo descarta sin tocar nada', () => {
+    const cerrar = vi.fn();
+    const { fixture, c } = setup({ cita: { cerrar } });
 
     botonEnTabla(fixture, 'Anular')!.click();
     fixture.detectChanges();
     botonEnModal(fixture, 'Cancelar')!.click();
     fixture.detectChanges();
 
-    expect(c.pendingAnular()).toBeNull();
-    expect(actualizar).not.toHaveBeenCalled();
+    expect(c.pendingCierre()).toBeNull();
+    expect(cerrar).not.toHaveBeenCalled();
   });
 
   it('eliminar quita la cita de la lista', () => {

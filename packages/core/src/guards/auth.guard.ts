@@ -15,3 +15,14 @@ export const adminGuard: CanActivateFn = () => {
   const router = inject(Router);
   return auth.isAdmin() ? true : router.createUrlTree(['/login']);
 };
+
+/**
+ * Exige ADMIN o PELUQUERO: es la puerta del panel. Las pantallas que son solo de
+ * administración llevan además `adminGuard` en su propia ruta, así que un peluquero que
+ * escriba la URL a mano acaba en el login en vez de en una pantalla que va a dar 403.
+ */
+export const staffGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isStaff() ? true : router.createUrlTree(['/login']);
+};

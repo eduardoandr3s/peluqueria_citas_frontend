@@ -8,6 +8,10 @@ interface NavItem {
   /** Destino del enlace. Los grupos desplegables no navegan: llevan `children`. */
   path?: string;
   children?: NavItem[];
+  /** Solo para ADMIN. Un PELUQUERO no ve la entrada, y su ruta le da el login. */
+  soloAdmin?: boolean;
+  /** Etiqueta alternativa para un PELUQUERO: «Citas» es «Mi agenda» cuando son las suyas. */
+  labelPeluquero?: string;
 }
 
 @Component({
@@ -30,7 +34,7 @@ interface NavItem {
       >
         <div class="flex h-16 items-center justify-center border-b border-line px-4">
           <a
-            routerLink="/dashboard"
+            [routerLink]="rutaInicio()"
             (click)="closeSidebar()"
             class="rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             aria-label="Ir al inicio"
@@ -44,7 +48,7 @@ interface NavItem {
         </div>
 
         <nav class="flex-1 space-y-1 px-3 py-4">
-          @for (item of navItems; track item.label) {
+          @for (item of navItemsVisibles(); track item.label) {
             @if (item.children; as hijos) {
               <!-- Grupo desplegable: el propio encabezado no navega -->
               <button
@@ -214,6 +218,9 @@ export class AdminLayout {
   }
 
   protected readonly nombre = computed(() => this.auth.user()?.nombre ?? 'Administrador');
+  protected readonly esAdmin = this.auth.isAdmin;
+  /** El logo lleva al inicio de cada rol: un peluquero no puede entrar al dashboard. */
+  protected readonly rutaInicio = computed(() => (this.auth.isAdmin() ? '/dashboard' : '/citas'));
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
   /**
    * La URL firmada del avatar no viene en la sesión (caduca), así que se pide una
@@ -228,19 +235,29 @@ export class AdminLayout {
     return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
   });
 
-  protected readonly navItems: NavItem[] = [
+  private readonly navItems: NavItem[] = [
     {
       label: 'Dashboard',
       path: '/dashboard',
+      soloAdmin: true,
       icon: 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z',
     },
     {
       label: 'Citas',
+      labelPeluquero: 'Mi agenda',
       path: '/citas',
       icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0V11.25A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
     },
     {
+      label: 'Producción',
+      labelPeluquero: 'Mi producción',
+      path: '/produccion',
+      // Gráfico de barras ascendente.
+      icon: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
+    },
+    {
       label: 'Servicios',
+      soloAdmin: true,
       path: '/servicios',
       // Tijeras: la tuerca de antes se ha ido al menu «Configuracion».
       icon: 'M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 1 1-5.196 3 3 3 0 0 1 5.196-3Zm1.536-.887a2.165 2.165 0 0 0 1.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 0 1 2.068-1.379l5.325-1.628a4.5 4.5 0 0 1 2.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0 0 10.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 0 1-2.48-.043l-5.326-1.629a4.324 4.324 0 0 1-2.068-1.379M14.343 12l-2.882 1.664',
@@ -248,11 +265,13 @@ export class AdminLayout {
     {
       label: 'Usuarios',
       path: '/usuarios',
+      soloAdmin: true,
       icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z',
     },
     {
       label: 'Peluqueros',
       path: '/peluqueros',
+      soloAdmin: true,
       icon: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
     },
     {
@@ -263,11 +282,13 @@ export class AdminLayout {
         {
           label: 'Galería',
           path: '/galeria',
+          soloAdmin: true,
           icon: 'm2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 6h.008v.008H18V6Zm2.25 12H3.75A1.5 1.5 0 0 1 2.25 16.5v-9A1.5 1.5 0 0 1 3.75 6h16.5a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5Z',
         },
         {
           label: 'Días cerrados',
           path: '/bloqueos',
+          soloAdmin: true,
           icon: 'M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z',
         },
         {
@@ -278,6 +299,24 @@ export class AdminLayout {
       ],
     },
   ];
+
+  /**
+   * El menú del rol de la sesión. Ocultar una entrada no es seguridad —la puerta son los
+   * guards y, sobre todo, el backend— pero enseñarle a un peluquero enlaces que le van a
+   * dar 403 sí es un panel roto. Se filtran también los hijos, y un grupo que se queda sin
+   * ninguno desaparece: «Configuración» con nada dentro sería un desplegable vacío.
+   */
+  protected readonly navItemsVisibles = computed<NavItem[]>(() => {
+    const esAdmin = this.auth.isAdmin();
+    return this.navItems
+      .filter((item) => esAdmin || !item.soloAdmin)
+      .map((item) => ({
+        ...item,
+        label: !esAdmin && item.labelPeluquero ? item.labelPeluquero : item.label,
+        children: item.children?.filter((hijo) => esAdmin || !hijo.soloAdmin),
+      }))
+      .filter((item) => !item.children || item.children.length > 0);
+  });
 
   /** Grupos del menú desplegados. Un grupo arranca abierto si la ruta actual es de un hijo suyo. */
   private readonly gruposAbiertos = signal<ReadonlySet<string>>(

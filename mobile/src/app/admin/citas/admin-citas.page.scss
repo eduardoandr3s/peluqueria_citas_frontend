@@ -81,3 +81,12 @@ ion-badge {
 .save-btn {
   margin-top: 20px;
 }
+
+/* Notas del cierre bajo la cita. Una sola línea: la lista no puede crecer con 2000
+   caracteres de observaciones. */
+.observaciones {
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

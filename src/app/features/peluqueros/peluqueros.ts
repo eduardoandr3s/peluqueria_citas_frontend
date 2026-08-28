@@ -2,7 +2,17 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Peluquero, PeluqueroRequest, PeluqueroService } from '@peluqueria/core';
+import {
+  ComisionServicio,
+  PeluqueroGestion,
+  PeluqueroRequest,
+  PeluqueroService,
+  Servicio,
+  ServicioService,
+  Usuario,
+  UsuarioService,
+  formatearEuros,
+} from '@peluqueria/core';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -17,7 +27,9 @@ interface Feedback {
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 class="text-2xl font-bold text-main">Peluqueros</h1>
-          <p class="text-sm text-muted">Profesionales de la peluquería.</p>
+          <p class="text-sm text-muted">
+            Profesionales, su comisión y la cuenta con la que entran al panel.
+          </p>
         </div>
         <button
           type="button"
@@ -91,6 +103,8 @@ interface Feedback {
               <thead class="border-b border-line text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th class="px-5 py-3 font-medium">Nombre</th>
+                  <th class="px-5 py-3 font-medium">Cuenta</th>
+                  <th class="px-5 py-3 text-right font-medium">Comisión</th>
                   <th class="px-5 py-3 font-medium">Estado</th>
                   <th class="px-5 py-3 text-right font-medium">Acciones</th>
                 </tr>
@@ -100,6 +114,24 @@ interface Feedback {
                   <tr class="hover:bg-elevated">
                     <td class="px-5 py-3">
                       <p class="font-medium text-main">{{ p.nombre }}</p>
+                    </td>
+                    <td class="px-5 py-3">
+                      @if (p.usuarioEmail) {
+                        <p class="text-main">{{ p.usuarioEmail }}</p>
+                      } @else {
+                        <span class="text-xs text-muted">
+                          Sin cuenta · agenda por él el administrador
+                        </span>
+                      }
+                    </td>
+                    <td class="px-5 py-3 text-right">
+                      <span class="font-medium text-main">{{ p.comisionPorcentaje }}%</span>
+                      @if (p.comisionesPorServicio.length > 0) {
+                        <p class="text-xs text-muted">
+                          {{ p.comisionesPorServicio.length }}
+                          {{ p.comisionesPorServicio.length === 1 ? 'excepción' : 'excepciones' }}
+                        </p>
+                      }
                     </td>
                     <td class="px-5 py-3">
                       <span
@@ -146,7 +178,7 @@ interface Feedback {
         <form
           [formGroup]="form"
           (ngSubmit)="guardar()"
-          class="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-xl"
+          class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-surface p-6 shadow-xl"
         >
           <h2 class="text-lg font-semibold text-main">
             {{ editandoId() ? 'Editar peluquero' : 'Nuevo peluquero' }}
@@ -165,6 +197,119 @@ interface Feedback {
                 <p class="mt-1 text-xs text-error">El nombre es obligatorio.</p>
               }
             </div>
+
+            @if (editandoId()) {
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-main">Comisión por defecto (%)</label>
+                <input
+                  type="number"
+                  formControlName="comisionPorcentaje"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                />
+                @if (invalid('comisionPorcentaje')) {
+                  <p class="mt-1 text-xs text-error">Un porcentaje entre 0 y 100.</p>
+                }
+                <p class="mt-1 text-xs text-muted">
+                  Se aplica a todos los servicios salvo las excepciones de abajo. El porcentaje se
+                  copia en la cita al cerrarla, así que cambiarlo no toca lo ya liquidado.
+                </p>
+              </div>
+
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-main">Cuenta vinculada</label>
+                <select
+                  formControlName="usuarioId"
+                  class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                >
+                  <option [ngValue]="null">Sin cuenta</option>
+                  @for (u of cuentasVinculables(); track u.idUsuario) {
+                    <option [ngValue]="u.idUsuario">{{ u.nombre }} · {{ u.email }}</option>
+                  }
+                </select>
+                <p class="mt-1 text-xs text-muted">
+                  Solo aparecen las cuentas con rol PELUQUERO o ADMIN. Si la persona todavía es
+                  cliente, cámbiale el rol en «Usuarios» y volverá a aparecer aquí.
+                </p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <input
+                  id="peluquero-activo"
+                  type="checkbox"
+                  formControlName="activo"
+                  class="h-4 w-4 rounded border-line text-primary focus:ring-primary/30"
+                />
+                <label for="peluquero-activo" class="text-sm text-main">
+                  Activo (aparece al agendar)
+                </label>
+              </div>
+
+              <!-- Excepciones de comisión por servicio -->
+              <div class="rounded-lg border border-line p-3">
+                <p class="text-sm font-medium text-main">Comisión por servicio</p>
+                <p class="mt-0.5 text-xs text-muted">
+                  Para lo que no comisiona igual: un tinte no es un corte. Lo que no esté aquí usa
+                  el porcentaje de arriba.
+                </p>
+
+                @if (excepciones().length > 0) {
+                  <div class="mt-3 space-y-2">
+                    @for (e of excepciones(); track e.servicioId) {
+                      <div class="flex items-center gap-2">
+                        <span class="flex-1 truncate text-sm text-main">
+                          {{ nombreServicio(e.servicioId) }}
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          [ngModel]="e.porcentaje"
+                          [ngModelOptions]="{ standalone: true }"
+                          (ngModelChange)="cambiarPorcentaje(e.servicioId, $event)"
+                          class="w-20 rounded-lg border border-line bg-base px-2 py-1.5 text-sm text-main outline-none focus:border-primary"
+                        />
+                        <span class="text-sm text-muted">%</span>
+                        <button
+                          type="button"
+                          (click)="quitarExcepcion(e.servicioId)"
+                          class="rounded-md px-2 py-1 text-xs font-medium text-error hover:bg-error/10"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+
+                @if (serviciosDisponibles().length > 0) {
+                  <div class="mt-3 flex items-center gap-2">
+                    <select
+                      [ngModel]="servicioAAnadir()"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="servicioAAnadir.set($event)"
+                      class="flex-1 rounded-lg border border-line bg-base px-2 py-1.5 text-sm text-main outline-none focus:border-primary"
+                    >
+                      <option [ngValue]="null">Añadir un servicio…</option>
+                      @for (s of serviciosDisponibles(); track s.idServicio) {
+                        <option [ngValue]="s.idServicio">{{ s.nombre }} · {{ euros(s.precio) }}</option>
+                      }
+                    </select>
+                    <button
+                      type="button"
+                      [disabled]="servicioAAnadir() === null"
+                      (click)="anadirExcepcion()"
+                      class="rounded-lg bg-elevated px-3 py-1.5 text-xs font-medium text-main hover:bg-line disabled:opacity-50"
+                    >
+                      Añadir
+                    </button>
+                  </div>
+                }
+              </div>
+            }
           </div>
 
           <div class="mt-6 flex justify-end gap-3">
@@ -193,7 +338,9 @@ interface Feedback {
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
           <h2 class="text-lg font-semibold text-main">Eliminar peluquero</h2>
           <p class="mt-2 text-sm text-main">
-            «{{ p.nombre }}» dejará de estar disponible. Es un borrado lógico (se desactiva).
+            «{{ p.nombre }}» dejará de aparecer al agendar. Es un borrado lógico: la ficha se
+            queda en la tabla como inactiva y se puede reactivar, y sus citas y su producción
+            no se tocan.
           </p>
           <div class="mt-6 flex justify-end gap-3">
             <button
@@ -218,9 +365,20 @@ interface Feedback {
 })
 export class Peluqueros implements OnInit {
   private readonly peluqueroService = inject(PeluqueroService);
+  private readonly usuarioService = inject(UsuarioService);
+  private readonly servicioService = inject(ServicioService);
   private readonly fb = inject(FormBuilder);
 
-  protected readonly peluqueros = signal<Peluquero[]>([]);
+  // La ficha de gestión, no la lista pública: trae comisión, cuenta vinculada y también
+  // las fichas inactivas, que son justo las que hay que poder reactivar.
+  protected readonly peluqueros = signal<PeluqueroGestion[]>([]);
+  protected readonly servicios = signal<Servicio[]>([]);
+  /** Cuentas que se pueden vincular: el backend rechaza un USER, así que aquí no se ofrece. */
+  protected readonly cuentasVinculables = signal<Usuario[]>([]);
+
+  /** Excepciones que se están editando en el modal. Se envían como bloque al guardar. */
+  protected readonly excepciones = signal<ComisionServicio[]>([]);
+  protected readonly servicioAAnadir = signal<number | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   protected readonly busyId = signal<number | null>(null);
@@ -231,7 +389,7 @@ export class Peluqueros implements OnInit {
   protected readonly formOpen = signal(false);
   protected readonly editandoId = signal<number | null>(null);
   protected readonly saving = signal(false);
-  protected readonly pendingDelete = signal<Peluquero | null>(null);
+  protected readonly pendingDelete = signal<PeluqueroGestion | null>(null);
 
   protected readonly filtrados = computed(() => {
     const q = this.search().trim().toLowerCase();
@@ -241,16 +399,38 @@ export class Peluqueros implements OnInit {
 
   protected readonly form = this.fb.group({
     nombre: ['', [Validators.required]],
+    comisionPorcentaje: [
+      0,
+      [Validators.required, Validators.min(0), Validators.max(100)],
+    ],
+    usuarioId: [null as number | null],
+    activo: [true],
+  });
+
+  /** Servicios que aún no tienen excepción, para el desplegable de añadir. */
+  protected readonly serviciosDisponibles = computed(() => {
+    const puestos = new Set(this.excepciones().map((e) => e.servicioId));
+    return this.servicios().filter((s) => !puestos.has(s.idServicio));
   });
 
   ngOnInit(): void {
     this.cargar();
+    // Las dos listas son para los desplegables del modal: si fallan, el resto de la
+    // pantalla sigue funcionando y el único coste es no poder vincular o excepcionar.
+    this.servicioService.listar().subscribe({
+      next: (lista) => this.servicios.set(lista),
+      error: () => {},
+    });
+    this.usuarioService.listarTodos().subscribe({
+      next: (lista) => this.cuentasVinculables.set(lista.filter((u) => u.rol !== 'USER')),
+      error: () => {},
+    });
   }
 
   protected cargar(): void {
     this.loading.set(true);
     this.loadError.set(null);
-    this.peluqueroService.listar().subscribe({
+    this.peluqueroService.listarParaGestion().subscribe({
       next: (data) => {
         this.peluqueros.set(data);
         this.loading.set(false);
@@ -262,7 +442,7 @@ export class Peluqueros implements OnInit {
     });
   }
 
-  protected invalid(control: 'nombre'): boolean {
+  protected invalid(control: 'nombre' | 'comisionPorcentaje'): boolean {
     const c = this.form.controls[control];
     return c.invalid && (c.dirty || c.touched);
   }
@@ -270,15 +450,57 @@ export class Peluqueros implements OnInit {
   protected abrirCrear(): void {
     this.feedback.set(null);
     this.editandoId.set(null);
-    this.form.reset({ nombre: '' });
+    // Al crear solo se pide el nombre: la comisión y la cuenta se ajustan al editar, que
+    // es cuando ya existe la ficha a la que vincularlas.
+    this.form.reset({ nombre: '', comisionPorcentaje: 0, usuarioId: null, activo: true });
+    this.excepciones.set([]);
     this.formOpen.set(true);
   }
 
-  protected abrirEditar(p: Peluquero): void {
+  protected abrirEditar(p: PeluqueroGestion): void {
     this.feedback.set(null);
     this.editandoId.set(p.idPeluquero);
-    this.form.reset({ nombre: p.nombre });
+    this.form.reset({
+      nombre: p.nombre,
+      comisionPorcentaje: p.comisionPorcentaje ?? 0,
+      usuarioId: p.usuarioId ?? null,
+      activo: p.activo,
+    });
+    // Copia: se edita en el modal y solo se manda al guardar, así que cancelar no deja
+    // nada a medias.
+    this.excepciones.set(p.comisionesPorServicio.map((e) => ({ ...e })));
+    this.servicioAAnadir.set(null);
     this.formOpen.set(true);
+  }
+
+  protected anadirExcepcion(): void {
+    const servicioId = this.servicioAAnadir();
+    if (servicioId == null) return;
+    const porDefecto = this.form.controls.comisionPorcentaje.value ?? 0;
+    this.excepciones.update((lista) => [...lista, { servicioId, porcentaje: porDefecto }]);
+    this.servicioAAnadir.set(null);
+  }
+
+  protected quitarExcepcion(servicioId: number): void {
+    this.excepciones.update((lista) => lista.filter((e) => e.servicioId !== servicioId));
+  }
+
+  protected cambiarPorcentaje(servicioId: number, porcentaje: number): void {
+    this.excepciones.update((lista) =>
+      lista.map((e) => (e.servicioId === servicioId ? { ...e, porcentaje } : e)),
+    );
+  }
+
+  protected nombreServicio(servicioId: number): string {
+    return (
+      this.servicios().find((s) => s.idServicio === servicioId)?.nombre ??
+      this.excepciones().find((e) => e.servicioId === servicioId)?.servicioNombre ??
+      `Servicio ${servicioId}`
+    );
+  }
+
+  protected euros(valor: number): string {
+    return formatearEuros(valor);
   }
 
   protected cerrarForm(): void {
@@ -292,48 +514,84 @@ export class Peluqueros implements OnInit {
     }
 
     const v = this.form.getRawValue();
-    const payload: PeluqueroRequest = { nombre: v.nombre!.trim() };
-
     this.saving.set(true);
     const id = this.editandoId();
 
-    const peticion = id
-      ? this.peluqueroService.actualizar(id, payload)
-      : this.peluqueroService.crear(payload);
+    if (!id) {
+      const payload: PeluqueroRequest = { nombre: v.nombre!.trim() };
+      this.peluqueroService.crear(payload).subscribe({
+        next: (creado) => {
+          this.saving.set(false);
+          this.formOpen.set(false);
+          this.feedback.set({ type: 'success', text: `«${creado.nombre}» creado.` });
+          // Se recarga en vez de insertar la fila: `crear` devuelve la ficha pública, sin
+          // comisión ni cuenta, y la tabla muestra esas columnas.
+          this.cargar();
+        },
+        error: (err: HttpErrorResponse) => this.falloAlGuardar(err),
+      });
+      return;
+    }
 
-    peticion.subscribe({
-      next: (resultado) => {
-        this.saving.set(false);
-        this.formOpen.set(false);
-        if (id) {
-          this.peluqueros.update((list) =>
-            list.map((p) => (p.idPeluquero === id ? resultado : p)),
-          );
-          this.feedback.set({ type: 'success', text: `«${resultado.nombre}» actualizado.` });
-        } else {
-          this.peluqueros.update((list) => [resultado, ...list]);
-          this.feedback.set({ type: 'success', text: `«${resultado.nombre}» creado.` });
-        }
-      },
-      error: (err: HttpErrorResponse) => {
-        this.saving.set(false);
-        this.feedback.set({
-          type: 'error',
-          text: this.extraerError(err) ?? 'No se pudo guardar el peluquero.',
-        });
-      },
+    // Dos llamadas y en este orden: la ficha primero, porque es la que puede rechazar la
+    // cuenta vinculada, y así un error deja las comisiones como estaban.
+    this.peluqueroService
+      .actualizar(id, {
+        nombre: v.nombre!.trim(),
+        comisionPorcentaje: Number(v.comisionPorcentaje ?? 0),
+        activo: v.activo ?? true,
+        ...(v.usuarioId != null ? { usuarioId: v.usuarioId } : { desvincularUsuario: true }),
+      })
+      .subscribe({
+        next: () => {
+          this.peluqueroService.reemplazarComisiones(id, this.excepciones()).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.formOpen.set(false);
+              this.feedback.set({ type: 'success', text: `«${v.nombre!.trim()}» actualizado.` });
+              this.cargar();
+            },
+            error: (err: HttpErrorResponse) => {
+              // La ficha sí se guardó: decirlo evita que reintente el cambio entero.
+              this.saving.set(false);
+              this.feedback.set({
+                type: 'error',
+                text:
+                  (this.extraerError(err) ?? 'No se pudieron guardar las comisiones por servicio.') +
+                  ' El resto de la ficha sí se guardó.',
+              });
+              this.cargar();
+            },
+          });
+        },
+        error: (err: HttpErrorResponse) => this.falloAlGuardar(err),
+      });
+  }
+
+  private falloAlGuardar(err: HttpErrorResponse): void {
+    this.saving.set(false);
+    this.feedback.set({
+      type: 'error',
+      text: this.extraerError(err) ?? 'No se pudo guardar el peluquero.',
     });
   }
 
-  protected eliminar(p: Peluquero): void {
+  protected eliminar(p: PeluqueroGestion): void {
     const id = p.idPeluquero;
     this.pendingDelete.set(null);
     this.busyId.set(id);
     this.peluqueroService.eliminar(id).subscribe({
       next: () => {
-        this.peluqueros.update((list) => list.filter((x) => x.idPeluquero !== id));
+        // La ficha no desaparece de la tabla: es un borrado lógico y esta pantalla muestra
+        // también las inactivas, que son las que se pueden reactivar desde «Editar».
+        this.peluqueros.update((list) =>
+          list.map((x) => (x.idPeluquero === id ? { ...x, activo: false } : x)),
+        );
         this.busyId.set(null);
-        this.feedback.set({ type: 'success', text: `«${p.nombre}» eliminado.` });
+        this.feedback.set({
+          type: 'success',
+          text: `«${p.nombre}» desactivado. Puedes reactivarlo desde «Editar».`,
+        });
       },
       error: (err: HttpErrorResponse) => {
         this.busyId.set(null);

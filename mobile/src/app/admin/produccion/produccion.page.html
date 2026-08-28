@@ -1,0 +1,124 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ esAdmin() ? 'Producción' : 'Mi producción' }}</ion-title>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-segment [value]="rango()" (ionChange)="cambiarRango($any($event.detail.value))">
+      @for (r of rangos; track r.value) {
+        <ion-segment-button [value]="r.value">
+          <ion-label>{{ r.label }}</ion-label>
+        </ion-segment-button>
+      }
+    </ion-segment>
+  </ion-toolbar>
+  @if (esAdmin()) {
+    <ion-toolbar>
+      <ion-item lines="none">
+        <ion-select
+          label="Peluquero"
+          labelPlacement="fixed"
+          interface="action-sheet"
+          [value]="peluqueroSeleccionado()"
+          (ionChange)="cambiarPeluquero($event.detail.value)"
+        >
+          <ion-select-option [value]="null">Toda la plantilla</ion-select-option>
+          @for (p of peluqueros(); track p.idPeluquero) {
+            <ion-select-option [value]="p.idPeluquero">{{ p.nombre }}</ion-select-option>
+          }
+        </ion-select>
+      </ion-item>
+    </ion-toolbar>
+  }
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="center"><ion-spinner name="crescent"></ion-spinner></div>
+  } @else if (error()) {
+    <p class="empty">{{ error() }}</p>
+  } @else if (comparativa(); as filas) {
+    @if (filas.length === 0) {
+      <p class="empty">Nadie tiene servicios cobrados en este periodo.</p>
+    } @else {
+      <ion-list>
+        @for (f of filas; track f.idPeluquero) {
+          <ion-item button detail="true" (click)="cambiarPeluquero(f.idPeluquero)">
+            <ion-label>
+              <h2>{{ f.nombre }}</h2>
+              <p>{{ f.serviciosRealizados }} servicios · comisión {{ euros(f.comision) }}</p>
+            </ion-label>
+            <ion-note slot="end" class="importe">{{ euros(f.importeVendido) }}</ion-note>
+          </ion-item>
+        }
+        <ion-item lines="none" class="total">
+          <ion-label><h2>Total</h2></ion-label>
+          <ion-note slot="end" class="importe">
+            {{ euros(totalVendido()) }}
+            <span class="comision">comisión {{ euros(totalComision()) }}</span>
+          </ion-note>
+        </ion-item>
+      </ion-list>
+    }
+  } @else if (produccion(); as p) {
+    <div class="tarjetas">
+      <div class="tarjeta">
+        <span class="etiqueta">Servicios</span>
+        <span class="valor">{{ p.serviciosRealizados }}</span>
+      </div>
+      <div class="tarjeta">
+        <span class="etiqueta">Vendido</span>
+        <span class="valor">{{ euros(p.importeVendido) }}</span>
+      </div>
+      <div class="tarjeta destacada">
+        <span class="etiqueta">Tu comisión</span>
+        <span class="valor">{{ euros(p.comision) }}</span>
+      </div>
+    </div>
+
+    @if (p.serviciosSinCobrar > 0) {
+      <p class="aviso">
+        {{ p.serviciosSinCobrar }}
+        {{ p.serviciosSinCobrar === 1 ? 'servicio realizado' : 'servicios realizados' }}
+        sin cobrar ({{ euros(p.importeSinCobrar) }}). No suman hasta que se registre el pago.
+      </p>
+    }
+
+    @if (p.porServicio.length > 0) {
+      <ion-list>
+        <ion-item lines="none" class="cabecera"><ion-label>Por servicio</ion-label></ion-item>
+        @for (l of p.porServicio; track l.etiqueta) {
+          <ion-item>
+            <ion-label>
+              <h3>{{ l.etiqueta }}</h3>
+              <p>{{ l.servicios }} · comisión {{ euros(l.comision) }}</p>
+            </ion-label>
+            <ion-note slot="end" class="importe">{{ euros(l.importe) }}</ion-note>
+          </ion-item>
+        }
+      </ion-list>
+    }
+
+    @if (p.porMes.length > 0) {
+      <ion-list>
+        <ion-item lines="none" class="cabecera"><ion-label>Por mes</ion-label></ion-item>
+        @for (l of p.porMes; track l.etiqueta) {
+          <ion-item>
+            <ion-label>
+              <h3>{{ mes(l.etiqueta) }}</h3>
+              <p>{{ l.servicios }} · comisión {{ euros(l.comision) }}</p>
+            </ion-label>
+            <ion-note slot="end" class="importe">{{ euros(l.importe) }}</ion-note>
+          </ion-item>
+        }
+      </ion-list>
+    }
+
+    @if (p.porServicio.length === 0) {
+      <p class="empty">Nada cobrado en este periodo.</p>
+    }
+  }
+</ion-content>

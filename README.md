@@ -41,7 +41,9 @@ peluqueria_citas_frontend/
 │   │   ├── citas/             # Appointment management (calendar, payments, barber selector)
 │   │   ├── dashboard/         # Statistics dashboard (CSS-only charts)
 │   │   ├── galeria/           # Work gallery: multi-upload, ordering and titles
-│   │   ├── peluqueros/        # Barber CRUD
+│   │   ├── inicio/           # Entry redirector: each role to its own screen
+│   │   ├── peluqueros/        # Barbers: profile, commission and linked account
+│   │   ├── produccion/        # Sales and commission (own, or the whole staff's)
 │   │   ├── perfil/            # "My profile": own details and profile photo
 │   │   ├── servicios/         # Service catalog CRUD (incl. the photo modal)
 │   │   └── usuarios/          # User management (roles, search, reactivation)
@@ -80,9 +82,13 @@ peluqueria_citas_frontend/
 Management panel for the salon owner:
 
 * Appointment management: calendar with filters, pagination, booking/rescheduling with **live availability slots**, optional **barber selector**
+* **Appointment closing** (done / no-show / cancelled) with notes and an "I already told the customer" flag. It goes through its own endpoint rather than the usual PUT: closing freezes the amount and the commission into the appointment, and the PUT answers 400 for those states so no completed appointment is left without a frozen price. Marking an unpaid appointment as done **warns that it will not count towards sales** until it is collected — at the point where something can still be done about it
+* **Sales and commission**: amount sold, collected and commission per barber, with per-service and monthly breakdowns and a whole-staff comparison. It only adds up work that is **done and paid**; done-but-unpaid is reported separately so it never drops out of sight
+* **`PELUQUERO` role**: signs into the same panel with their schedule and their sales, and nothing from administration. The menu, the buttons and even the requests change with the role: as a barber the user list is not requested at all, since that ADMIN-only 403 inside the screen's `forkJoin` would take the appointments down with it
 * Payments: manual payments (cash/transfer), Stripe payment status, refunds
 * **Statistics dashboard**: appointments by status, revenue by payment method, top services and new customers, with range selector (month / last 30 days / year) — charts built with plain `div` + Tailwind, no chart library, keeping the app zoneless
-* CRUD for services, **barbers** and users (roles, search, soft delete and reactivation)
+* CRUD for services and users (roles, search, soft delete and reactivation)
+* **Barbers**: on top of the CRUD, the **commission percentage** with **per-service exceptions** (a dye job does not pay like a haircut) and the **linked account** the professional signs in with. The screen never offers to link a customer account: the backend rejects it, and without the role the owner of that profile would not see a single appointment
 * **Closed days**: block a holiday or a one-off closure (with a reason) and unblock it. Closed days — Sundays included — render as **unselectable** in the booking calendar, so a day with no available times can no longer be picked
 * **Catalog photos**: upload, replace or remove a photo per service from a modal, resized in the browser before uploading
 * **Work gallery** (under "Configuration"): **multi-file upload**, editable titles and manual ordering with ↑/↓ — two buttons instead of drag and drop: 90% of the value for 10% of the code. Each file yields **two sizes in the browser**, the image and a thumbnail, uploaded in the same multipart request: the server has 0.1 CPU in production. Uploads run **sequentially**, because the order they are stored in is the order clients will see. Moving a photo **renumbers the grid** and only sends what actually changed position; swapping the two `orden` values would be one request fewer but would move nothing when both photos share the same number
@@ -105,6 +111,7 @@ Ionic app for the salon's customers:
     * **The conversation lives in memory only.** The backend is stateless: the history is resent on every turn. Leaving the screen clears it, which is right here — there is nothing worth persisting, and nothing that was asked is left on the device. The history is trimmed to the **10 most recent turns** (not the first ones: the context needed to understand "and Thursday?" is what was just said), which is what the backend accepts and what stops each new message from costing more tokens than the last.
     * **Each error status says something different**, because the customer has to be able to act on it: **429** means wait, **503** means retrying won't help and offers the phone number, **404** means the assistant is not deployed on that backend, and no connectivity is said plainly. If the request fails the question **stays on screen** so it doesn't have to be retyped.
 * **Work gallery**, reached from the Services header rather than as a sixth tab (the bar already has five and one more gets cramped). The grid always renders the **thumbnail**, with `loading="lazy"` and a fixed height so it does not jump while loading, and the full-size image is fetched only when a photo is opened: it is the only screen that loads many images at once, and the free storage plan's limit is bandwidth
+* For staff, the work area has its own tab bar: **schedule** (closing appointments from an action sheet, with the notes and the "won't count towards sales" warning right in the dialog) and **sales**. A barber sees no services or users tabs, and their routes bounce back to the work area in a single hop
 * **Contact screen** with the salon's address, phone number and email. Phone and email are `tel:` and `mailto:` links, which Capacitor hands to the system dialler and mail client instead of opening them inside the WebView
 * Built with Capacitor: the same codebase deploys as a web app today and packages as an Android app (`appId com.segovia.peluqueria`), with its own launcher icon and splash screen
 
@@ -112,8 +119,9 @@ Ionic app for the salon's customers:
 
 `@peluqueria/core`, consumed by both apps:
 
-* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`, `GaleriaFoto`) and their enums
-* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `DiaBloqueadoService`, `EstadisticasService`, `GaleriaService`, ...) plus `AuthService` and token storage
+* `models/`: TypeScript interfaces for every API resource (`Cita`, `Servicio`, `Usuario`, `Pago`, `Peluquero`, `DiaBloqueado`, `Estadisticas`, `GaleriaFoto`, `Produccion`) and their enums
+* `services/`: one HTTP service per resource (`CitaService`, `PagoService`, `PeluqueroService`, `ProduccionService`, `DiaBloqueadoService`, `EstadisticasService`, `GaleriaService`, ...) plus `AuthService` and token storage
+* `guards/`: `authGuard`, `adminGuard` and `staffGuard` (ADMIN or PELUQUERO). The work area's door is `staffGuard` and admin screens repeat `adminGuard` on their own route: hiding a link is not security, but showing a locked door is a broken panel
 * `utils/fecha.ts`: local-time `YYYY-MM-DD` helpers (`toISOString()` would shift the day in positive-offset timezones)
 * `utils/imagen.ts`: resizes an image in the browser before uploading, so a phone photo fits the backend's 2 MB limit using the user's CPU rather than the server's. It only ever **optimises**: if the environment has no `createImageBitmap`, the original is uploaded and the server decides — the helper never blocks an upload
 * `utils/precio.ts`: money formatting, one implementation for both apps. It exists because the format used to come from two places — the `number` pipe, which depends on the `LOCALE_ID` each app registers, and `toFixed(2)`, which always prints a dot — so the same price rendered as "15.00 €" in the panel and "15,00 €" in the mobile app. The separator is pinned to `es-ES` here instead of being left to each app's locale: an amount should not change shape depending on which screen you look at
@@ -146,12 +154,12 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**479 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**542 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 264 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor |
-| Mobile (`cd mobile && npx ng test`) | 215 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming), the work gallery and the tab routes |
+| Admin + core (`npx ng test`) | 300 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, produccion, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor. What is tested about the `PELUQUERO` role is mostly what it does **not** do: never requests the user list (that 403 would take the appointments down), never shows the cash or delete buttons, and never has menu links its own guard would reject |
+| Mobile (`cd mobile && npx ng test`) | 242 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming), the work gallery, appointment closing with its paid/unpaid warnings, own sales and the staff comparison, and the tab routes and guards |
 
 ```bash
 npx ng test --watch=false            # admin + core
@@ -189,7 +197,7 @@ The launcher icon and splash screen are generated from the salon's logo with `np
 
 ## Backend
 
-The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders, a work gallery and a 329-test suite (unit + Testcontainers).
+The REST API (Java 21 + Spring Boot 4) lives in [peluqueria_citas](https://github.com/eduardoandr3s/peluqueria_citas): JWT auth with refresh tokens, appointments with per-barber availability, Stripe payments with signed webhooks, image storage on Supabase Storage validated by magic bytes, statistics, email reminders, a work gallery, a `PELUQUERO` role with sales and commissions, and a 381-test suite (unit + Testcontainers).
 
 ---
 *Developed by Eduardo Andres Segovia Roman.*

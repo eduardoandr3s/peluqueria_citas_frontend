@@ -33,11 +33,14 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addOutline, ellipsisVerticalOutline } from 'ionicons/icons';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import {
+  AuthService,
   Cita,
+  CitaCierre,
   CitaRequest,
   CitaUpdate,
+  ETIQUETA_ESTADO,
   EstadoCita,
   Peluquero,
   Servicio,
@@ -67,12 +70,20 @@ type EstadoFiltro = 'TODAS' | EstadoCita;
 })
 export class AdminCitasPage {
   private readonly citaService = inject(CitaService);
+  private readonly auth = inject(AuthService);
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
   private readonly peluqueroService = inject(PeluqueroService);
   private readonly actionSheet = inject(ActionSheetController);
   private readonly alertCtrl = inject(AlertController);
   private readonly toast = inject(ToastController);
+
+  /**
+   * Un PELUQUERO usa esta misma pantalla con su agenda (el backend ya le devuelve solo sus
+   * citas) y con menos acciones: confirmar, cerrar y anular. Agendar, reprogramar y
+   * eliminar son de ADMIN.
+   */
+  readonly esAdmin = this.auth.isAdmin;
 
   readonly citas = signal<Cita[]>([]);
   readonly usuarios = signal<Usuario[]>([]);
@@ -118,6 +129,8 @@ export class AdminCitasPage {
     { value: 'TODAS', label: 'Todas' },
     { value: 'PENDIENTE', label: 'Pend.' },
     { value: 'CONFIRMADA', label: 'Conf.' },
+    { value: 'COMPLETADA', label: 'Hechas' },
+    { value: 'NO_ASISTIO', label: 'No vino' },
     { value: 'ANULADA', label: 'Anul.' },
   ];
 
@@ -177,7 +190,9 @@ export class AdminCitasPage {
     if (this.citas().length === 0) this.loading.set(true);
     forkJoin({
       citas: this.citaService.listar(),
-      usuarios: this.usuarioService.listarTodos(),
+      // El listado de usuarios es de ADMIN. Pedirlo como PELUQUERO daría un 403 que, al
+      // estar en el forkJoin, se llevaría por delante también las citas.
+      usuarios: this.esAdmin() ? this.usuarioService.listarTodos() : of<Usuario[]>([]),
       servicios: this.servicioService.listar(),
       peluqueros: this.peluqueroService.listar(),
       diasCerrados: this.citaService.diasCerrados(this.minFecha, this.maxFecha),
@@ -208,9 +223,20 @@ export class AdminCitasPage {
     const map: Record<EstadoCita, string> = {
       PENDIENTE: 'warning',
       CONFIRMADA: 'success',
+      COMPLETADA: 'primary',
+      NO_ASISTIO: 'danger',
       ANULADA: 'medium',
     };
     return map[estado];
+  }
+
+  etiqueta(estado: EstadoCita): string {
+    return ETIQUETA_ESTADO[estado] ?? estado;
+  }
+
+  /** Una cita cerrada ya no se mueve; corregir el cierre es cosa de un ADMIN. */
+  estaCerrada(estado: EstadoCita): boolean {
+    return estado === 'COMPLETADA' || estado === 'NO_ASISTIO' || estado === 'ANULADA';
   }
 
   // ── Modal ──────────────────────────────────────────────────────────────
@@ -337,11 +363,21 @@ export class AdminCitasPage {
     if (c.estado === 'PENDIENTE') {
       buttons.push({ text: 'Confirmar', handler: () => this.cambiarEstado(c, 'CONFIRMADA') });
     }
-    if (c.estado !== 'ANULADA') {
-      buttons.push({ text: 'Reprogramar', handler: () => this.abrirEditar(c) });
-      buttons.push({ text: 'Anular', handler: () => this.confirmarAnular(c) });
+    if (!this.estaCerrada(c.estado)) {
+      buttons.push({ text: 'Marcar realizada', handler: () => this.pedirCierre(c, 'COMPLETADA') });
+      buttons.push({ text: 'No asistió', handler: () => this.pedirCierre(c, 'NO_ASISTIO') });
+      if (this.esAdmin()) {
+        buttons.push({ text: 'Reprogramar', handler: () => this.abrirEditar(c) });
+      }
+      buttons.push({ text: 'Anular', handler: () => this.pedirCierre(c, 'ANULADA') });
     }
-    buttons.push({ text: 'Eliminar', role: 'destructive', handler: () => this.confirmarEliminar(c) });
+    if (this.esAdmin()) {
+      buttons.push({
+        text: 'Eliminar',
+        role: 'destructive',
+        handler: () => this.confirmarEliminar(c),
+      });
+    }
     buttons.push({ text: 'Cancelar', role: 'cancel' });
 
     const sheet = await this.actionSheet.create({
@@ -361,16 +397,79 @@ export class AdminCitasPage {
     });
   }
 
-  private async confirmarAnular(c: Cita): Promise<void> {
+  /**
+   * Pide las observaciones (y, al anular, si ya se avisó al cliente) y cierra la cita.
+   *
+   * El aviso de que una cita sin cobrar no sumará en la producción se da aquí y no después:
+   * es el momento en el que la persona puede hacer algo al respecto.
+   */
+  async pedirCierre(c: Cita, estado: EstadoCita): Promise<void> {
+    const inputs: object[] = [
+      {
+        name: 'observaciones',
+        type: 'textarea',
+        placeholder: 'Observaciones (opcional). Nota interna: el cliente no la ve.',
+        attributes: { maxlength: 2000 },
+      },
+    ];
+    if (estado === 'ANULADA') {
+      inputs.push({
+        name: 'contactado',
+        type: 'checkbox',
+        label: 'Ya he avisado al cliente',
+        value: 'si',
+      });
+    }
+
     const alert = await this.alertCtrl.create({
-      header: 'Anular cita',
-      message: `La cita de ${c.usuario.nombre} pasará a ANULADA y el horario quedará libre.`,
+      header: `Cerrar como «${this.etiqueta(estado)}»`,
+      message: this.mensajeCierre(c, estado),
+      inputs: inputs as never,
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
-        { text: 'Anular', role: 'destructive', handler: () => this.cambiarEstado(c, 'ANULADA') },
+        {
+          text: 'Cerrar cita',
+          handler: (datos: { observaciones?: string; contactado?: string[] }) => {
+            this.cerrar(c, {
+              estado,
+              observaciones: datos?.observaciones?.trim() || undefined,
+              clienteContactado: estado === 'ANULADA' && (datos?.contactado?.length ?? 0) > 0,
+            });
+          },
+        },
       ],
     });
     await alert.present();
+  }
+
+  private mensajeCierre(c: Cita, estado: EstadoCita): string {
+    if (estado === 'COMPLETADA') {
+      return c.estadoPago === 'PAGADO'
+        ? `El servicio de ${c.usuario.nombre} contará en la producción.`
+        : `Esta cita no tiene el pago registrado: se marcará como realizada, pero no sumará en la producción hasta que se cobre.`;
+    }
+    if (estado === 'NO_ASISTIO') {
+      return `${c.usuario.nombre} no vino. No genera producción ni comisión.`;
+    }
+    return c.estadoPago === 'PAGADO'
+      ? `La cita está pagada. Anularla no devuelve el dinero: el reembolso lo hace un administrador aparte.`
+      : `La cita de ${c.usuario.nombre} se anula y el horario queda libre. Se le avisa por correo.`;
+  }
+
+  private cerrar(c: Cita, payload: CitaCierre): void {
+    this.citaService.cerrar(c.idCita, payload).subscribe({
+      next: (act) => {
+        this.citas.update((l) => l.map((x) => (x.idCita === c.idCita ? act : x)));
+        this.notificar(`Cita cerrada como «${this.etiqueta(payload.estado)}».`, 'success');
+      },
+      error: (err: HttpErrorResponse) => {
+        // El 403 del cierre ya hecho y el 400 de la cita que no ha empezado traen un
+        // mensaje que sirve tal cual: decirle «no se pudo» sería esconder el motivo.
+        const body = err.error;
+        const mensaje = typeof body === 'string' ? body : (body?.error ?? body?.message ?? null);
+        this.notificar(mensaje ?? 'No se pudo cerrar la cita.', 'danger');
+      },
+    });
   }
 
   private async confirmarEliminar(c: Cita): Promise<void> {

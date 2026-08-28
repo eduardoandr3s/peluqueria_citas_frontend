@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import {
   mobileAuthGuard,
   adminGuard,
+  staffGuard,
   clientGuard,
   sessionRedirectGuard,
 } from './guards/auth.guard';
@@ -34,19 +35,28 @@ export const routes: Routes = [
   {
     path: 'admin',
     loadComponent: () => import('./admin/admin-tabs.page').then((m) => m.AdminTabsPage),
-    canActivate: [adminGuard],
+    // La puerta es ADMIN o PELUQUERO; lo que es solo de administración repite el
+    // adminGuard en su propia ruta.
+    canActivate: [staffGuard],
     children: [
       {
         path: 'citas',
         loadComponent: () => import('./admin/citas/admin-citas.page').then((m) => m.AdminCitasPage),
       },
       {
+        path: 'produccion',
+        loadComponent: () =>
+          import('./admin/produccion/produccion.page').then((m) => m.ProduccionPage),
+      },
+      {
         path: 'servicios',
+        canActivate: [adminGuard],
         loadComponent: () =>
           import('./admin/servicios/admin-servicios.page').then((m) => m.AdminServiciosPage),
       },
       {
         path: 'usuarios',
+        canActivate: [adminGuard],
         loadComponent: () =>
           import('./admin/usuarios/admin-usuarios.page').then((m) => m.AdminUsuariosPage),
       },

@@ -11,7 +11,7 @@ class DestinoStub {}
  * Monta la ruta raíz REAL de la app (la que decide dónde aterriza el arranque)
  * con destinos de pega, para no cargar las páginas de Ionic ni sus guards.
  */
-function setup(auth: { isAuthenticated: boolean; isAdmin: boolean }): Router {
+function setup(auth: { isAuthenticated: boolean; isAdmin: boolean; isPeluquero?: boolean }): Router {
   const raiz = routes.find((r) => r.path === '');
   if (!raiz) throw new Error('app.routes ya no define una ruta raíz.');
   const rutasDePrueba: Routes = [
@@ -25,7 +25,11 @@ function setup(auth: { isAuthenticated: boolean; isAdmin: boolean }): Router {
       provideRouter(rutasDePrueba),
       {
         provide: AuthService,
-        useValue: { isAuthenticated: () => auth.isAuthenticated, isAdmin: () => auth.isAdmin },
+        useValue: {
+          isAuthenticated: () => auth.isAuthenticated,
+          isAdmin: () => auth.isAdmin,
+          isStaff: () => auth.isAdmin || !!auth.isPeluquero,
+        },
       },
     ],
   });

@@ -23,7 +23,8 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { addOutline, documentTextOutline } from 'ionicons/icons';
-import { CitaService, Cita, EstadoCita, PagoService } from '@peluqueria/core';
+import {
+  ETIQUETA_ESTADO, CitaService, Cita, EstadoCita, PagoService } from '@peluqueria/core';
 import { FicheroService } from '../core/fichero.service';
 
 @Component({
@@ -67,7 +68,14 @@ export class MisCitasPage {
     if (this.citas().length === 0) this.loading.set(true);
     this.citaService.listar().subscribe({
       next: (data) => {
-        const orden: Record<EstadoCita, number> = { PENDIENTE: 0, CONFIRMADA: 1, ANULADA: 2 };
+        // Primero lo que el cliente aún tiene por delante; el historial, después.
+        const orden: Record<EstadoCita, number> = {
+          PENDIENTE: 0,
+          CONFIRMADA: 1,
+          COMPLETADA: 2,
+          NO_ASISTIO: 3,
+          ANULADA: 4,
+        };
         this.citas.set(
           [...data].sort((a, b) => {
             const diff = orden[a.estado] - orden[b.estado];
@@ -168,18 +176,17 @@ export class MisCitasPage {
     const map: Record<EstadoCita, string> = {
       PENDIENTE: 'warning',
       CONFIRMADA: 'success',
+      COMPLETADA: 'primary',
+      NO_ASISTIO: 'danger',
       ANULADA: 'medium',
     };
     return map[estado];
   }
 
   labelEstado(estado: EstadoCita): string {
-    const map: Record<EstadoCita, string> = {
-      PENDIENTE: 'Pendiente',
-      CONFIRMADA: 'Confirmada',
-      ANULADA: 'Anulada',
-    };
-    return map[estado];
+    // «Realizada» y «No asistió» son estados nuevos que el cliente sí ve en su historial;
+    // lo que no ve nunca son las observaciones ni la comisión, que el backend no le manda.
+    return ETIQUETA_ESTADO[estado] ?? estado;
   }
 
   colorPago(estado: string): string {

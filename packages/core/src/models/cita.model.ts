@@ -2,9 +2,36 @@ import { Servicio } from './servicio.model';
 import { Peluquero } from './peluquero.model';
 import { EstadoPago } from './pago.model';
 
-export type EstadoCita = 'PENDIENTE' | 'CONFIRMADA' | 'ANULADA';
+export type EstadoCita =
+  | 'PENDIENTE'
+  | 'CONFIRMADA'
+  | 'COMPLETADA'
+  | 'NO_ASISTIO'
+  | 'ANULADA';
 
-export const ESTADOS_CITA: EstadoCita[] = ['PENDIENTE', 'CONFIRMADA', 'ANULADA'];
+export const ESTADOS_CITA: EstadoCita[] = [
+  'PENDIENTE',
+  'CONFIRMADA',
+  'COMPLETADA',
+  'NO_ASISTIO',
+  'ANULADA',
+];
+
+/**
+ * Estados de cierre: la cita ya no se mueve. Solo se llega a ellos por
+ * `CitaService.cerrar`, nunca por el PUT (el backend responde 400), porque cerrar
+ * congela el importe y la comisión.
+ */
+export const ESTADOS_CIERRE: EstadoCita[] = ['COMPLETADA', 'NO_ASISTIO', 'ANULADA'];
+
+/** Etiquetas de estado para la UI. `NO_ASISTIO` sin la barra baja a la vista. */
+export const ETIQUETA_ESTADO: Record<EstadoCita, string> = {
+  PENDIENTE: 'Pendiente',
+  CONFIRMADA: 'Confirmada',
+  COMPLETADA: 'Realizada',
+  NO_ASISTIO: 'No asistió',
+  ANULADA: 'Anulada',
+};
 
 /** Datos del usuario anidados dentro de una Cita. */
 export interface CitaUsuario {
@@ -28,6 +55,27 @@ export interface Cita {
    * pago aparte. Viaja con la cita porque el backend ya lo trae en la misma consulta.
    */
   idPago?: number | null;
+
+  // ---- Datos de cierre y gestión ----
+  // El backend solo los rellena para quien gestiona la cita (ADMIN, o el peluquero que
+  // la tiene asignada): a un cliente le llegan siempre a null, porque las observaciones
+  // son notas internas y la comisión es lo que cobra el profesional.
+  fechaCierre?: string | null;
+  observaciones?: string | null;
+  clienteContactado?: boolean | null;
+  /** Nombre de quien cerró la cita. */
+  cerradaPor?: string | null;
+  /** Importe congelado al completar; no cambia si luego sube la tarifa del servicio. */
+  precioAplicado?: number | null;
+  comisionPorcentajeAplicado?: number | null;
+}
+
+/** Cuerpo de PATCH /api/citas/{id}/cierre (CitaCierreDTO). */
+export interface CitaCierre {
+  estado: EstadoCita;
+  observaciones?: string;
+  /** Si se avisó al cliente por teléfono o en persona; el email se manda igual. */
+  clienteContactado?: boolean;
 }
 
 /** Cuerpo de POST /api/citas (CitaRequestDTO). */

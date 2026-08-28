@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { API_URL } from '../api.config';
-import { Cita, CitaRequest, CitaUpdate } from '../models/cita.model';
+import { Cita, CitaCierre, CitaRequest, CitaUpdate } from '../models/cita.model';
 import { DiaCerrado } from '../models/dia-bloqueado.model';
 import { Page } from '../models/usuario.model';
 
@@ -55,6 +55,15 @@ export class CitaService {
 
   actualizar(id: number, data: CitaUpdate): Observable<Cita> {
     return this.http.put<Cita>(`${this.apiUrl}/${id}`, data);
+  }
+
+  /**
+   * Cierra la cita: realizada, no asistió o anulada, con observaciones y si se contactó
+   * al cliente. Es la única vía para `COMPLETADA` y `NO_ASISTIO` —el PUT las rechaza con
+   * 400— porque cerrar congela en la cita el importe y el porcentaje de comisión.
+   */
+  cerrar(id: number, data: CitaCierre): Observable<Cita> {
+    return this.http.patch<Cita>(`${this.apiUrl}/${id}/cierre`, data);
   }
 
   eliminar(id: number): Observable<void> {

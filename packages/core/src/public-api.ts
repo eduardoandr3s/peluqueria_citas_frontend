@@ -18,6 +18,7 @@ export * from './models/peluquero.model';
 export * from './models/dia-bloqueado.model';
 export * from './models/asistente.model';
 export * from './models/galeria.model';
+export * from './models/produccion.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
@@ -31,6 +32,7 @@ export * from './services/peluquero.service';
 export * from './services/dia-bloqueado.service';
 export * from './services/asistente.service';
 export * from './services/galeria.service';
+export * from './services/produccion.service';
 
 // Utilidades
 export * from './utils/fecha';
