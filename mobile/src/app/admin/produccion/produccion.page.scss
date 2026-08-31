@@ -23,11 +23,17 @@
   gap: 0.25rem;
   padding: 0.75rem 0.5rem;
   border-radius: 12px;
-  background: var(--ion-color-step-100, #f2f2f2);
+  // La app es siempre tema oscuro y NO define --ion-color-step-100, asi que un
+  // var(--ion-color-step-100, #f2f2f2) se quedaba en el fallback casi blanco con el
+  // texto crema encima: los contadores no se leian. Se usa la misma superficie que
+  // el resto de tarjetas de la app.
+  background: var(--ion-card-background);
+  border: 1px solid var(--ion-border-color);
   text-align: center;
 
   &.destacada {
     background: rgba(var(--ion-color-primary-rgb), 0.12);
+    border-color: rgba(var(--ion-color-primary-rgb), 0.35);
   }
 
   .etiqueta {
@@ -41,6 +47,7 @@
   .valor {
     font-size: 1.05rem;
     font-weight: 700;
+    color: var(--ion-text-color);
   }
 }
 
@@ -72,6 +79,7 @@
 }
 
 .total {
-  --background: var(--ion-color-step-100, #f2f2f2);
+  // Mismo motivo que .tarjeta: sin esto la fila de totales salia en blanco.
+  --background: var(--ion-card-background);
   font-weight: 700;
 }
