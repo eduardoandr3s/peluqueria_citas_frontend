@@ -7,6 +7,7 @@ import {
   CitaService,
   EstadoCita,
   PeluqueroService,
+  PermisoService,
   Servicio,
   ServicioService,
   Usuario,
@@ -40,6 +41,8 @@ function setup(
     failLoad?: boolean;
     /** Rol de la sesión: un PELUQUERO ve la misma pantalla con menos acciones. */
     rol?: 'ADMIN' | 'PELUQUERO';
+    /** Permisos configurables concedidos a la sesión (ver la matriz de «Permisos»). */
+    permisos?: string[];
   } = {},
 ) {
   const toast = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
@@ -67,6 +70,14 @@ function setup(
       { provide: AlertController, useValue: alertCtrl },
       { provide: ToastController, useValue: toast },
       { provide: AuthService, useValue: { isAdmin: signal(rol === 'ADMIN') } },
+      {
+        // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aqui
+        // no hay HttpClient. `permisos` son las claves concedidas a la sesion del test.
+        provide: PermisoService,
+        useValue: {
+          puede: (clave: string) => signal((overrides.permisos ?? []).includes(clave)),
+        },
+      },
     ],
   });
   const c = TestBed.runInInjectionContext(() => new AdminCitasPage()) as any;
@@ -294,6 +305,29 @@ describe('AdminCitasPage', () => {
       'Cancelar',
     ]);
     expect(c.esAdmin()).toBe(false);
+  });
+
+  it('con CITA_REPROGRAMAR encendido, el peluquero sí ve «Reprogramar»', async () => {
+    const { c, actionSheet } = setup({ rol: 'PELUQUERO', permisos: ['CITA_REPROGRAMAR'] });
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toEqual([
+      'Confirmar',
+      'Marcar realizada',
+      'No asistió',
+      'Reprogramar',
+      'Anular',
+      'Cancelar',
+    ]);
+    // El permiso no lo convierte en admin: eliminar sigue fuera.
+    expect(c.esAdmin()).toBe(false);
+  });
+
+  it('un ADMIN no pasa por la matriz: reprograma con los permisos apagados', async () => {
+    const { c, actionSheet } = setup({ rol: 'ADMIN', permisos: [] });
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toContain('Reprogramar');
   });
 
   it('anular manda las observaciones recortadas y el «cliente avisado»', async () => {

@@ -47,6 +47,7 @@ import {
   Usuario,
   CitaService,
   PeluqueroService,
+  PermisoService,
   ServicioService,
   UsuarioService,
   DiaCerrado,
@@ -84,6 +85,15 @@ export class AdminCitasPage {
    * eliminar son de ADMIN.
    */
   readonly esAdmin = this.auth.isAdmin;
+
+  /**
+   * Reprogramar dejo de ser «solo ADMIN» y pasa por un permiso configurable: un peluquero
+   * lo tiene si un administrador se lo ha encendido. Un ADMIN no pasa por la matriz, asi
+   * que se mira su rol primero. Ocultarlo no es la seguridad: el backend lo vuelve a mirar.
+   */
+  private readonly permisos = inject(PermisoService);
+  private readonly reprogramarPorPermiso = this.permisos.puede('CITA_REPROGRAMAR');
+  readonly puedeReprogramar = computed(() => this.esAdmin() || this.reprogramarPorPermiso());
 
   readonly citas = signal<Cita[]>([]);
   readonly usuarios = signal<Usuario[]>([]);
@@ -366,7 +376,7 @@ export class AdminCitasPage {
     if (!this.estaCerrada(c.estado)) {
       buttons.push({ text: 'Marcar realizada', handler: () => this.pedirCierre(c, 'COMPLETADA') });
       buttons.push({ text: 'No asistió', handler: () => this.pedirCierre(c, 'NO_ASISTIO') });
-      if (this.esAdmin()) {
+      if (this.puedeReprogramar()) {
         buttons.push({ text: 'Reprogramar', handler: () => this.abrirEditar(c) });
       }
       buttons.push({ text: 'Anular', handler: () => this.pedirCierre(c, 'ANULADA') });

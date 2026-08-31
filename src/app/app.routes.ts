@@ -70,6 +70,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/galeria/galeria').then((m) => m.Galeria),
       },
       {
+        path: 'permisos',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/permisos/permisos').then((m) => m.Permisos),
+      },
+      {
         path: 'bloqueos',
         canActivate: [adminGuard],
         loadComponent: () => import('./features/bloqueos/bloqueos').then((m) => m.Bloqueos),

@@ -21,6 +21,7 @@ import {
   UsuarioService,
   PagoService,
   PeluqueroService,
+  PermisoService,
   hoyIso,
   sumarMeses,
   formatearImporte,
@@ -216,7 +217,7 @@ interface Feedback {
                               Cerrar
                             </button>
                           }
-                          @if (esAdmin() && c.estado !== 'ANULADA' && puedePagoManual(c)) {
+                          @if (puedeCobrar() && c.estado !== 'ANULADA' && puedePagoManual(c)) {
                             <button
                               type="button"
                               (click)="abrirPagoManual(c)"
@@ -239,7 +240,7 @@ interface Feedback {
                               Reembolsar
                             </button>
                           }
-                          @if (esAdmin() && !estaCerrada(c.estado)) {
+                          @if (puedeReprogramar() && !estaCerrada(c.estado)) {
                             <button
                               type="button"
                               (click)="abrirEditar(c)"
@@ -522,7 +523,7 @@ interface Feedback {
             <p class="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-xs text-main">
               Esta cita no tiene el pago registrado, así que se marcará como realizada pero
               <strong>no sumará en la producción</strong> hasta que se cobre.
-              @if (esAdmin()) {
+              @if (puedeCobrar()) {
                 Puedes registrarlo con «Pago manual».
               }
             </p>
@@ -694,6 +695,25 @@ export class Citas implements OnInit {
    * una pantalla rota.
    */
   protected readonly esAdmin = this.auth.isAdmin;
+
+  /**
+   * Cobrar y reprogramar dejaron de ser «solo ADMIN» y pasaron a permisos configurables:
+   * un peluquero los tiene si un administrador se los ha encendido. Un ADMIN no pasa por
+   * la matriz, así que se comprueba primero su rol.
+   *
+   * Un peluquero solo ve su propia agenda en esta pantalla (el backend filtra el listado),
+   * así que no hace falta comprobar aquí de quién es cada cita: el backend lo vuelve a
+   * mirar de todas formas.
+   */
+  private readonly permisos = inject(PermisoService);
+  private readonly puedePagoManualPorPermiso = this.permisos.puede('PAGO_MANUAL_REGISTRAR');
+  private readonly puedeReprogramarPorPermiso = this.permisos.puede('CITA_REPROGRAMAR');
+  protected readonly puedeCobrar = computed(
+    () => this.esAdmin() || this.puedePagoManualPorPermiso(),
+  );
+  protected readonly puedeReprogramar = computed(
+    () => this.esAdmin() || this.puedeReprogramarPorPermiso(),
+  );
 
   protected readonly citas = signal<Cita[]>([]);
   protected readonly usuarios = signal<Usuario[]>([]);

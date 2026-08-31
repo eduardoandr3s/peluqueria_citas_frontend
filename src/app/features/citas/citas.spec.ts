@@ -5,6 +5,7 @@ import {
   Cita,
   CitaService,
   PagoService,
+  PermisoService,
   Servicio,
   ServicioService,
   Usuario,
@@ -46,6 +47,8 @@ function setup(overrides: {
   pago?: Partial<Record<keyof PagoService, unknown>>;
   /** Rol de la sesión. Un PELUQUERO ve la misma pantalla con menos acciones. */
   rol?: 'ADMIN' | 'PELUQUERO';
+  /** Permisos configurables concedidos a la sesión (ver la matriz de «Permisos»). */
+  permisos?: string[];
 }) {
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
@@ -77,6 +80,14 @@ function setup(overrides: {
         useValue: {
           user: signal({ nombre: 'Ana Ruiz', email: 'ana@test.com', rol }),
           isAdmin: signal(rol === 'ADMIN'),
+        },
+      },
+      {
+        // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aqui
+        // no hay HttpClient. `permisos` son las claves concedidas a la sesion del test.
+        provide: PermisoService,
+        useValue: {
+          puede: (clave: string) => signal((overrides.permisos ?? []).includes(clave)),
         },
       },
     ],
@@ -304,6 +315,29 @@ describe('Citas', () => {
       (b: any) => b.textContent?.trim() === 'Agendar cita',
     );
     expect(agendar).toBeUndefined();
+  });
+
+  it('con PAGO_MANUAL_REGISTRAR encendido, el peluquero sí ve «Pago manual»', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO', permisos: ['PAGO_MANUAL_REGISTRAR'] });
+
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeDefined();
+    // Y solo ese: encender uno no arrastra a los demás.
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeUndefined();
+    expect(botonEnTabla(fixture, 'Eliminar')).toBeUndefined();
+  });
+
+  it('con CITA_REPROGRAMAR encendido, el peluquero sí ve «Reprogramar»', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO', permisos: ['CITA_REPROGRAMAR'] });
+
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeDefined();
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeUndefined();
+  });
+
+  it('un ADMIN no pasa por la matriz: los ve con todos los permisos apagados', () => {
+    const { fixture } = setup({ rol: 'ADMIN', permisos: [] });
+
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeDefined();
+    expect(botonEnTabla(fixture, 'Reprogramar')).toBeDefined();
   });
 
   it('avisa de que completar una cita sin cobrar no sumará en la producción', () => {
