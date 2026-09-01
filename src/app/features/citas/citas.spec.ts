@@ -456,6 +456,24 @@ describe('Citas', () => {
     expect(c.feedback().type).toBe('success');
   });
 
+  it('el modal de cobro pinta el precio congelado, no la tarifa nueva del servicio', () => {
+    const { fixture, c } = setup({});
+    // El servicio subió a 20 € después de cerrar la cita, que se congeló en 15 €.
+    const cerrada = {
+      ...cita(8, '2026-07-08T10:00:00', 'COMPLETADA'),
+      servicio: { ...SERVICIO, precio: 20 },
+      precioAplicado: 15,
+    };
+    c.citas.set([cerrada]);
+    c.abrirPagoManual(cerrada);
+    fixture.detectChanges();
+
+    // Se cobra lo congelado, que es lo que cuenta la producción. Pintar 20 € sería mentir.
+    const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(texto).toContain('15,00 €');
+    expect(texto).not.toContain('20,00 €');
+  });
+
   it('cobrar una cita ya cerrada no la devuelve a CONFIRMADA', () => {
     const pagoResp = {
       idPago: 3, citaId: 7, monto: 15, metodoPago: 'EFECTIVO',

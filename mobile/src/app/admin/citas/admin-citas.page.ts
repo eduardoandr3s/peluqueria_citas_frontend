@@ -53,6 +53,7 @@ import {
   UsuarioService,
   DiaCerrado,
   formatearEuros,
+  importeACobrar,
   hoyIso,
   sumarMeses,
 } from '@peluqueria/core';
@@ -512,7 +513,7 @@ export class AdminCitasPage {
   async pedirPagoManual(c: Cita): Promise<void> {
     const alert = await this.alertCtrl.create({
       header: 'Cobrar la cita',
-      message: `${c.usuario.nombre} — ${c.servicio.nombre} (${formatearEuros(c.servicio.precio)})`,
+      message: `${c.usuario.nombre} — ${c.servicio.nombre} (${formatearEuros(importeACobrar(c))})`,
       inputs: [
         { name: 'metodo', type: 'radio', label: 'Efectivo', value: 'EFECTIVO', checked: true },
         { name: 'metodo', type: 'radio', label: 'Transferencia', value: 'TRANSFERENCIA' },

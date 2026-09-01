@@ -33,6 +33,18 @@ export const ETIQUETA_ESTADO: Record<EstadoCita, string> = {
   ANULADA: 'Anulada',
 };
 
+/**
+ * Lo que se va a cobrar por una cita. Si ya está cerrada manda el `precioAplicado` que
+ * congeló el cierre, y solo si no lo tiene se lee la tarifa vigente del servicio.
+ *
+ * Es el mismo orden que aplica el backend al cobrar y el que usa la producción al sumar, y
+ * por eso vive en el core: si el diálogo de cobro pintase la tarifa nueva de un servicio
+ * que subió después del cierre, mostraría un importe distinto del que se va a cargar.
+ */
+export function importeACobrar(cita: Cita): number {
+  return cita.precioAplicado ?? cita.servicio.precio;
+}
+
 /** Datos del usuario anidados dentro de una Cita. */
 export interface CitaUsuario {
   idUsuario: number;

@@ -25,6 +25,7 @@ import {
   hoyIso,
   sumarMeses,
   formatearImporte,
+  importeACobrar,
 } from '@peluqueria/core';
 import { DatePicker } from '../../shared/date-picker/date-picker';
 
@@ -433,7 +434,7 @@ interface Feedback {
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
           <h2 class="text-lg font-semibold text-main">Registrar pago manual</h2>
           <p class="mt-2 text-sm text-main">
-            Cita de {{ c.usuario.nombre }} — {{ c.servicio.nombre }} ({{ importe(c.servicio.precio) }} €)
+            Cita de {{ c.usuario.nombre }} — {{ c.servicio.nombre }} ({{ importe(importeACobrar(c)) }} €)
           </p>
           <div class="mt-4 space-y-3">
             <label class="mb-1.5 block text-sm font-medium text-main">Método de pago</label>
@@ -636,7 +637,7 @@ interface Feedback {
         <div class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
           <h2 class="text-lg font-semibold text-main">Reembolsar pago</h2>
           <p class="mt-2 text-sm text-main">
-            Se reembolsará el pago de {{ c.servicio.nombre }} ({{ importe(c.servicio.precio) }} €) de {{ c.usuario.nombre }}.
+            Se reembolsará el pago de {{ c.servicio.nombre }} ({{ importe(importeACobrar(c)) }} €) de {{ c.usuario.nombre }}.
           </p>
           @if (c.estado === 'ANULADA') {
             <p class="mt-2 text-sm text-muted">
@@ -685,6 +686,7 @@ export class Citas implements OnInit {
 
   /** Formato de importes, uno solo para panel y móvil. */
   protected readonly importe = formatearImporte;
+  protected readonly importeACobrar = importeACobrar;
   private readonly fb = inject(FormBuilder);
 
   private readonly auth = inject(AuthService);
@@ -943,8 +945,9 @@ export class Citas implements OnInit {
   }
 
   protected labelPago(c: Cita): string {
-    // El importe cobrado es el precio del servicio de la cita.
-    const importe = formatearImporte(c.servicio.precio);
+    // El importe cobrado es el congelado al cerrar y, si la cita no está cerrada, la tarifa
+    // vigente del servicio: el mismo orden que aplica el backend al cobrar.
+    const importe = formatearImporte(importeACobrar(c));
     switch (c.estadoPago) {
       case 'PENDIENTE': return 'Pago pendiente';
       case 'PAGADO': return `${importe} € pagado`;

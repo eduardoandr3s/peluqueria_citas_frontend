@@ -403,6 +403,21 @@ describe('AdminCitasPage', () => {
     expect(alerta.inputs[0].checked).toBe(true);
   });
 
+  it('el diálogo de cobro pinta el precio congelado, no la tarifa nueva del servicio', async () => {
+    const { c, alertCtrl } = setup();
+    // El servicio subió a 20 € después de cerrar la cita, que se congeló en 15 €.
+    const cerrada = {
+      ...cita(9, '2026-07-09T10:00:00', 'COMPLETADA'),
+      servicio: { ...SERVICIO, precio: 20 },
+      precioAplicado: 15,
+    };
+
+    await c.pedirPagoManual(cerrada);
+
+    // Se cobra lo congelado, que es lo que cuenta la producción. Pintar 20 € sería mentir.
+    expect(alertCtrl.create.mock.calls.at(-1)![0].message).toContain('15,00 €');
+  });
+
   it('cobrar una cita PENDIENTE la confirma y la marca pagada', async () => {
     const { c, alertCtrl, pagoSvc } = setup();
     c.citas.set([...CITAS]);
