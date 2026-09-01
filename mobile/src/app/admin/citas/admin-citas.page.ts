@@ -46,11 +46,13 @@ import {
   Servicio,
   Usuario,
   CitaService,
+  PagoService,
   PeluqueroService,
   PermisoService,
   ServicioService,
   UsuarioService,
   DiaCerrado,
+  formatearEuros,
   hoyIso,
   sumarMeses,
 } from '@peluqueria/core';
@@ -75,6 +77,7 @@ export class AdminCitasPage {
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
   private readonly peluqueroService = inject(PeluqueroService);
+  private readonly pagoService = inject(PagoService);
   private readonly actionSheet = inject(ActionSheetController);
   private readonly alertCtrl = inject(AlertController);
   private readonly toast = inject(ToastController);
@@ -94,6 +97,15 @@ export class AdminCitasPage {
   private readonly permisos = inject(PermisoService);
   private readonly reprogramarPorPermiso = this.permisos.puede('CITA_REPROGRAMAR');
   readonly puedeReprogramar = computed(() => this.esAdmin() || this.reprogramarPorPermiso());
+
+  /**
+   * Cobrar en efectivo es el otro permiso configurable, y en el movil pesa mas que en el
+   * panel: el peluquero trabaja con el telefono en el bolsillo y es ahi donde le hace falta
+   * cerrar el circuito. Sin cobro no hay produccion, porque solo suma lo COMPLETADA y
+   * PAGADO a la vez.
+   */
+  private readonly cobrarPorPermiso = this.permisos.puede('PAGO_MANUAL_REGISTRAR');
+  readonly puedeCobrar = computed(() => this.esAdmin() || this.cobrarPorPermiso());
 
   readonly citas = signal<Cita[]>([]);
   readonly usuarios = signal<Usuario[]>([]);
@@ -381,6 +393,12 @@ export class AdminCitasPage {
       }
       buttons.push({ text: 'Anular', handler: () => this.pedirCierre(c, 'ANULADA') });
     }
+    // Fuera del bloque de «no cerrada» a proposito: el orden natural del peluquero es
+    // marcar la cita realizada y cobrar despues, asi que cobrar tiene que seguir estando
+    // cuando la cita ya esta cerrada.
+    if (this.puedeCobrar() && c.estado !== 'ANULADA' && this.puedePagoManual(c)) {
+      buttons.push({ text: 'Cobrar', handler: () => this.pedirPagoManual(c) });
+    }
     if (this.esAdmin()) {
       buttons.push({
         text: 'Eliminar',
@@ -478,6 +496,63 @@ export class AdminCitasPage {
         const body = err.error;
         const mensaje = typeof body === 'string' ? body : (body?.error ?? body?.message ?? null);
         this.notificar(mensaje ?? 'No se pudo cerrar la cita.', 'danger');
+      },
+    });
+  }
+
+  /** Una cita ya cobrada o reembolsada no se vuelve a cobrar; el backend tambien lo corta. */
+  puedePagoManual(c: Cita): boolean {
+    return c.estadoPago !== 'PAGADO' && c.estadoPago !== 'REEMBOLSADO';
+  }
+
+  /**
+   * Cobro en el local. El metodo se elige con radios en vez de dar por hecho el efectivo:
+   * una transferencia mal registrada como efectivo descuadra la caja del dia.
+   */
+  async pedirPagoManual(c: Cita): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Cobrar la cita',
+      message: `${c.usuario.nombre} — ${c.servicio.nombre} (${formatearEuros(c.servicio.precio)})`,
+      inputs: [
+        { name: 'metodo', type: 'radio', label: 'Efectivo', value: 'EFECTIVO', checked: true },
+        { name: 'metodo', type: 'radio', label: 'Transferencia', value: 'TRANSFERENCIA' },
+      ] as never,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        {
+          text: 'Confirmar cobro',
+          handler: (metodo: string) => this.registrarPagoManual(c, metodo || 'EFECTIVO'),
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private registrarPagoManual(c: Cita, metodo: string): void {
+    this.pagoService.registrarManual(c.idCita, metodo).subscribe({
+      next: (pago) => {
+        // Cobrar solo confirma la RESERVA: sube de PENDIENTE a CONFIRMADA y nada mas. Una
+        // cita ya cerrada no vuelve atras por cobrarla, o perderia el cierre y con el la
+        // produccion. El backend hace lo mismo.
+        this.citas.update((l) =>
+          l.map((x) =>
+            x.idCita === c.idCita
+              ? {
+                  ...x,
+                  estado: x.estado === 'PENDIENTE' ? ('CONFIRMADA' as EstadoCita) : x.estado,
+                  estadoPago: pago.estadoPago,
+                }
+              : x,
+          ),
+        );
+        this.notificar('Cobro registrado.', 'success');
+      },
+      error: (err: HttpErrorResponse) => {
+        // El 403 del permiso apagado y el de la cita de otro companero explican por que no
+        // se puede: decir «no se pudo» dejaria al peluquero sin saber a quien pedirlo.
+        const body = err.error;
+        const mensaje = typeof body === 'string' ? body : (body?.error ?? body?.message ?? null);
+        this.notificar(mensaje ?? 'No se pudo registrar el cobro.', 'danger');
       },
     });
   }

@@ -6,6 +6,7 @@ import {
   Cita,
   CitaService,
   EstadoCita,
+  PagoService,
   PeluqueroService,
   PermisoService,
   Servicio,
@@ -43,6 +44,7 @@ function setup(
     rol?: 'ADMIN' | 'PELUQUERO';
     /** Permisos configurables concedidos a la sesión (ver la matriz de «Permisos»). */
     permisos?: string[];
+    pago?: Partial<Record<keyof PagoService, unknown>>;
   } = {},
 ) {
   const toast = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
@@ -58,6 +60,12 @@ function setup(
     ...overrides.cita,
   };
   const usuarioSvc = { listarTodos: vi.fn().mockReturnValue(of([USUARIO])) };
+  const pagoSvc = {
+    registrarManual: vi.fn().mockReturnValue(
+      of({ idPago: 7, citaId: 1, monto: 15, metodoPago: 'EFECTIVO', estadoPago: 'PAGADO' }),
+    ),
+    ...overrides.pago,
+  };
   const actionSheet = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
   const alertCtrl = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
   TestBed.configureTestingModule({
@@ -66,6 +74,7 @@ function setup(
       { provide: UsuarioService, useValue: usuarioSvc },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
+      { provide: PagoService, useValue: pagoSvc },
       { provide: ActionSheetController, useValue: actionSheet },
       { provide: AlertController, useValue: alertCtrl },
       { provide: ToastController, useValue: toast },
@@ -81,7 +90,7 @@ function setup(
     ],
   });
   const c = TestBed.runInInjectionContext(() => new AdminCitasPage()) as any;
-  return { c, citaSvc, toast, actionSheet, alertCtrl, usuarioSvc };
+  return { c, citaSvc, toast, actionSheet, alertCtrl, usuarioSvc, pagoSvc };
 }
 
 /** Textos de los botones del último action sheet abierto. */
@@ -272,16 +281,35 @@ describe('AdminCitasPage', () => {
       'No asistió',
       'Reprogramar',
       'Anular',
+      'Cobrar',
       'Eliminar',
       'Cancelar',
     ]);
   });
 
-  it('una cita ya cerrada solo ofrece eliminar: el cierre no se reescribe desde aquí', async () => {
+  it('una cita ya cerrada no se recierra desde aquí, pero todavía se puede cobrar', async () => {
     const { c, actionSheet } = setup();
     await c.abrirAcciones(cita(9, '2026-07-09T10:00:00', 'COMPLETADA'));
 
+    // Cobrar sobrevive al cierre a propósito: el orden natural es marcar la cita realizada
+    // y cobrar en efectivo después. Si desapareciera, esa cita no sumaría en la producción.
+    expect(opciones(actionSheet)).toEqual(['Cobrar', 'Eliminar', 'Cancelar']);
+  });
+
+  it('una cita ya pagada no ofrece cobrar dos veces', async () => {
+    const { c, actionSheet } = setup();
+    const pagada = { ...cita(9, '2026-07-09T10:00:00', 'COMPLETADA'), estadoPago: 'PAGADO' as const };
+
+    await c.abrirAcciones(pagada);
+
     expect(opciones(actionSheet)).toEqual(['Eliminar', 'Cancelar']);
+  });
+
+  it('una cita anulada no se cobra, aunque no tenga pago', async () => {
+    const { c, actionSheet } = setup();
+    await c.abrirAcciones(CITAS[2]);
+
+    expect(opciones(actionSheet)).not.toContain('Cobrar');
   });
 
   it('un PELUQUERO no pide usuarios: ese 403 se llevaría también sus citas', () => {
@@ -328,6 +356,106 @@ describe('AdminCitasPage', () => {
     await c.abrirAcciones(CITAS[0]);
 
     expect(opciones(actionSheet)).toContain('Reprogramar');
+  });
+
+  it('sin PAGO_MANUAL_REGISTRAR el peluquero no ve «Cobrar»', async () => {
+    const { c, actionSheet } = setup({ rol: 'PELUQUERO', permisos: ['CITA_REPROGRAMAR'] });
+    await c.abrirAcciones(CITAS[0]);
+
+    // Solo el permiso que está encendido: uno no arrastra al otro.
+    expect(opciones(actionSheet)).toContain('Reprogramar');
+    expect(opciones(actionSheet)).not.toContain('Cobrar');
+  });
+
+  it('con PAGO_MANUAL_REGISTRAR encendido el peluquero cobra desde la app', async () => {
+    const { c, actionSheet } = setup({ rol: 'PELUQUERO', permisos: ['PAGO_MANUAL_REGISTRAR'] });
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toEqual([
+      'Confirmar',
+      'Marcar realizada',
+      'No asistió',
+      'Anular',
+      'Cobrar',
+      'Cancelar',
+    ]);
+    expect(c.esAdmin()).toBe(false);
+  });
+
+  it('un ADMIN cobra con la matriz entera apagada', async () => {
+    const { c, actionSheet } = setup({ rol: 'ADMIN', permisos: [] });
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toContain('Cobrar');
+  });
+
+  it('pedirPagoManual ofrece efectivo por defecto y transferencia como alternativa', async () => {
+    const { c, alertCtrl } = setup();
+
+    await c.pedirPagoManual(CITAS[0]);
+
+    const alerta = alertCtrl.create.mock.calls.at(-1)![0];
+    expect(alerta.message).toContain('15,00 €');
+    expect(alerta.inputs.map((i: { value: string }) => i.value)).toEqual([
+      'EFECTIVO',
+      'TRANSFERENCIA',
+    ]);
+    expect(alerta.inputs[0].checked).toBe(true);
+  });
+
+  it('cobrar una cita PENDIENTE la confirma y la marca pagada', async () => {
+    const { c, alertCtrl, pagoSvc } = setup();
+    c.citas.set([...CITAS]);
+    await c.pedirPagoManual(CITAS[0]);
+    const confirmar = alertCtrl.create.mock.calls
+      .at(-1)![0]
+      .buttons.find((b: { text: string }) => b.text === 'Confirmar cobro');
+
+    confirmar.handler('EFECTIVO');
+
+    expect(pagoSvc.registrarManual).toHaveBeenCalledWith(1, 'EFECTIVO');
+    const actualizada = c.citas().find((x: Cita) => x.idCita === 1);
+    expect(actualizada?.estado).toBe('CONFIRMADA');
+    expect(actualizada?.estadoPago).toBe('PAGADO');
+  });
+
+  it('cobrar una cita ya cerrada no le deshace el cierre', async () => {
+    const { c, alertCtrl } = setup();
+    const cerrada = cita(1, '2026-07-01T10:00:00', 'COMPLETADA');
+    c.citas.set([cerrada]);
+
+    await c.pedirPagoManual(cerrada);
+    alertCtrl.create.mock.calls
+      .at(-1)![0]
+      .buttons.find((b: { text: string }) => b.text === 'Confirmar cobro')
+      .handler('EFECTIVO');
+
+    // Si volviera a CONFIRMADA perdería el cierre y no sumaría en la producción, que exige
+    // COMPLETADA y PAGADO a la vez.
+    const actualizada = c.citas().find((x: Cita) => x.idCita === 1);
+    expect(actualizada?.estado).toBe('COMPLETADA');
+    expect(actualizada?.estadoPago).toBe('PAGADO');
+  });
+
+  it('el 403 del cobro se muestra tal cual: dice a quién pedir el permiso', async () => {
+    const registrarManual = vi
+      .fn()
+      .mockReturnValue(
+        throwError(() => ({
+          status: 403,
+          error: { error: 'Registrar cobros en efectivo no esta habilitado para tu rol.' },
+        })),
+      );
+    const { c, alertCtrl, toast } = setup({ rol: 'PELUQUERO', pago: { registrarManual } });
+
+    await c.pedirPagoManual(CITAS[0]);
+    alertCtrl.create.mock.calls
+      .at(-1)![0]
+      .buttons.find((b: { text: string }) => b.text === 'Confirmar cobro')
+      .handler('EFECTIVO');
+
+    expect(toast.create.mock.calls.at(-1)![0].message).toContain('no esta habilitado');
+    expect(toast.create.mock.calls.at(-1)![0].color).toBe('danger');
   });
 
   it('anular manda las observaciones recortadas y el «cliente avisado»', async () => {
