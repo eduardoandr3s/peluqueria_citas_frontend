@@ -154,11 +154,11 @@ Both apps expect the backend at `http://localhost:8080/api` in development (see 
 
 ## Tests
 
-**571 Vitest tests** run in CI on every push, followed by production builds of both apps:
+**572 Vitest tests** run in CI on every push, followed by production builds of both apps:
 
 | Suite | Tests | Covers |
 |-------|-------|--------|
-| Admin + core (`npx ng test`) | 325 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, produccion, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor. What is tested about the `PELUQUERO` role is mostly what it does **not** do: never requests the user list (that 403 would take the appointments down), never shows the cash or delete buttons, and never has menu links its own guard would reject. **Configurable permissions** are covered both ways: switched off, neither «Pago manual» nor «Reprogramar» appear; switched on they do, and only the one that was switched on; and an ADMIN sees both with the whole matrix off, because they never go through it |
+| Admin + core (`npx ng test`) | 326 | Feature components (citas, bloqueos, usuarios, servicios, peluqueros, produccion, perfil, dashboard, galeria, auth), the closed-day date picker, the searchable list modal, client-side image resizing, receipt download, the assistant client, and every core service, guard and interceptor. What is tested about the `PELUQUERO` role is mostly what it does **not** do: never requests the user list (that 403 would take the appointments down), never shows the cash or delete buttons, and never has menu links its own guard would reject. **Configurable permissions** are covered both ways: switched off, neither «Pago manual» nor «Reprogramar» appear; switched on they do, and only the one that was switched on; and an ADMIN sees both with the whole matrix off, because they never go through it |
 | Mobile (`cd mobile && npx ng test`) | 246 | Booking flow (incl. barber selector and disabled closed days), Stripe payment page, biometric login and token storage, camera and profile photo, PDF receipt (share on device, download in the browser), appointment history, contact screen, the assistant chat (per-status error mapping, history trimming), the work gallery, appointment closing with its paid/unpaid warnings, own sales and the staff comparison, configurable permissions in an appointment's action sheet, and the tab routes and guards |
 
 ```bash

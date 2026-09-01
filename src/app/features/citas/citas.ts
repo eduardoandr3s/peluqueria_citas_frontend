@@ -890,16 +890,29 @@ export class Citas implements OnInit {
     this.pagoManualError.set(null);
     this.pagoService.registrarManual(c.idCita, this.metodoPagoManual()).subscribe({
       next: (pago) => {
+        // Cobrar solo confirma la RESERVA: sube de PENDIENTE a CONFIRMADA y no toca nada
+        // más. Una cita ya cerrada («Realizada») no vuelve atrás por cobrarla, o el cierre
+        // desaparecería de la tabla y con él la producción. El backend hace lo mismo.
         this.citas.update((list) =>
           list.map((x) =>
             x.idCita === c.idCita
-              ? { ...x, estado: 'CONFIRMADA' as EstadoCita, estadoPago: pago.estadoPago }
+              ? {
+                  ...x,
+                  estado: x.estado === 'PENDIENTE' ? ('CONFIRMADA' as EstadoCita) : x.estado,
+                  estadoPago: pago.estadoPago,
+                }
               : x,
           ),
         );
         this.pagoManualSaving.set(false);
         this.pendingPagoManual.set(null);
-        this.feedback.set({ type: 'success', text: 'Pago registrado y cita confirmada.' });
+        this.feedback.set({
+          type: 'success',
+          text:
+            c.estado === 'PENDIENTE'
+              ? 'Pago registrado y cita confirmada.'
+              : 'Pago registrado.',
+        });
       },
       error: (err: HttpErrorResponse) => {
         this.pagoManualSaving.set(false);

@@ -456,6 +456,26 @@ describe('Citas', () => {
     expect(c.feedback().type).toBe('success');
   });
 
+  it('cobrar una cita ya cerrada no la devuelve a CONFIRMADA', () => {
+    const pagoResp = {
+      idPago: 3, citaId: 7, monto: 15, metodoPago: 'EFECTIVO',
+      estadoPago: 'PAGADO', referenciaExterna: null, fechaCreacion: '', fechaPago: '',
+    };
+    const registrarManual = vi.fn().mockReturnValue(of(pagoResp));
+    const { c } = setup({ pago: { registrarManual } });
+    const cerrada = cita(7, '2026-07-07T10:00:00', 'COMPLETADA');
+    c.citas.set([cerrada]);
+
+    c.registrarPagoManual(cerrada);
+
+    // El orden natural es cerrar y luego cobrar. Si el cobro deshiciera el cierre, la cita
+    // dejaría de contar en la producción, que exige COMPLETADA y PAGADO a la vez.
+    const actualizada = c.citas().find((x: Cita) => x.idCita === 7);
+    expect(actualizada?.estado).toBe('COMPLETADA');
+    expect(actualizada?.estadoPago).toBe('PAGADO');
+    expect(c.feedback().text).toBe('Pago registrado.');
+  });
+
   it('una cita ANULADA con pago PAGADO sigue ofreciendo «Reembolsar» y ninguna otra acción de gestión', () => {
     const { fixture, c } = setup({});
     c.citas.set([cita(9, '2026-07-09T10:00:00', 'ANULADA', 'Ana López', 'PAGADO')]);

@@ -154,11 +154,11 @@ Ambas apps esperan el backend en `http://localhost:8080/api` en desarrollo (mira
 
 ## Tests
 
-**571 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
+**572 tests con Vitest** se ejecutan en CI en cada push, seguidos de las builds de producción de ambas apps:
 
 | Suite | Tests | Cubre |
 |-------|-------|-------|
-| Admin + core (`npx ng test`) | 325 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, producción, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guards e interceptor del core. Del rol `PELUQUERO` se comprueba lo que **no** hace: no pide la lista de usuarios (ese 403 tumbaría las citas), no ve los botones de caja ni de borrado, y no tiene en el menú los enlaces que su guard rechazaría. De los **permisos configurables** se comprueban las dos caras: apagados no aparecen «Pago manual» ni «Reprogramar», encendidos sí y solo el que se encendió, y un ADMIN los ve con la matriz entera apagada porque no pasa por ella |
+| Admin + core (`npx ng test`) | 326 | Componentes de features (citas, bloqueos, usuarios, servicios, peluqueros, producción, perfil, dashboard, galería, auth), el date picker de días cerrados, el modal de listado con buscador, el redimensionado de imágenes, la descarga del recibo, el cliente del asistente, y todos los servicios, guards e interceptor del core. Del rol `PELUQUERO` se comprueba lo que **no** hace: no pide la lista de usuarios (ese 403 tumbaría las citas), no ve los botones de caja ni de borrado, y no tiene en el menú los enlaces que su guard rechazaría. De los **permisos configurables** se comprueban las dos caras: apagados no aparecen «Pago manual» ni «Reprogramar», encendidos sí y solo el que se encendió, y un ADMIN los ve con la matriz entera apagada porque no pasa por ella |
 | Mobile (`cd mobile && npx ng test`) | 246 | Flujo de reserva (incl. selector de peluquero y días cerrados deshabilitados), página de pago Stripe, login biométrico y token storage, cámara y foto de perfil, recibo en PDF (compartir en el dispositivo, descarga en el navegador), historial de citas, pantalla de contacto, el chat del asistente (traducción de errores por estado, recorte del historial), la galería de trabajos, el cierre de citas con sus avisos según haya pago o no, la producción propia y la comparativa, los permisos configurables en el menú de acciones de una cita, y las rutas y guards de las pestañas |
 
 ```bash
