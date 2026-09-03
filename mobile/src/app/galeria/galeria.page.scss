@@ -51,6 +51,16 @@
   height: auto;
 }
 
+// Ojo con los colores aqui: la app es SIEMPRE tema oscuro y no define las
+// variables --ion-color-step-*, asi que su fallback es casi blanco. Para texto se
+// usan las de Ionic que si estan definidas.
+.galeria-autoria {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--ion-placeholder-color);
+}
+
 .galeria-mensaje {
   text-align: center;
   color: var(--ion-placeholder-color);

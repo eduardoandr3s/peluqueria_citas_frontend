@@ -15,7 +15,8 @@ export class GaleriaService {
   }
 
   /**
-   * Sube una foto nueva al final de la rejilla (solo ADMIN).
+   * Sube una foto nueva al final de la rejilla. La foto queda sellada con la cuenta
+   * que la sube y eso es lo que después decide quién puede editarla.
    *
    * La miniatura va en el mismo multipart y la genera quien llama: el servidor
    * tiene 0,1 CPU en producción y escalar imágenes ahí sería pagar por algo que
@@ -37,12 +38,18 @@ export class GaleriaService {
     return this.http.post<GaleriaFoto>(this.apiUrl, cuerpo);
   }
 
-  /** Cambia el título o la posición de una foto ya subida (solo ADMIN). */
+  /**
+   * Cambia el título o la posición de una foto ya subida.
+   *
+   * El servidor comprueba los dos campos por separado: el título lo gobierna el dueño
+   * de la foto y el orden es de la rejilla entera, así que mover una ajena solo pide
+   * `GALERIA_ORDENAR`.
+   */
   actualizar(id: number, data: GaleriaFotoUpdate): Observable<GaleriaFoto> {
     return this.http.put<GaleriaFoto>(`${this.apiUrl}/${id}`, data);
   }
 
-  /** Borra la foto y, en el servidor, sus dos objetos del almacén (solo ADMIN). */
+  /** Borra la foto y, en el servidor, sus dos objetos del almacén. */
   eliminar(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }

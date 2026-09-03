@@ -1,20 +1,61 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
-import { GaleriaFoto, GaleriaService } from '@peluqueria/core';
+import { signal } from '@angular/core';
+import { AuthService, GaleriaFoto, GaleriaService, PermisoService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { Galeria } from './galeria';
 
+// Las tres situaciones que decide el backend: la mía, la de un compañero y una sin
+// dueño (las que ya existían antes de que la galería guardara quién sube).
 const FOTOS: GaleriaFoto[] = [
-  { idFoto: 1, titulo: 'Degradado', orden: 0, urlImagen: 'g/1.jpg', urlMiniatura: 'm/1.jpg' },
-  { idFoto: 2, titulo: null, orden: 1, urlImagen: 'g/2.jpg', urlMiniatura: 'm/2.jpg' },
-  { idFoto: 3, titulo: 'Barba', orden: 2, urlImagen: 'g/3.jpg', urlMiniatura: 'm/3.jpg' },
+  {
+    idFoto: 1,
+    titulo: 'Degradado',
+    orden: 0,
+    urlImagen: 'g/1.jpg',
+    urlMiniatura: 'm/1.jpg',
+    subidoPorNombre: 'Ana',
+    mia: true,
+  },
+  {
+    idFoto: 2,
+    titulo: null,
+    orden: 1,
+    urlImagen: 'g/2.jpg',
+    urlMiniatura: 'm/2.jpg',
+    subidoPorNombre: 'Luis',
+    mia: false,
+  },
+  {
+    idFoto: 3,
+    titulo: 'Barba',
+    orden: 2,
+    urlImagen: 'g/3.jpg',
+    urlMiniatura: 'm/3.jpg',
+    subidoPorNombre: null,
+    mia: false,
+  },
 ];
 
-function setup(svc: Partial<Record<keyof GaleriaService, unknown>> = {}, autoInit = true) {
+function setup(
+  svc: Partial<Record<keyof GaleriaService, unknown>> = {},
+  autoInit = true,
+  sesion: { rol?: 'ADMIN' | 'PELUQUERO'; permisos?: string[] } = {},
+) {
   const base = { listar: vi.fn().mockReturnValue(of(FOTOS.map((f) => ({ ...f })))) };
+  const rol = sesion.rol ?? 'ADMIN';
   TestBed.configureTestingModule({
     imports: [Galeria],
-    providers: [{ provide: GaleriaService, useValue: { ...base, ...svc } }],
+    providers: [
+      { provide: GaleriaService, useValue: { ...base, ...svc } },
+      { provide: AuthService, useValue: { isAdmin: signal(rol === 'ADMIN') } },
+      {
+        // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aquí
+        // no hay HttpClient.
+        provide: PermisoService,
+        useValue: { puede: (clave: string) => signal((sesion.permisos ?? []).includes(clave)) },
+      },
+    ],
   });
   const fixture = TestBed.createComponent(Galeria);
   if (autoInit) fixture.detectChanges(); // dispara ngOnInit -> cargar()
@@ -234,5 +275,83 @@ describe('Galería (panel)', () => {
     expect(c.ocupado()).toBe(false);
     c.guardando.set(true);
     expect(c.ocupado()).toBe(true);
+  });
+
+  // === Dueño de la foto y permisos ===
+  //
+  // Ocultar un botón no es seguridad: quien decide es el backend, que mira el dueño con
+  // la fila cargada. Lo que se prueba aquí es que no se ofrece lo que acabaría en un 403.
+
+  it('un ADMIN puede con todo sin pasar por los permisos', () => {
+    const { c } = setup({}, true, { rol: 'ADMIN', permisos: [] });
+
+    expect(c.puedeSubir()).toBe(true);
+    expect(c.puedeOrdenar()).toBe(true);
+    expect(c.puedeEditar(FOTOS[0])).toBe(true);
+    expect(c.puedeEditar(FOTOS[1])).toBe(true);
+    expect(c.puedeEditar(FOTOS[2])).toBe(true);
+  });
+
+  it('un peluquero sin permisos ve la galería pero sin ninguna acción', () => {
+    const { fixture, c } = setup({}, true, { rol: 'PELUQUERO', permisos: [] });
+
+    expect(c.puedeSubir()).toBe(false);
+    expect(c.puedeOrdenar()).toBe(false);
+    expect(c.puedeEditar(FOTOS[0])).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('Añadir fotos');
+    expect(fixture.nativeElement.textContent).not.toContain('Borrar');
+  });
+
+  it('con GALERIA_SUBIR aparece el botón de añadir', () => {
+    const { fixture, c } = setup({}, true, { rol: 'PELUQUERO', permisos: ['GALERIA_SUBIR'] });
+
+    expect(c.puedeSubir()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Añadir fotos');
+  });
+
+  it('con GALERIA_EDITAR_PROPIA maneja las suyas y no las de un compañero', () => {
+    const { c } = setup({}, true, { rol: 'PELUQUERO', permisos: ['GALERIA_EDITAR_PROPIA'] });
+
+    expect(c.puedeEditar(FOTOS[0])).toBe(true);
+    expect(c.puedeEditar(FOTOS[1])).toBe(false);
+    // Una foto sin dueño es del negocio: cuenta como ajena, no como de nadie.
+    expect(c.puedeEditar(FOTOS[2])).toBe(false);
+  });
+
+  it('con GALERIA_EDITAR_AJENA es al revés: las de otro sí, las suyas no', () => {
+    const { c } = setup({}, true, { rol: 'PELUQUERO', permisos: ['GALERIA_EDITAR_AJENA'] });
+
+    expect(c.puedeEditar(FOTOS[0])).toBe(false);
+    expect(c.puedeEditar(FOTOS[1])).toBe(true);
+    expect(c.puedeEditar(FOTOS[2])).toBe(true);
+  });
+
+  it('editar las suyas no da derecho a reordenar la rejilla', () => {
+    const { fixture, c } = setup({}, true, {
+      rol: 'PELUQUERO',
+      permisos: ['GALERIA_EDITAR_PROPIA'],
+    });
+
+    // Mover una foto renumera las de todos, así que va por su propio permiso.
+    expect(c.puedeOrdenar()).toBe(false);
+    expect(fixture.nativeElement.textContent).not.toContain('↑');
+  });
+
+  it('con GALERIA_ORDENAR se pintan las flechas aunque no pueda editar nada', () => {
+    const { fixture, c } = setup({}, true, { rol: 'PELUQUERO', permisos: ['GALERIA_ORDENAR'] });
+
+    expect(c.puedeOrdenar()).toBe(true);
+    expect(c.puedeEditar(FOTOS[1])).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('↑');
+  });
+
+  it('dice de quién es cada foto', () => {
+    const { fixture, c } = setup({}, true, { rol: 'PELUQUERO', permisos: [] });
+
+    expect(c.autoria(FOTOS[0])).toBe('Subida por ti');
+    expect(c.autoria(FOTOS[1])).toBe('Subida por Luis');
+    // Sin dueño no se firma con el nombre de nadie.
+    expect(c.autoria(FOTOS[2])).toBe('De la peluquería');
+    expect(fixture.nativeElement.textContent).toContain('Subida por Luis');
   });
 });

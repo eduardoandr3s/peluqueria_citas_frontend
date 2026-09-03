@@ -66,7 +66,9 @@ export const routes: Routes = [
       },
       {
         path: 'galeria',
-        canActivate: [adminGuard],
+        // La galería la comparte la plantilla: un peluquero entra a las suyas y lo que
+        // puede hacer dentro lo dicen sus permisos, no la ruta.
+        canActivate: [staffGuard],
         loadComponent: () => import('./features/galeria/galeria').then((m) => m.Galeria),
       },
       {

@@ -2,7 +2,13 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
-import { GaleriaFoto, GaleriaService, redimensionarImagen } from '@peluqueria/core';
+import {
+  AuthService,
+  GaleriaFoto,
+  GaleriaService,
+  PermisoService,
+  redimensionarImagen,
+} from '@peluqueria/core';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -23,8 +29,12 @@ const LADO_MINIATURA = 400;
           <p class="text-sm text-muted">
             Las fotos se ven en la app sin necesidad de cuenta. El orden de aquí es el orden que ven
             los clientes.
+            @if (!esAdmin()) {
+              <span class="block">Puedes gestionar las fotos que has subido tú.</span>
+            }
           </p>
         </div>
+        @if (puedeSubir()) {
         <label
           class="flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-hover"
           [class.pointer-events-none]="subiendo()"
@@ -42,6 +52,7 @@ const LADO_MINIATURA = 400;
             (change)="onFotosElegidas($event)"
           />
         </label>
+        }
       </div>
 
       @if (feedback(); as fb) {
@@ -74,7 +85,11 @@ const LADO_MINIATURA = 400;
           </div>
         } @else if (fotos().length === 0) {
           <p class="p-8 text-center text-sm text-muted">
-            Aún no hay fotos. Añade la primera con «Añadir fotos».
+            @if (puedeSubir()) {
+              Aún no hay fotos. Añade la primera con «Añadir fotos».
+            } @else {
+              Aún no hay fotos en la galería.
+            }
           </p>
         } @else {
           <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -121,46 +136,51 @@ const LADO_MINIATURA = 400;
                     <p class="truncate text-sm font-medium text-main" [title]="foto.titulo ?? ''">
                       {{ foto.titulo || 'Sin título' }}
                     </p>
+                    <p class="truncate text-xs text-muted" [title]="autoria(foto)">{{ autoria(foto) }}</p>
                     <div class="flex items-center justify-between gap-1">
                       <div class="flex gap-1">
-                        <button
-                          type="button"
-                          (click)="mover(i, -1)"
-                          [disabled]="i === 0 || ocupado()"
-                          title="Mover antes"
-                          aria-label="Mover antes"
-                          class="rounded-lg bg-elevated px-2 py-1 text-sm text-main hover:bg-line disabled:opacity-40"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          (click)="mover(i, 1)"
-                          [disabled]="i === fotos().length - 1 || ocupado()"
-                          title="Mover después"
-                          aria-label="Mover después"
-                          class="rounded-lg bg-elevated px-2 py-1 text-sm text-main hover:bg-line disabled:opacity-40"
-                        >
-                          ↓
-                        </button>
+                        @if (puedeOrdenar()) {
+                          <button
+                            type="button"
+                            (click)="mover(i, -1)"
+                            [disabled]="i === 0 || ocupado()"
+                            title="Mover antes"
+                            aria-label="Mover antes"
+                            class="rounded-lg bg-elevated px-2 py-1 text-sm text-main hover:bg-line disabled:opacity-40"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            (click)="mover(i, 1)"
+                            [disabled]="i === fotos().length - 1 || ocupado()"
+                            title="Mover después"
+                            aria-label="Mover después"
+                            class="rounded-lg bg-elevated px-2 py-1 text-sm text-main hover:bg-line disabled:opacity-40"
+                          >
+                            ↓
+                          </button>
+                        }
                       </div>
                       <div class="flex gap-1">
-                        <button
-                          type="button"
-                          (click)="editarTitulo(foto)"
-                          [disabled]="ocupado()"
-                          class="rounded-lg bg-elevated px-2 py-1 text-xs font-medium text-main hover:bg-line disabled:opacity-40"
-                        >
-                          Título
-                        </button>
-                        <button
-                          type="button"
-                          (click)="pedirBorrado(foto)"
-                          [disabled]="ocupado()"
-                          class="rounded-lg bg-error/15 px-2 py-1 text-xs font-medium text-error hover:bg-error/25 disabled:opacity-40"
-                        >
-                          Borrar
-                        </button>
+                        @if (puedeEditar(foto)) {
+                          <button
+                            type="button"
+                            (click)="editarTitulo(foto)"
+                            [disabled]="ocupado()"
+                            class="rounded-lg bg-elevated px-2 py-1 text-xs font-medium text-main hover:bg-line disabled:opacity-40"
+                          >
+                            Título
+                          </button>
+                          <button
+                            type="button"
+                            (click)="pedirBorrado(foto)"
+                            [disabled]="ocupado()"
+                            class="rounded-lg bg-error/15 px-2 py-1 text-xs font-medium text-error hover:bg-error/25 disabled:opacity-40"
+                          >
+                            Borrar
+                          </button>
+                        }
                       </div>
                     </div>
                   }
@@ -203,6 +223,30 @@ const LADO_MINIATURA = 400;
 })
 export class Galeria implements OnInit {
   private readonly galeriaService = inject(GaleriaService);
+  private readonly permisos = inject(PermisoService);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * Un ADMIN no pasa por la matriz de permisos: los tiene todos por rol. El resto de
+   * banderas solo valen para un PELUQUERO.
+   *
+   * **Ocultar un botón no es seguridad**: quien decide es el backend, que comprueba el
+   * dueño de la foto con la fila ya cargada. Esto es para no ofrecer lo que acabaría en
+   * un 403.
+   */
+  protected readonly esAdmin = this.auth.isAdmin;
+  private readonly permisoSubir = this.permisos.puede('GALERIA_SUBIR');
+  private readonly permisoEditarPropia = this.permisos.puede('GALERIA_EDITAR_PROPIA');
+  private readonly permisoEditarAjena = this.permisos.puede('GALERIA_EDITAR_AJENA');
+  private readonly permisoOrdenar = this.permisos.puede('GALERIA_ORDENAR');
+
+  protected readonly puedeSubir = computed(() => this.esAdmin() || this.permisoSubir());
+  /**
+   * Reordenar va aparte de editar y no mira el dueño: mover una foto renumera la rejilla
+   * entera, así que quien puede ordenar mueve cualquiera y quien solo puede editar las
+   * suyas no recoloca nada.
+   */
+  protected readonly puedeOrdenar = computed(() => this.esAdmin() || this.permisoOrdenar());
 
   protected readonly fotos = signal<GaleriaFoto[]>([]);
   protected readonly loading = signal(true);
@@ -219,6 +263,22 @@ export class Galeria implements OnInit {
 
   /** Mientras haya una operación en vuelo, los botones de la rejilla se bloquean. */
   protected readonly ocupado = computed(() => this.subiendo() || this.guardando());
+
+  /**
+   * Si se le puede ofrecer editar o borrar esa foto. Se mira `mia`, que lo calcula el
+   * servidor comparando ids, y no el nombre del dueño: dos personas pueden llamarse
+   * igual. Una foto sin dueño es «del negocio» y cuenta como ajena.
+   */
+  protected puedeEditar(foto: GaleriaFoto): boolean {
+    if (this.esAdmin()) return true;
+    return foto.mia ? this.permisoEditarPropia() : this.permisoEditarAjena();
+  }
+
+  /** De quién es el trabajo, para que la rejilla compartida no sea anónima. */
+  protected autoria(foto: GaleriaFoto): string {
+    if (foto.mia) return 'Subida por ti';
+    return foto.subidoPorNombre ? `Subida por ${foto.subidoPorNombre}` : 'De la peluquería';
+  }
 
   ngOnInit(): void {
     this.cargar();

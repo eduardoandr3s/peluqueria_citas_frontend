@@ -64,6 +64,9 @@
             [src]="foto.urlImagen"
             [alt]="foto.titulo || 'Trabajo de la peluquería'"
           />
+          @if (autoria(foto); as texto) {
+            <p class="galeria-autoria">{{ texto }}</p>
+          }
         }
       </ion-content>
     </ng-template>

@@ -1,12 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { AuthService, UsuarioService } from '@peluqueria/core';
+import { AuthService, PermisoService, UsuarioService } from '@peluqueria/core';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminLayout } from './admin-layout';
 
 function setup(
-  opts: { urlAvatar?: string | null; meFalla?: boolean; rol?: 'ADMIN' | 'PELUQUERO' } = {},
+  opts: {
+    urlAvatar?: string | null;
+    meFalla?: boolean;
+    rol?: 'ADMIN' | 'PELUQUERO';
+    permisos?: string[];
+  } = {},
 ) {
   const rol = opts.rol ?? 'ADMIN';
   // Señal real (no un vi.fn suelto) para poder comprobar que la cabecera reacciona
@@ -39,6 +44,12 @@ function setup(
         },
       },
       { provide: UsuarioService, useValue: { me } },
+      {
+        // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aquí
+        // no hay HttpClient.
+        provide: PermisoService,
+        useValue: { mios: signal(opts.permisos ?? []) },
+      },
     ],
   });
   const fixture = TestBed.createComponent(AdminLayout);
@@ -164,8 +175,22 @@ describe('AdminLayout', () => {
     fixture.detectChanges();
 
     expect(enlace(fixture, '/perfil')).toBeTruthy();
+    // La galería sí es de la plantilla, pero con todos sus permisos apagados no habría
+    // nada que hacer dentro: la entrada aparece cuando tiene alguno.
     expect(enlace(fixture, '/galeria')).toBeUndefined();
     expect(enlace(fixture, '/bloqueos')).toBeUndefined();
+  });
+
+  it('con un permiso de galería, el peluquero sí ve la entrada', () => {
+    const { fixture } = setup({ rol: 'PELUQUERO', permisos: ['GALERIA_SUBIR'] });
+
+    boton(fixture, 'Configuración')!.click();
+    fixture.detectChanges();
+
+    expect(enlace(fixture, '/galeria')).toBeTruthy();
+    // Y lo que sigue siendo solo del admin no se cuela con él.
+    expect(enlace(fixture, '/bloqueos')).toBeUndefined();
+    expect(enlace(fixture, '/permisos')).toBeUndefined();
   });
 
   it('el logo de un PELUQUERO lleva a su agenda y no al dashboard', () => {

@@ -4,8 +4,17 @@ import { of, throwError } from 'rxjs';
 import { GaleriaPage } from './galeria.page';
 
 const FOTOS: GaleriaFoto[] = [
-  { idFoto: 1, titulo: 'Degradado', orden: 0, urlImagen: 'g/1.jpg', urlMiniatura: 'm/1.jpg' },
-  { idFoto: 2, titulo: null, orden: 1, urlImagen: 'g/2.jpg', urlMiniatura: 'g/2.jpg' },
+  {
+    idFoto: 1,
+    titulo: 'Degradado',
+    orden: 0,
+    urlImagen: 'g/1.jpg',
+    urlMiniatura: 'm/1.jpg',
+    subidoPorNombre: 'Ana',
+    mia: false,
+  },
+  // Sin dueno: es de la peluqueria y no se firma.
+  { idFoto: 2, titulo: null, orden: 1, urlImagen: 'g/2.jpg', urlMiniatura: 'g/2.jpg', mia: false },
 ];
 
 function setup(listar = vi.fn().mockReturnValue(of([...FOTOS]))) {
@@ -83,5 +92,14 @@ describe('GaleriaPage', () => {
 
     c.cerrar();
     expect(c.abierta()).toBeNull();
+  });
+
+  it('firma el trabajo de quien lo subio, y deja sin firma las de la peluqueria', () => {
+    const { c } = setup();
+    c.cargar();
+
+    expect(c.autoria(c.fotos()[0])).toBe('Trabajo de Ana');
+    // Sin dueno no se firma: null, para que la plantilla no pinte la linea vacia.
+    expect(c.autoria(c.fotos()[1])).toBeNull();
   });
 });

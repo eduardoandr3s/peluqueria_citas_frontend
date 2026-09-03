@@ -17,6 +17,10 @@ import { GaleriaFoto, GaleriaService } from '@peluqueria/core';
 /**
  * Escaparate de trabajos. Solo lectura: subir y ordenar es cosa del panel.
  *
+ * Al abrir una foto se dice de quien es el trabajo, si se sabe: cada foto guarda
+ * quien la subio y esa es la informacion que le sirve al cliente para elegir. Las
+ * que no tienen dueno son de la peluqueria y no se firman.
+ *
  * La rejilla se pinta siempre con `urlMiniatura` y la imagen grande se pide
  * unicamente al abrir una foto. No es un detalle de estilo: el plan gratuito de
  * almacenamiento se mide en trafico y esta es la unica pantalla que carga muchas
@@ -40,6 +44,14 @@ export class GaleriaPage implements OnInit {
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly abierta = signal<GaleriaFoto | null>(null);
+
+  /**
+   * De quien es el trabajo, o null si la foto no tiene dueno: esas son de la
+   * peluqueria y no se firman con el nombre de nadie.
+   */
+  autoria(foto: GaleriaFoto): string | null {
+    return foto.subidoPorNombre ? `Trabajo de ${foto.subidoPorNombre}` : null;
+  }
 
   ngOnInit(): void {
     this.cargar();

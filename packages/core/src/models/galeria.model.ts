@@ -13,6 +13,18 @@ export interface GaleriaFoto {
    * comprobar nulos al pintar.
    */
   urlMiniatura: string;
+  /**
+   * Nombre de quien la subió, o null si es «del negocio»: las que ya existían antes
+   * de que la galería guardara el dueño. Es para mostrar de quién es el trabajo, no
+   * para decidir qué botones se pintan: dos personas pueden llamarse igual.
+   */
+  subidoPorNombre?: string | null;
+  /**
+   * Si la subió la cuenta de la sesión. Lo calcula el servidor comparando ids, que es
+   * lo único fiable, y es lo que hay que mirar para ofrecer o no las acciones. Sin
+   * cuenta, o si la foto no tiene dueño, llega false.
+   */
+  mia: boolean;
 }
 
 /** Cuerpo de PUT /api/galeria/{id}. Los dos campos son opcionales. */

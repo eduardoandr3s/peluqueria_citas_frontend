@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AuthService, UsuarioService } from '@peluqueria/core';
+import { AuthService, ClavePermiso, PermisoService, UsuarioService } from '@peluqueria/core';
 
 interface NavItem {
   label: string;
@@ -12,6 +12,12 @@ interface NavItem {
   soloAdmin?: boolean;
   /** Etiqueta alternativa para un PELUQUERO: «Citas» es «Mi agenda» cuando son las suyas. */
   labelPeluquero?: string;
+  /**
+   * Para quien no es ADMIN, la entrada solo aparece si tiene alguno de estos permisos.
+   * Es el caso de la galería: la pantalla existe para la plantilla, pero con todos los
+   * permisos apagados no habría nada que hacer dentro.
+   */
+  requiereAlgunPermiso?: ClavePermiso[];
 }
 
 @Component({
@@ -219,6 +225,7 @@ export class AdminLayout {
 
   protected readonly nombre = computed(() => this.auth.user()?.nombre ?? 'Administrador');
   protected readonly esAdmin = this.auth.isAdmin;
+  private readonly permisos = inject(PermisoService);
   /** El logo lleva al inicio de cada rol: un peluquero no puede entrar al dashboard. */
   protected readonly rutaInicio = computed(() => (this.auth.isAdmin() ? '/dashboard' : '/citas'));
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
@@ -282,7 +289,12 @@ export class AdminLayout {
         {
           label: 'Galería',
           path: '/galeria',
-          soloAdmin: true,
+          requiereAlgunPermiso: [
+            'GALERIA_SUBIR',
+            'GALERIA_EDITAR_PROPIA',
+            'GALERIA_EDITAR_AJENA',
+            'GALERIA_ORDENAR',
+          ],
           icon: 'm2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 6h.008v.008H18V6Zm2.25 12H3.75A1.5 1.5 0 0 1 2.25 16.5v-9A1.5 1.5 0 0 1 3.75 6h16.5a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5Z',
         },
         {
@@ -314,12 +326,18 @@ export class AdminLayout {
    */
   protected readonly navItemsVisibles = computed<NavItem[]>(() => {
     const esAdmin = this.auth.isAdmin();
+    const mios = this.permisos.mios();
+    const visible = (item: NavItem) => {
+      if (esAdmin) return true;
+      if (item.soloAdmin) return false;
+      return !item.requiereAlgunPermiso || item.requiereAlgunPermiso.some((c) => mios.includes(c));
+    };
     return this.navItems
-      .filter((item) => esAdmin || !item.soloAdmin)
+      .filter(visible)
       .map((item) => ({
         ...item,
         label: !esAdmin && item.labelPeluquero ? item.labelPeluquero : item.label,
-        children: item.children?.filter((hijo) => esAdmin || !hijo.soloAdmin),
+        children: item.children?.filter(visible),
       }))
       .filter((item) => !item.children || item.children.length > 0);
   });

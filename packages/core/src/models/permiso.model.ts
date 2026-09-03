@@ -1,7 +1,13 @@
 import { Rol } from './usuario.model';
 
 /** Claves del catálogo del backend (enum `Permiso`). */
-export type ClavePermiso = 'PAGO_MANUAL_REGISTRAR' | 'CITA_REPROGRAMAR';
+export type ClavePermiso =
+  | 'PAGO_MANUAL_REGISTRAR'
+  | 'CITA_REPROGRAMAR'
+  | 'GALERIA_SUBIR'
+  | 'GALERIA_EDITAR_PROPIA'
+  | 'GALERIA_EDITAR_AJENA'
+  | 'GALERIA_ORDENAR';
 
 /**
  * Una fila de la matriz de configuración. `roles` solo trae los roles a los que ese
