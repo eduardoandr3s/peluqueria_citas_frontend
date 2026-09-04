@@ -1,8 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '@peluqueria/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AuthService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
 
 @Component({
   selector: 'app-login',
@@ -111,6 +111,18 @@ export class Login {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * A dónde volver después de entrar. Lo ponen los guards cuando rebotan por falta de sesión,
+   * para que una sesión caducada devuelva a la pantalla donde se estaba y no a la de inicio.
+   * Se valida en el core: un destino que llega en un parámetro es un redirect abierto si no
+   * se comprueba.
+   */
+  private readonly returnUrl = rutaInternaSegura(
+    this.route.snapshot.queryParamMap.get('returnUrl'),
+    '/login',
+  );
 
   protected readonly loading = signal(false);
   protected readonly errorMsg = signal<string | null>(null);
@@ -138,13 +150,17 @@ export class Login {
     this.auth.login(this.form.getRawValue()).subscribe({
       next: () => {
         this.loading.set(false);
-        if (!this.auth.isAdmin()) {
-          // Cuenta válida pero sin permisos de administrador.
+        if (!this.auth.isStaff()) {
+          // Cuenta válida pero que no es de la peluquería: el panel entero no es para ella.
+          // Se cierra la sesión que se acaba de abrir para no dejarla a medias.
           this.auth.logout();
-          this.errorMsg.set('Esta cuenta no tiene permisos de administrador.');
+          this.errorMsg.set('Esta cuenta no tiene acceso al panel.');
           return;
         }
-        this.router.navigate(['/dashboard']);
+        // A `/inicio` y no a `/dashboard`: el dashboard vive de `/api/estadisticas`, que es de
+        // ADMIN, así que mandar ahí a un peluquero sería mandarlo a un 403. `/inicio` es el
+        // redirector que lleva a cada rol a su pantalla.
+        this.router.navigateByUrl(this.destino());
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
@@ -153,5 +169,24 @@ export class Login {
         );
       },
     });
+  }
+
+  /**
+   * A dónde se entra: al destino guardado si es alcanzable para este rol, y si no a `/inicio`.
+   *
+   * Un peluquero puede traer una ruta de administración (si la escribió a mano y `adminGuard`
+   * la rechazó, o si su sesión caducó ahí), y obedecerla lo mandaría a la pantalla que ese
+   * mismo guard va a rebotar. En ese caso decide `/inicio`.
+   */
+  private destino(): string {
+    const vuelta = this.returnUrl;
+    if (!vuelta) return '/inicio';
+    // Lo único vedado a un peluquero son las pantallas de ADMIN, y no cuelgan de un prefijo
+    // común: se comprueba contra la lista de las que llevan `adminGuard` en su ruta.
+    const soloAdmin = ['/dashboard', '/servicios', '/usuarios', '/peluqueros', '/permisos', '/bloqueos'];
+    if (!this.auth.isAdmin() && soloAdmin.some((ruta) => esAreaAjena(vuelta, ruta))) {
+      return '/inicio';
+    }
+    return vuelta;
   }
 }
