@@ -1,0 +1,83 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="volverA()" [text]="textoVolver()"></ion-back-button>
+    </ion-buttons>
+    <ion-title>El equipo</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="cargar($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  @if (loading()) {
+    <div class="equipo-lista">
+      @for (i of [1, 2, 3]; track i) {
+        <ion-skeleton-text animated class="equipo-hueco"></ion-skeleton-text>
+      }
+    </div>
+  } @else if (error()) {
+    <p class="equipo-mensaje">
+      No se pudo cargar el equipo.
+      <ion-button fill="clear" size="small" (click)="cargar()">Reintentar</ion-button>
+    </p>
+  } @else if (equipo().length === 0) {
+    <p class="equipo-mensaje">Todavía no hay nadie que presentar.</p>
+  } @else {
+    <div class="equipo-lista">
+      @for (p of equipo(); track p.idPeluquero) {
+        <article class="equipo-ficha">
+          <div class="equipo-cabecera">
+            @if (p.fotoUrl) {
+              <img
+                class="equipo-foto"
+                [src]="p.fotoUrl"
+                [alt]="p.nombre"
+                loading="lazy"
+                decoding="async"
+              />
+            } @else {
+              <!-- Sin foto no se pinta un roto: la inicial es suficiente y no pide tráfico. -->
+              <span class="equipo-inicial">{{ p.nombre.charAt(0) }}</span>
+            }
+
+            <div class="equipo-identidad">
+              <h2>{{ p.nombre }}</h2>
+              @if (experiencia(p); as texto) {
+                <p class="equipo-experiencia">{{ texto }}</p>
+              }
+              @if (instagramUrl(p); as url) {
+                <!-- rel="noopener": el enlace sale de la app a un sitio de fuera. -->
+                <a class="equipo-instagram" [href]="url" target="_blank" rel="noopener noreferrer">
+                  &#64;{{ p.instagram }}
+                </a>
+              }
+            </div>
+          </div>
+
+          @if (p.especialidades.length > 0) {
+            <div class="equipo-especialidades">
+              @for (e of p.especialidades; track e) {
+                <ion-chip outline="true" color="primary">{{ e }}</ion-chip>
+              }
+            </div>
+          }
+
+          @if (p.presentacion) {
+            <p class="equipo-presentacion">{{ p.presentacion }}</p>
+          }
+
+          <ion-button expand="block" fill="outline" size="small" (click)="agendarCon(p)">
+            @if (conSesion()) {
+              Pedir cita con {{ p.nombre }}
+            } @else {
+              Entrar y pedir cita con {{ p.nombre }}
+            }
+          </ion-button>
+        </article>
+      }
+    </div>
+  }
+</ion-content>

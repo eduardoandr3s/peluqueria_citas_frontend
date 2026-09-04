@@ -85,6 +85,9 @@ export class AgendarPage implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.queryParamMap.get('servicioId');
     if (id) this.servicioId.set(Number(id));
+    // Se vuelve de «El equipo» con la persona ya elegida, asi que llega por la URL.
+    const peluquero = this.route.snapshot.queryParamMap.get('peluqueroId');
+    if (peluquero) this.peluqueroId.set(Number(peluquero));
 
     this.servicioService.listar().subscribe((data) => {
       this.servicios.set(data.filter((s) => s.activo));
@@ -118,6 +121,17 @@ export class AgendarPage implements OnInit {
     if (this.fecha() && id) {
       this.cargarSlots(this.fecha(), id);
     }
+  }
+
+  /**
+   * Lleva a la pantalla del equipo para elegir mirando la ficha de cada uno. Se arrastra el
+   * servicio ya elegido para no perderlo por ir a mirar quien lo hace.
+   */
+  verEquipo(): void {
+    const servicioId = this.servicioId();
+    this.router.navigate(['/tabs/equipo'], {
+      queryParams: servicioId ? { servicioId } : {},
+    });
   }
 
   onPeluqueroChange(id: number | null): void {

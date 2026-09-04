@@ -89,6 +89,44 @@ describe('galería de trabajos', () => {
 });
 
 /**
+ * «El equipo» no es una pestaña y vive en dos sitios a la vez, cada uno con su motivo: dentro
+ * de /tabs para el cliente que viene del flujo de agendar (y no pierde la barra), y fuera y sin
+ * guards para el visitante que todavía no tiene cuenta, que es justo para quien se escribe un
+ * CV público. A los dos se llega navegando por código o por un enlace del login, así que sin la
+ * ruta detrás se acabaría en el comodín y compilar no lo detecta.
+ */
+describe('el equipo', () => {
+  it('/tabs/equipo tiene ruta', () => {
+    const hijas = routes.find((r) => r.path === 'tabs')?.children ?? [];
+    expect(hijas.some((r) => r.path === 'equipo')).toBe(true);
+  });
+
+  it('/equipo existe también fuera de /tabs y sin guards', () => {
+    // Su endpoint (GET /api/peluqueros/publicos) es público a propósito; si esta ruta cayera
+    // dentro de los guards, el CV solo lo vería quien ya está registrado.
+    const equipo = routes.find((r) => r.path === 'equipo');
+    expect(equipo).toBeDefined();
+    expect(equipo?.canActivate).toBeUndefined();
+  });
+
+  it('la pública está declarada antes del comodín, o nunca se alcanzaría', () => {
+    const posicionEquipo = routes.findIndex((r) => r.path === 'equipo');
+    const posicionComodin = routes.findIndex((r) => r.path === '**');
+    expect(posicionEquipo).toBeGreaterThanOrEqual(0);
+    expect(posicionEquipo).toBeLessThan(posicionComodin);
+  });
+
+  it('las dos rutas cargan el mismo componente', () => {
+    const publica = routes.find((r) => r.path === 'equipo');
+    const enTabs = (routes.find((r) => r.path === 'tabs')?.children ?? []).find(
+      (r) => r.path === 'equipo',
+    );
+    expect(publica?.loadComponent).toBeDefined();
+    expect(enTabs?.loadComponent).toBeDefined();
+  });
+});
+
+/**
  * El asistente responde sin sesión (su endpoint es público), y todo /tabs exige login.
  * Si esta ruta cayera dentro de los guards, un visitante sin cuenta acabaría en el login
  * y la única pantalla pensada para él sería inalcanzable.

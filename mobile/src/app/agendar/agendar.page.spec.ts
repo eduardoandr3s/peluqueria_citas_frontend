@@ -10,6 +10,7 @@ const INACTIVO: Servicio = { idServicio: 9, nombre: 'Viejo', precio: 5, duracion
 
 function setup(opts: {
   servicioIdQuery?: string | null;
+  peluqueroIdQuery?: string | null;
   cita?: Partial<Record<keyof CitaService, unknown>>;
   listar?: ReturnType<typeof vi.fn>;
 } = {}) {
@@ -29,9 +30,10 @@ function setup(opts: {
         provide: ActivatedRoute,
         useValue: {
           snapshot: {
-            queryParamMap: convertToParamMap(
-              opts.servicioIdQuery == null ? {} : { servicioId: opts.servicioIdQuery },
-            ),
+            queryParamMap: convertToParamMap({
+              ...(opts.servicioIdQuery == null ? {} : { servicioId: opts.servicioIdQuery }),
+              ...(opts.peluqueroIdQuery == null ? {} : { peluqueroId: opts.peluqueroIdQuery }),
+            }),
           },
         },
       },
@@ -39,8 +41,9 @@ function setup(opts: {
   });
   const router = TestBed.inject(Router);
   const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+  const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
   const c = TestBed.runInInjectionContext(() => new AgendarPage()) as any;
-  return { c, nav, citaSvc };
+  return { c, nav, navigate, citaSvc };
 }
 
 describe('AgendarPage', () => {
@@ -154,5 +157,40 @@ describe('AgendarPage', () => {
     c.slotSeleccionado.set('09:00');
     c.confirmar();
     expect(c.error()).toContain('Error al agendar');
+  });
+
+  // ---- Ida y vuelta a «El equipo» (fase 5) ----
+
+  it('ngOnInit preselecciona el peluquero con el que se vuelve del equipo', () => {
+    const { c } = setup({ peluqueroIdQuery: '3' });
+    c.ngOnInit();
+
+    expect(c.peluqueroId()).toBe(3);
+  });
+
+  it('sin peluquero en la URL se queda en «Cualquiera»', () => {
+    const { c } = setup({ servicioIdQuery: '1' });
+    c.ngOnInit();
+
+    expect(c.peluqueroId()).toBeNull();
+  });
+
+  it('ver el equipo se lleva el servicio ya elegido', () => {
+    // Si no, entrar a mirar quién lo hace obligaría a volver a elegir el servicio.
+    const { c, navigate } = setup({ servicioIdQuery: '2' });
+    c.ngOnInit();
+
+    c.verEquipo();
+
+    expect(navigate).toHaveBeenCalledWith(['/tabs/equipo'], { queryParams: { servicioId: 2 } });
+  });
+
+  it('ver el equipo sin servicio elegido no manda un parámetro vacío', () => {
+    const { c, navigate } = setup();
+    c.ngOnInit();
+
+    c.verEquipo();
+
+    expect(navigate).toHaveBeenCalledWith(['/tabs/equipo'], { queryParams: {} });
   });
 });

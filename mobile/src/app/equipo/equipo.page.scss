@@ -1,0 +1,94 @@
+// Ojo con los colores aqui: la app es SIEMPRE tema oscuro y NO define las variables
+// --ion-color-step-*, asi que su fallback es casi blanco y el texto crema encima se queda
+// ilegible. Se usan las de Ionic que si estan definidas.
+.equipo-lista {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equipo-ficha {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--ion-card-background);
+}
+
+.equipo-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.equipo-foto,
+.equipo-inicial {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.equipo-inicial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  background: rgba(var(--ion-color-primary-rgb), 0.15);
+}
+
+.equipo-identidad {
+  min-width: 0;
+
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+}
+
+.equipo-experiencia {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ion-placeholder-color);
+}
+
+.equipo-instagram {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--ion-color-primary);
+  text-decoration: none;
+}
+
+.equipo-especialidades {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  // Los ion-chip ya traen su propio margen; con gap se sumarian los dos.
+  gap: 0;
+}
+
+.equipo-presentacion {
+  margin: 10px 0 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  // Respeta los saltos de linea que escribio la persona, sin dejar que una linea larga
+  // desborde la ficha.
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.equipo-hueco {
+  height: 150px;
+  border-radius: 12px;
+  margin: 0;
+}
+
+.equipo-mensaje {
+  text-align: center;
+  color: var(--ion-placeholder-color);
+  padding: 48px 24px;
+}

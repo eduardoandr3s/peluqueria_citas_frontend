@@ -75,11 +75,18 @@
   </p>
 
   <!--
-    Unica salida del login que no pide cuenta: el asistente responde precios y horario sin
-    sesion, y sin este enlace nadie llegaria a esa ruta antes de registrarse.
+    Las dos salidas del login que no piden cuenta. Sus endpoints son publicos a proposito
+    —el asistente responde precios y horario, y el CV del equipo es lo que se mira ANTES de
+    registrarse— y sin estos enlaces nadie llegaria a esas rutas, porque todo /tabs exige
+    sesion.
   -->
   <p class="register-link">
     ¿Solo quieres preguntar algo?
     <a routerLink="/asistente">Habla con el asistente</a>
+  </p>
+
+  <p class="register-link">
+    ¿Quieres ver quién te atenderá?
+    <a routerLink="/equipo">Conoce al equipo</a>
   </p>
 </ion-content>

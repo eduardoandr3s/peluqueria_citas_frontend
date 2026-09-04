@@ -81,6 +81,10 @@ export const routes: Routes = [
         loadComponent: () => import('./galeria/galeria.page').then((m) => m.GaleriaPage),
       },
       {
+        path: 'equipo',
+        loadComponent: () => import('./equipo/equipo.page').then((m) => m.EquipoPage),
+      },
+      {
         path: 'mis-citas',
         loadComponent: () => import('./mis-citas/mis-citas.page').then((m) => m.MisCitasPage),
       },
@@ -110,6 +114,17 @@ export const routes: Routes = [
   {
     path: 'asistente',
     loadComponent: () => import('./asistente/asistente.page').then((m) => m.AsistentePage),
+  },
+  // «El equipo» tambien fuera de /tabs y SIN guard, por el mismo motivo que el asistente: su
+  // endpoint (GET /api/peluqueros/publicos) es publico porque el CV es lo que mira alguien que
+  // todavia NO tiene cuenta para decidir con quien agendar. Dentro de /tabs, que exige sesion,
+  // ese diseno solo lo aprovecharia quien ya esta registrado. Se entra desde el login.
+  //
+  // La ruta de /tabs se queda igual y apunta al mismo componente: al cliente que viene del
+  // flujo de agendar le interesa no perder la barra de pestanas.
+  {
+    path: 'equipo',
+    loadComponent: () => import('./equipo/equipo.page').then((m) => m.EquipoPage),
   },
   {
     path: 'pago/:citaId',
