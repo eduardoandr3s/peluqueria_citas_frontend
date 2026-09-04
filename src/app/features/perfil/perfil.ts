@@ -1,7 +1,17 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { AuthService, Usuario, UsuarioService, redimensionarImagen } from '@peluqueria/core';
+import {
+  AuthService,
+  PeluqueroCv,
+  PeluqueroCvUpdate,
+  PeluqueroService,
+  PermisoService,
+  Usuario,
+  UsuarioService,
+  redimensionarImagen,
+} from '@peluqueria/core';
+import { CvEditor, LADO_FOTO_CV } from '../../shared/cv-editor/cv-editor';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -13,7 +23,7 @@ const LADO_AVATAR = 512;
 
 @Component({
   selector: 'app-perfil',
-  imports: [DatePipe],
+  imports: [DatePipe, CvEditor],
   template: `
     <div class="space-y-6">
       <div>
@@ -134,12 +144,51 @@ const LADO_AVATAR = 512;
           </div>
         }
       </div>
+
+      <!-- CV público. Solo aparece si esta cuenta tiene ficha de peluquero: un ADMIN que
+           no corta pelo no tiene nada que presentar, y el endpoint le responde 404. -->
+      @if (cv(); as miCv) {
+        <div class="rounded-xl bg-surface p-6 shadow-sm ring-1 ring-line">
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold text-main">Mi CV público</h2>
+            <p class="text-sm text-muted">
+              Lo que ve un cliente en «Equipo» para elegir con quién agendar. Se ve
+              <strong>sin cuenta</strong>, así que no pongas aquí nada que no quieras público.
+            </p>
+          </div>
+
+          @if (!puedeEditarCv()) {
+            <div class="mb-4 rounded-lg bg-elevated px-4 py-3 text-xs text-muted">
+              Rellenar tu CV no está habilitado para tu rol todavía: puedes ver lo que hay
+              escrito, y cambiarlo lo hace un administrador desde tu ficha.
+            </div>
+          }
+
+          @if (!miCv.activo) {
+            <div class="mb-4 rounded-lg bg-error/15 px-4 py-3 text-xs text-error">
+              Tu ficha está desactivada, así que no apareces en «Equipo» aunque rellenes esto.
+            </div>
+          }
+
+          <app-cv-editor
+            [cv]="miCv"
+            [puedeEditar]="puedeEditarCv()"
+            [guardando]="guardandoCv()"
+            [subiendoFoto]="subiendoFotoCv()"
+            (guardar)="guardarCv($event)"
+            (fotoElegida)="subirFotoCv($event)"
+            (quitarFoto)="quitarFotoCv()"
+          />
+        </div>
+      }
     </div>
   `,
 })
 export class Perfil implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly auth = inject(AuthService);
+  private readonly peluqueroService = inject(PeluqueroService);
+  private readonly permisos = inject(PermisoService);
 
   protected readonly usuario = signal<Usuario | null>(null);
   protected readonly loading = signal(true);
@@ -147,6 +196,13 @@ export class Perfil implements OnInit {
   protected readonly subiendo = signal(false);
   protected readonly fotoError = signal<string | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
+
+  /** null mientras no se sabe, o si esta cuenta no tiene ficha de peluquero. */
+  protected readonly cv = signal<PeluqueroCv | null>(null);
+  protected readonly guardandoCv = signal(false);
+  protected readonly subiendoFotoCv = signal(false);
+  /** Ocultar el botón no es seguridad: quien decide de verdad es el backend. */
+  protected readonly puedeEditarCv = this.permisos.puede('PERFIL_CV_EDITAR');
 
   protected readonly iniciales = computed(() => {
     const nombre = this.usuario()?.nombre?.trim() ?? '';
@@ -157,6 +213,19 @@ export class Perfil implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.cargarCv();
+  }
+
+  /**
+   * El CV de la ficha vinculada a esta cuenta. Un 404 no es un error a mostrar: significa
+   * que esta cuenta no tiene ficha de peluquero (un administrador que no corta pelo), y
+   * entonces el bloque entero no se pinta.
+   */
+  private cargarCv(): void {
+    this.peluqueroService.miCv().subscribe({
+      next: (cv) => this.cv.set(cv),
+      error: () => this.cv.set(null),
+    });
   }
 
   protected cargar(): void {
@@ -220,6 +289,75 @@ export class Perfil implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.subiendo.set(false);
         this.fotoError.set(this.extraerError(err) ?? 'No se pudo quitar la foto.');
+      },
+    });
+  }
+
+  // ---- CV público ----
+
+  protected guardarCv(cambios: PeluqueroCvUpdate): void {
+    this.guardandoCv.set(true);
+    this.peluqueroService.guardarMiCv(cambios).subscribe({
+      next: (cv) => {
+        this.guardandoCv.set(false);
+        this.cv.set(cv);
+        this.feedback.set({ type: 'success', text: 'CV público actualizado.' });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoCv.set(false);
+        this.feedback.set({
+          type: 'error',
+          text: this.extraerError(err) ?? 'No se pudo guardar tu CV.',
+        });
+      },
+    });
+  }
+
+  /**
+   * La foto va en su propia petición y se guarda al elegirla. Se manda con el id de la
+   * ficha porque el endpoint del multipart es `/peluqueros/{id}/foto`; el servidor
+   * comprueba que sea la suya, así que pasar el id no abre nada.
+   */
+  protected async subirFotoCv(fichero: File): Promise<void> {
+    const actual = this.cv();
+    if (!actual) return;
+
+    this.subiendoFotoCv.set(true);
+    const reducida = await redimensionarImagen(fichero, LADO_FOTO_CV);
+    this.peluqueroService.subirFoto(actual.idPeluquero, reducida).subscribe({
+      next: (cv) => {
+        this.subiendoFotoCv.set(false);
+        this.cv.set(cv);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFotoCv.set(false);
+        this.feedback.set({
+          type: 'error',
+          text:
+            err.status === 413
+              ? 'La imagen es demasiado grande.'
+              : (this.extraerError(err) ?? 'No se pudo subir la foto.'),
+        });
+      },
+    });
+  }
+
+  protected quitarFotoCv(): void {
+    const actual = this.cv();
+    if (!actual) return;
+
+    this.subiendoFotoCv.set(true);
+    this.peluqueroService.borrarFoto(actual.idPeluquero).subscribe({
+      next: (cv) => {
+        this.subiendoFotoCv.set(false);
+        this.cv.set(cv);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFotoCv.set(false);
+        this.feedback.set({
+          type: 'error',
+          text: this.extraerError(err) ?? 'No se pudo quitar la foto.',
+        });
       },
     });
   }

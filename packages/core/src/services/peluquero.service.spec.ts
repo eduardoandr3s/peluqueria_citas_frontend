@@ -61,4 +61,63 @@ describe('PeluqueroService', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
   });
+
+  // ---- CV público (fase 5) ----
+
+  it('listarPublicos hace GET /peluqueros/publicos', () => {
+    // La ruta importa: es la única del dominio que se sirve sin token, y si se pidiera
+    // /peluqueros a secas un anónimo recibiría un 403 en la pantalla de inicio.
+    service.listarPublicos().subscribe();
+    const req = http.expectOne(`${API}/peluqueros/publicos`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('miCv hace GET /peluqueros/mio, sin id', () => {
+    service.miCv().subscribe();
+    const req = http.expectOne(`${API}/peluqueros/mio`);
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+
+  it('guardarMiCv manda el bloque entero, campos vacíos incluidos', () => {
+    // Un campo a null es como se borra: si se omitiera, el servidor lo dejaría como estaba
+    // y no habría forma de quitar una presentación.
+    const cuerpo = { presentacion: null, especialidades: [], aniosExperiencia: null, instagram: null };
+    service.guardarMiCv(cuerpo).subscribe();
+    const req = http.expectOne(`${API}/peluqueros/mio`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(cuerpo);
+    req.flush({});
+  });
+
+  it('guardarCv hace PUT /peluqueros/{id}/cv', () => {
+    service.guardarCv(7, { presentacion: 'Hola' }).subscribe();
+    const req = http.expectOne(`${API}/peluqueros/7/cv`);
+    expect(req.request.method).toBe('PUT');
+    req.flush({});
+  });
+
+  it('subirFoto manda un FormData y no fija Content-Type', () => {
+    const foto = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
+    service.subirFoto(3, foto).subscribe();
+    const req = http.expectOne(`${API}/peluqueros/3/foto`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body instanceof FormData).toBe(true);
+    // FormData envuelve un Blob en un File, así que no se compara la identidad: lo que
+    // importa es que viaja como fichero en el campo que espera el backend.
+    const enviado = (req.request.body as FormData).get('foto') as Blob;
+    expect(enviado).toBeInstanceOf(Blob);
+    expect(enviado.size).toBe(3);
+    // Ponerlo a mano rompe el multipart: el boundary lo añade el navegador.
+    expect(req.request.headers.get('Content-Type')).toBeNull();
+    req.flush({});
+  });
+
+  it('borrarFoto hace DELETE /peluqueros/{id}/foto', () => {
+    service.borrarFoto(3).subscribe();
+    const req = http.expectOne(`${API}/peluqueros/3/foto`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({});
+  });
 });

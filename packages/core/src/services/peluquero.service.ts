@@ -5,7 +5,10 @@ import { API_URL } from '../api.config';
 import {
   ComisionServicio,
   Peluquero,
+  PeluqueroCv,
+  PeluqueroCvUpdate,
   PeluqueroGestion,
+  PeluqueroPublico,
   PeluqueroRequest,
   PeluqueroUpdate,
 } from '../models/peluquero.model';
@@ -50,5 +53,52 @@ export class PeluqueroService {
 
   eliminar(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * El equipo con su carta de presentación. **Se lee sin token**: es lo que mira alguien
+   * que todavía no se ha registrado para decidir con quién agendar. Solo trae los activos
+   * y ya viene ordenado por el servidor.
+   */
+  listarPublicos(): Observable<PeluqueroPublico[]> {
+    return this.http.get<PeluqueroPublico[]>(`${this.apiUrl}/publicos`);
+  }
+
+  /**
+   * El CV de la ficha de la sesión. No lleva id a propósito: lo resuelve el servidor desde
+   * la cuenta, como `/produccion/mia`. Responde 404 si la cuenta no tiene ficha vinculada.
+   */
+  miCv(): Observable<PeluqueroCv> {
+    return this.http.get<PeluqueroCv>(`${this.apiUrl}/mio`);
+  }
+
+  /**
+   * Reemplaza el CV propio. Pide el permiso `PERFIL_CV_EDITAR`, y **lo que no se mande se
+   * borra**: es la única forma de vaciar un campo de texto.
+   */
+  guardarMiCv(data: PeluqueroCvUpdate): Observable<PeluqueroCv> {
+    return this.http.put<PeluqueroCv>(`${this.apiUrl}/mio`, data);
+  }
+
+  /** El CV de cualquier ficha (ADMIN). Reemplaza el bloque entero, igual que el propio. */
+  guardarCv(id: number, data: PeluqueroCvUpdate): Observable<PeluqueroCv> {
+    return this.http.put<PeluqueroCv>(`${this.apiUrl}/${id}/cv`, data);
+  }
+
+  /**
+   * Foto del CV. La pone el dueño de la ficha con permiso, o un ADMIN.
+   *
+   * Ojo: NO se fija `Content-Type`. Con un `FormData` lo pone el navegador, incluyendo el
+   * `boundary` del multipart; ponerlo a mano rompe la petición.
+   */
+  subirFoto(id: number, foto: File | Blob): Observable<PeluqueroCv> {
+    const cuerpo = new FormData();
+    cuerpo.append('foto', foto);
+    return this.http.post<PeluqueroCv>(`${this.apiUrl}/${id}/foto`, cuerpo);
+  }
+
+  /** Quita la foto del CV. Es idempotente: sin foto no hace nada. */
+  borrarFoto(id: number): Observable<PeluqueroCv> {
+    return this.http.delete<PeluqueroCv>(`${this.apiUrl}/${id}/foto`);
   }
 }

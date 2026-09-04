@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import {
   PeluqueroGestion,
@@ -20,6 +21,18 @@ const PELUQUEROS: PeluqueroGestion[] = [
     usuarioNombre: 'Lalo S.',
     usuarioEmail: 'lalo@test.com',
     comisionesPorServicio: [{ servicioId: 3, servicioNombre: 'Tinte', porcentaje: 10 }],
+    orden: 0,
+    cv: {
+      idPeluquero: 1,
+      nombre: 'Lalo',
+      activo: true,
+      orden: 0,
+      presentacion: 'Llevo la barbería desde 2015',
+      especialidades: ['Degradados'],
+      aniosExperiencia: 9,
+      fotoUrl: null,
+      instagram: null,
+    },
   },
   {
     idPeluquero: 2,
@@ -28,6 +41,15 @@ const PELUQUEROS: PeluqueroGestion[] = [
     comisionPorcentaje: 15,
     usuarioId: null,
     comisionesPorServicio: [],
+    orden: 1,
+    // Una ficha sin CV es lo que hay el día que esto se despliega: nadie ha escrito nada.
+    cv: {
+      idPeluquero: 2,
+      nombre: 'Marta',
+      activo: true,
+      orden: 1,
+      especialidades: [],
+    },
   },
 ];
 
@@ -150,6 +172,7 @@ describe('Peluqueros', () => {
     expect(actualizar).toHaveBeenCalledWith(1, {
       nombre: 'Lalo Segovia',
       comisionPorcentaje: 25,
+      orden: 0,
       activo: true,
       usuarioId: 7,
     });
@@ -262,5 +285,124 @@ describe('Peluqueros', () => {
     c.eliminar(PELUQUEROS[1]);
     expect(c.feedback()).toEqual({ type: 'error', text: 'Tiene citas' });
     expect(c.busyId()).toBeNull();
+  });
+
+  // ---- Pestaña de CV (fase 5) ----
+
+  it('el CV viene con la ficha de gestión: abrir la pestaña no cuesta otra petición', () => {
+    const { c } = setup();
+
+    c.abrirEditar(PELUQUEROS[0]);
+
+    expect(c.pestana()).toBe('ficha');
+    expect(c.cvEditando().presentacion).toBe('Llevo la barbería desde 2015');
+  });
+
+  it('al editar otra ficha el CV que se enseña es el de esa ficha', () => {
+    // Reutilizar el modal sin cambiar el CV enseñaría el del anterior, y guardar desde ahí
+    // sobreescribiría el de una persona con el texto de otra.
+    const { c } = setup();
+
+    c.abrirEditar(PELUQUEROS[0]);
+    c.abrirEditar(PELUQUEROS[1]);
+
+    expect(c.cvEditando().idPeluquero).toBe(2);
+    expect(c.cvEditando().especialidades).toEqual([]);
+  });
+
+  it('al crear no hay pestaña de CV, porque todavía no hay ficha', () => {
+    const { c } = setup();
+
+    c.abrirCrear();
+
+    expect(c.editandoId()).toBeNull();
+    expect(c.cvEditando()).toBeNull();
+  });
+
+  it('guardar el CV va por /{id}/cv y refresca la fila sin recargar la lista', () => {
+    const guardado = { ...PELUQUEROS[0].cv, presentacion: 'Texto nuevo' };
+    const guardarCv = vi.fn().mockReturnValue(of(guardado));
+    const listarParaGestion = vi.fn().mockReturnValue(of(PELUQUEROS.map((p) => ({ ...p }))));
+    const { c } = setup({ guardarCv, listarParaGestion });
+
+    c.abrirEditar(PELUQUEROS[0]);
+    const cambios = {
+      presentacion: 'Texto nuevo',
+      especialidades: ['Degradados'],
+      aniosExperiencia: 9,
+      instagram: null,
+    };
+    c.guardarCv(cambios);
+
+    expect(guardarCv).toHaveBeenCalledWith(1, cambios);
+    expect(c.cvEditando().presentacion).toBe('Texto nuevo');
+    expect(c.peluqueros()[0].cv.presentacion).toBe('Texto nuevo');
+    expect(c.feedback().type).toBe('success');
+    // Una sola carga, la del ngOnInit: guardar el CV no tira la tabla entera.
+    expect(listarParaGestion).toHaveBeenCalledTimes(1);
+  });
+
+  it('el CV no se guarda con la ficha: son dos botones y dos peticiones', () => {
+    // Mezclarlos obligaría a mandar el CV entero cada vez que se cambia una comisión, y
+    // al revés: un 400 en la presentación tumbaría el cambio de la cuenta vinculada.
+    const actualizar = vi.fn().mockReturnValue(of({ ...PELUQUEROS[0] }));
+    const guardarCv = vi.fn();
+    const { c } = setup({ actualizar, guardarCv });
+
+    c.abrirEditar(PELUQUEROS[0]);
+    c.guardar();
+
+    expect(actualizar).toHaveBeenCalled();
+    expect(guardarCv).not.toHaveBeenCalled();
+  });
+
+  it('la foto se sube a la ficha que se está editando', async () => {
+    const conFoto = { ...PELUQUEROS[0].cv, fotoUrl: 'https://cdn/peluqueros/lalo.jpg' };
+    const subirFoto = vi.fn().mockReturnValue(of(conFoto));
+    const { c } = setup({ subirFoto });
+
+    c.abrirEditar(PELUQUEROS[1]);
+    await c.subirFoto(new File([new Uint8Array([1])], 'yo.jpg', { type: 'image/jpeg' }));
+
+    expect(subirFoto.mock.calls[0][0]).toBe(2);
+    expect(c.subiendoFoto()).toBe(false);
+  });
+
+  it('un 413 al subir la foto se explica como imagen demasiado grande', async () => {
+    const subirFoto = vi
+      .fn()
+      .mockReturnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+    const { c } = setup({ subirFoto });
+
+    c.abrirEditar(PELUQUEROS[0]);
+    await c.subirFoto(new File([new Uint8Array([1])], 'yo.jpg', { type: 'image/jpeg' }));
+
+    expect(c.feedback().type).toBe('error');
+    expect(c.feedback().text).toContain('demasiado grande');
+    expect(c.subiendoFoto()).toBe(false);
+  });
+
+  it('quitar la foto refresca el CV que se está editando', () => {
+    const borrarFoto = vi.fn().mockReturnValue(of({ ...PELUQUEROS[0].cv, fotoUrl: null }));
+    const { c } = setup({ borrarFoto });
+
+    c.abrirEditar(PELUQUEROS[0]);
+    c.quitarFoto();
+
+    expect(borrarFoto).toHaveBeenCalledWith(1);
+    expect(c.cvEditando().fotoUrl).toBeNull();
+  });
+
+  it('el orden va en la ficha y no en el CV, porque desplaza a los compañeros', () => {
+    const actualizar = vi.fn().mockReturnValue(of({ ...PELUQUEROS[1], orden: 5 }));
+    const { c } = setup({ actualizar });
+
+    c.abrirEditar(PELUQUEROS[1]);
+    expect(c.form.controls.orden.value).toBe(1);
+
+    c.form.controls.orden.setValue(5);
+    c.guardar();
+
+    expect(actualizar.mock.calls[0][1].orden).toBe(5);
   });
 });

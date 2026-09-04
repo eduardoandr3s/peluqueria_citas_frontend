@@ -7,7 +7,8 @@ export type ClavePermiso =
   | 'GALERIA_SUBIR'
   | 'GALERIA_EDITAR_PROPIA'
   | 'GALERIA_EDITAR_AJENA'
-  | 'GALERIA_ORDENAR';
+  | 'GALERIA_ORDENAR'
+  | 'PERFIL_CV_EDITAR';
 
 /**
  * Una fila de la matriz de configuración. `roles` solo trae los roles a los que ese

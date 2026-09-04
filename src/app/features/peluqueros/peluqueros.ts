@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ComisionServicio,
+  PeluqueroCv,
+  PeluqueroCvUpdate,
   PeluqueroGestion,
   PeluqueroRequest,
   PeluqueroService,
@@ -12,7 +14,9 @@ import {
   Usuario,
   UsuarioService,
   formatearEuros,
+  redimensionarImagen,
 } from '@peluqueria/core';
+import { CvEditor, LADO_FOTO_CV } from '../../shared/cv-editor/cv-editor';
 
 interface Feedback {
   type: 'success' | 'error';
@@ -21,7 +25,7 @@ interface Feedback {
 
 @Component({
   selector: 'app-peluqueros',
-  imports: [ReactiveFormsModule, FormsModule],
+  imports: [ReactiveFormsModule, FormsModule, CvEditor],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -184,7 +188,56 @@ interface Feedback {
             {{ editandoId() ? 'Editar peluquero' : 'Nuevo peluquero' }}
           </h2>
 
-          <div class="mt-5 space-y-4">
+          <!-- Al crear solo se pide el nombre, así que no hay nada que separar en pestañas. -->
+          @if (editandoId()) {
+            <div class="mt-4 flex gap-1 border-b border-line">
+              <button
+                type="button"
+                (click)="pestana.set('ficha')"
+                class="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition"
+                [class]="
+                  pestana() === 'ficha'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted hover:text-main'
+                "
+              >
+                Ficha
+              </button>
+              <button
+                type="button"
+                (click)="pestana.set('cv')"
+                class="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition"
+                [class]="
+                  pestana() === 'cv'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted hover:text-main'
+                "
+              >
+                CV público
+              </button>
+            </div>
+          }
+
+          @if (editandoId() && pestana() === 'cv') {
+            <div class="mt-5">
+              @if (cvEditando(); as cv) {
+                <p class="mb-4 text-xs text-muted">
+                  Lo que se ve en «Equipo» antes de agendar. Se guarda aparte de la ficha, con
+                  su propio botón.
+                </p>
+                <app-cv-editor
+                  [cv]="cv"
+                  [guardando]="guardandoCv()"
+                  [subiendoFoto]="subiendoFoto()"
+                  (guardar)="guardarCv($event)"
+                  (fotoElegida)="subirFoto($event)"
+                  (quitarFoto)="quitarFoto()"
+                />
+              }
+            </div>
+          }
+
+          <div class="mt-5 space-y-4" [class.hidden]="editandoId() && pestana() === 'cv'">
             <div>
               <label class="mb-1.5 block text-sm font-medium text-main">Nombre</label>
               <input
@@ -215,6 +268,24 @@ interface Feedback {
                 <p class="mt-1 text-xs text-muted">
                   Se aplica a todos los servicios salvo las excepciones de abajo. El porcentaje se
                   copia en la cita al cerrarla, así que cambiarlo no toca lo ya liquidado.
+                </p>
+              </div>
+
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-main">
+                  Orden en «Equipo»
+                </label>
+                <input
+                  type="number"
+                  formControlName="orden"
+                  min="0"
+                  step="1"
+                  class="w-full rounded-lg border border-line bg-base px-3.5 py-2.5 text-sm text-main outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+                />
+                <p class="mt-1 text-xs text-muted">
+                  Quién se presenta antes al cliente: primero el número más bajo. Va en la ficha
+                  y no en el CV porque colocarse primero desplaza a los compañeros. Con varios
+                  al mismo número, manda el orden alfabético.
                 </p>
               </div>
 
@@ -318,15 +389,17 @@ interface Feedback {
               (click)="cerrarForm()"
               class="rounded-lg px-4 py-2 text-sm font-medium text-main hover:bg-elevated"
             >
-              Cancelar
+              {{ editandoId() && pestana() === 'cv' ? 'Cerrar' : 'Cancelar' }}
             </button>
-            <button
-              type="submit"
-              [disabled]="saving()"
-              class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
-            >
-              {{ saving() ? 'Guardando…' : 'Guardar' }}
-            </button>
+            @if (!editandoId() || pestana() === 'ficha') {
+              <button
+                type="submit"
+                [disabled]="saving()"
+                class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60"
+              >
+                {{ saving() ? 'Guardando…' : 'Guardar' }}
+              </button>
+            }
           </div>
         </form>
       </div>
@@ -389,6 +462,17 @@ export class Peluqueros implements OnInit {
   protected readonly formOpen = signal(false);
   protected readonly editandoId = signal<number | null>(null);
   protected readonly saving = signal(false);
+
+  /** Qué pestaña del modal está abierta. Al crear solo se pide el nombre, así que no aplica. */
+  protected readonly pestana = signal<'ficha' | 'cv'>('ficha');
+  /**
+   * El CV de la ficha que se está editando. Sale de `/gestion`, que ya lo trae anidado, así
+   * que abrir la pestaña no cuesta otra petición. Es su propia señal y no se lee de la tabla
+   * porque la foto se sube al momento y la respuesta hay que reflejarla aquí.
+   */
+  protected readonly cvEditando = signal<PeluqueroCv | null>(null);
+  protected readonly guardandoCv = signal(false);
+  protected readonly subiendoFoto = signal(false);
   protected readonly pendingDelete = signal<PeluqueroGestion | null>(null);
 
   protected readonly filtrados = computed(() => {
@@ -403,6 +487,7 @@ export class Peluqueros implements OnInit {
       0,
       [Validators.required, Validators.min(0), Validators.max(100)],
     ],
+    orden: [0, [Validators.min(0)]],
     usuarioId: [null as number | null],
     activo: [true],
   });
@@ -442,7 +527,7 @@ export class Peluqueros implements OnInit {
     });
   }
 
-  protected invalid(control: 'nombre' | 'comisionPorcentaje'): boolean {
+  protected invalid(control: 'nombre' | 'comisionPorcentaje' | 'orden'): boolean {
     const c = this.form.controls[control];
     return c.invalid && (c.dirty || c.touched);
   }
@@ -452,8 +537,10 @@ export class Peluqueros implements OnInit {
     this.editandoId.set(null);
     // Al crear solo se pide el nombre: la comisión y la cuenta se ajustan al editar, que
     // es cuando ya existe la ficha a la que vincularlas.
-    this.form.reset({ nombre: '', comisionPorcentaje: 0, usuarioId: null, activo: true });
+    this.form.reset({ nombre: '', comisionPorcentaje: 0, orden: 0, usuarioId: null, activo: true });
     this.excepciones.set([]);
+    this.pestana.set('ficha');
+    this.cvEditando.set(null);
     this.formOpen.set(true);
   }
 
@@ -463,9 +550,12 @@ export class Peluqueros implements OnInit {
     this.form.reset({
       nombre: p.nombre,
       comisionPorcentaje: p.comisionPorcentaje ?? 0,
+      orden: p.orden ?? 0,
       usuarioId: p.usuarioId ?? null,
       activo: p.activo,
     });
+    this.pestana.set('ficha');
+    this.cvEditando.set(p.cv);
     // Copia: se edita en el modal y solo se manda al guardar, así que cancelar no deja
     // nada a medias.
     this.excepciones.set(p.comisionesPorServicio.map((e) => ({ ...e })));
@@ -539,6 +629,7 @@ export class Peluqueros implements OnInit {
       .actualizar(id, {
         nombre: v.nombre!.trim(),
         comisionPorcentaje: Number(v.comisionPorcentaje ?? 0),
+        orden: Number(v.orden ?? 0),
         activo: v.activo ?? true,
         ...(v.usuarioId != null ? { usuarioId: v.usuarioId } : { desvincularUsuario: true }),
       })
@@ -574,6 +665,84 @@ export class Peluqueros implements OnInit {
       type: 'error',
       text: this.extraerError(err) ?? 'No se pudo guardar el peluquero.',
     });
+  }
+
+  // ---- CV público de la ficha que se está editando ----
+
+  protected guardarCv(cambios: PeluqueroCvUpdate): void {
+    const id = this.editandoId();
+    if (id == null) return;
+
+    this.guardandoCv.set(true);
+    this.peluqueroService.guardarCv(id, cambios).subscribe({
+      next: (cv) => {
+        this.guardandoCv.set(false);
+        this.aplicarCv(id, cv);
+        this.feedback.set({ type: 'success', text: `CV de «${cv.nombre}» guardado.` });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoCv.set(false);
+        this.feedback.set({
+          type: 'error',
+          text: this.extraerError(err) ?? 'No se pudo guardar el CV.',
+        });
+      },
+    });
+  }
+
+  /**
+   * La foto va en su propia petición (multipart) y se guarda al elegirla, no al pulsar
+   * «Guardar CV»: mezclarlas obligaría a mandar la imagen otra vez cada vez que se corrige
+   * una coma de la presentación.
+   */
+  protected async subirFoto(fichero: File): Promise<void> {
+    const id = this.editandoId();
+    if (id == null) return;
+
+    this.subiendoFoto.set(true);
+    const reducida = await redimensionarImagen(fichero, LADO_FOTO_CV);
+    this.peluqueroService.subirFoto(id, reducida).subscribe({
+      next: (cv) => {
+        this.subiendoFoto.set(false);
+        this.aplicarCv(id, cv);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFoto.set(false);
+        this.feedback.set({
+          type: 'error',
+          text:
+            err.status === 413
+              ? 'La imagen es demasiado grande.'
+              : (this.extraerError(err) ?? 'No se pudo subir la foto.'),
+        });
+      },
+    });
+  }
+
+  protected quitarFoto(): void {
+    const id = this.editandoId();
+    if (id == null) return;
+
+    this.subiendoFoto.set(true);
+    this.peluqueroService.borrarFoto(id).subscribe({
+      next: (cv) => {
+        this.subiendoFoto.set(false);
+        this.aplicarCv(id, cv);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.subiendoFoto.set(false);
+        this.feedback.set({
+          type: 'error',
+          text: this.extraerError(err) ?? 'No se pudo quitar la foto.',
+        });
+      },
+    });
+  }
+
+  /** Refresca el editor y la fila de la tabla sin recargar la lista entera. */
+  private aplicarCv(id: number, cv: PeluqueroCv): void {
+    this.cvEditando.set(cv);
+    this.peluqueros.update((lista) => lista.map((p) => (p.idPeluquero === id ? { ...p, cv } : p)));
   }
 
   protected eliminar(p: PeluqueroGestion): void {
