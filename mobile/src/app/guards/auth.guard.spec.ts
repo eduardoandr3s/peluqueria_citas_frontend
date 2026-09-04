@@ -9,7 +9,13 @@ import {
   sessionRedirectGuard,
 } from './auth.guard';
 
-function setup(auth: { isAuthenticated: boolean; isAdmin: boolean; isPeluquero?: boolean }) {
+function setup(auth: {
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isPeluquero?: boolean;
+  /** URL que se intentaba abrir. Es lo que los guards guardan en `returnUrl` al rebotar. */
+  url?: string;
+}) {
   // Reset explícito: hay tests que comparan dos roles y configuran el TestBed dos veces;
   // sin esto la segunda configuración se ignora y el segundo caso se prueba con el primero.
   TestBed.resetTestingModule();
@@ -29,7 +35,7 @@ function setup(auth: { isAuthenticated: boolean; isAdmin: boolean; isPeluquero?:
   const router = TestBed.inject(Router);
   const run = (guard: CanActivateFn) =>
     TestBed.runInInjectionContext(() =>
-      guard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+      guard({} as ActivatedRouteSnapshot, { url: auth.url } as RouterStateSnapshot),
     );
   return { router, run };
 }
@@ -142,5 +148,65 @@ describe('sessionRedirectGuard', () => {
   it('nunca devuelve true: la raíz siempre redirige', () => {
     const { run } = setup({ isAuthenticated: true, isAdmin: false });
     expect(run(sessionRedirectGuard)).toBeInstanceOf(UrlTree);
+  });
+});
+
+/**
+ * Al rebotar por falta de sesión, el guard se lleva al login el destino que se intentaba
+ * abrir, y el login vuelve allí tras entrar. Sin esto, una sesión caducada en cualquier
+ * pantalla devolvía a la de inicio y había que rehacer el camino a mano.
+ *
+ * Lo que NO lleva `returnUrl` importa igual: los rebotes por **rol** no pasan por el login
+ * —ahí no falta una sesión, es que ese sitio no es el suyo— y guardar el destino solo serviría
+ * para volver a rebotar.
+ */
+describe('returnUrl al rebotar', () => {
+  it('los cuatro guards que exigen sesión guardan el destino', () => {
+    for (const guard of [mobileAuthGuard, adminGuard, staffGuard, clientGuard]) {
+      const { router, run } = setup({
+        isAuthenticated: false,
+        isAdmin: false,
+        url: '/tabs/mis-citas',
+      });
+      expect(destino(router, run(guard))).toBe('/auth/login?returnUrl=%2Ftabs%2Fmis-citas');
+    }
+  });
+
+  it('se guardan también los parámetros de la URL', () => {
+    const { router, run } = setup({
+      isAuthenticated: false,
+      isAdmin: false,
+      url: '/tabs/agendar?peluqueroId=2&servicioId=4',
+    });
+
+    expect(destino(router, run(mobileAuthGuard))).toBe(
+      '/auth/login?returnUrl=%2Ftabs%2Fagendar%3FpeluqueroId%3D2%26servicioId%3D4',
+    );
+  });
+
+  it('la raíz no se guarda: no es un destino', () => {
+    // Devolver a un redirector no lleva a ninguna parte.
+    const { router, run } = setup({ isAuthenticated: false, isAdmin: false, url: '/' });
+
+    expect(destino(router, run(mobileAuthGuard))).toBe('/auth/login');
+  });
+
+  it('un rebote por ROL no guarda destino, porque no se resuelve entrando', () => {
+    const cliente = setup({ isAuthenticated: true, isAdmin: false, url: '/admin/usuarios' });
+    expect(destino(cliente.router, cliente.run(adminGuard))).toBe('/tabs');
+
+    const staff = setup({
+      isAuthenticated: true,
+      isAdmin: true,
+      url: '/tabs/agendar?peluqueroId=2',
+    });
+    expect(destino(staff.router, staff.run(clientGuard))).toBe('/admin');
+  });
+
+  it('la raíz sigue mandando al login a secas', () => {
+    // sessionRedirectGuard no guarda nada: su trabajo es mandar a cada uno a su área.
+    const { router, run } = setup({ isAuthenticated: false, isAdmin: false, url: '/' });
+
+    expect(destino(router, run(sessionRedirectGuard))).toBe('/auth/login');
   });
 });

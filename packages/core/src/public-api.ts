@@ -41,6 +41,7 @@ export * from './utils/fecha';
 export * from './utils/imagen';
 export * from './utils/precio';
 export * from './utils/descarga';
+export * from './utils/ruta';
 
 // Guards e interceptor
 export * from './guards/auth.guard';
