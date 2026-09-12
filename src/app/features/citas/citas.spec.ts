@@ -1,22 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import {
-  AuthService,
-  Cita,
-  CitaService,
-  PagoService,
-  PermisoService,
-  Servicio,
-  ServicioService,
-  Usuario,
-  UsuarioService,
-} from '@peluqueria/core';
+import { AuthService, Cita, CitaService, ClaveModulo, ModuloService, PagoService, PermisoService, Servicio, ServicioService, Usuario, UsuarioService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { PeluqueroService } from '@peluqueria/core';
 import { Citas } from './citas';
 
 const SERVICIO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
 const USUARIO: Usuario = { idUsuario: 1, nombre: 'Ana López', email: 'ana@b.com', rol: 'USER' };
+
+
+/**
+ * Todos los módulos encendidos, que es como nace un negocio. Los tests que apagan alguno
+ * lo dicen pasándolo aquí.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
 
 function cita(
   id: number,
@@ -49,7 +51,10 @@ function setup(overrides: {
   rol?: 'ADMIN' | 'PELUQUERO';
   /** Permisos configurables concedidos a la sesión (ver la matriz de «Permisos»). */
   permisos?: string[];
+  /** Módulos que este negocio NO tiene. Por defecto los tiene todos. */
+  modulosApagados?: ClaveModulo[];
 }) {
+  const modulosApagados = overrides.modulosApagados ?? [];
   const citaSvc = {
     listar: vi.fn().mockReturnValue(overrides.failLoad ? throwError(() => new Error('x')) : of([...CITAS])),
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
@@ -71,6 +76,7 @@ function setup(overrides: {
     imports: [Citas],
     providers: [
       { provide: CitaService, useValue: citaSvc },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
       { provide: PagoService, useValue: pagoSvc },
       { provide: UsuarioService, useValue: usuarioSvc },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
@@ -338,6 +344,48 @@ describe('Citas', () => {
 
     expect(botonEnTabla(fixture, 'Pago manual')).toBeDefined();
     expect(botonEnTabla(fixture, 'Reprogramar')).toBeDefined();
+  });
+
+  // ---- Los módulos del negocio ----
+
+  it('sin ningún medio de cobro no hay «Pago manual» NI PARA UN ADMIN', () => {
+    // Es lo que separa un módulo de un permiso: el ADMIN los tiene todos y aun así aquí no
+    // cobra, porque este negocio no registra cobros.
+    const { fixture } = setup({
+      rol: 'ADMIN',
+      modulosApagados: ['PAGOS', 'PAGO_EFECTIVO', 'PAGO_TRANSFERENCIA'],
+    });
+
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeUndefined();
+  });
+
+  it('con un medio de cobro apagado y otro encendido se sigue cobrando', () => {
+    const { fixture } = setup({ rol: 'ADMIN', modulosApagados: ['PAGO_EFECTIVO'] });
+
+    expect(botonEnTabla(fixture, 'Pago manual')).toBeDefined();
+  });
+
+  it('el modal solo ofrece los medios que este negocio acepta', () => {
+    const { fixture, c } = setup({ rol: 'ADMIN', modulosApagados: ['PAGO_EFECTIVO'] });
+
+    botonEnTabla(fixture, 'Pago manual')!.click();
+    fixture.detectChanges();
+
+    expect(botonEnModal(fixture, 'Efectivo')).toBeUndefined();
+    expect(botonEnModal(fixture, 'Transferencia')).toBeDefined();
+    // Y el que viene marcado es uno que existe: dejar «efectivo» sería ofrecer un 409.
+    expect(c.metodoPagoManual()).toBe('TRANSFERENCIA');
+  });
+
+  it('sin pagos no se avisa de que la cita no sumará: sin cobros, suma igual', () => {
+    const { fixture, c } = setup({ rol: 'ADMIN', modulosApagados: ['PAGOS'] });
+    c.citas.set([cita(9, '2026-07-09T10:00:00', 'CONFIRMADA', 'Ana López', 'PENDIENTE')]);
+    fixture.detectChanges();
+
+    botonEnTabla(fixture, 'Cerrar')!.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('no sumará en la producción');
   });
 
   it('avisa de que completar una cita sin cobrar no sumará en la producción', () => {

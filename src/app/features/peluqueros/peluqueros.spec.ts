@@ -1,13 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import {
-  PeluqueroGestion,
-  PeluqueroService,
-  Servicio,
-  ServicioService,
-  Usuario,
-  UsuarioService,
-} from '@peluqueria/core';
+import { ClaveModulo, ModuloService, PeluqueroGestion, PeluqueroService, Servicio, ServicioService, Usuario, UsuarioService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { Peluqueros } from './peluqueros';
 
@@ -65,7 +59,24 @@ const CUENTAS: Usuario[] = [
   { idUsuario: 9, nombre: 'Cliente', email: 'cli@test.com', rol: 'USER' },
 ];
 
-function setup(svc: Partial<Record<keyof PeluqueroService, unknown>> = {}, autoInit = true) {
+
+/**
+ * Todos los módulos encendidos, que es como nace un negocio. Los tests que apagan alguno
+ * lo dicen pasándolo aquí.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
+function setup(
+  svc: Partial<Record<keyof PeluqueroService, unknown>> = {},
+  autoInit = true,
+  /** Módulos que este negocio NO tiene. Por defecto los tiene todos. */
+  modulosApagados: ClaveModulo[] = [],
+) {
   const base = {
     listarParaGestion: vi.fn().mockReturnValue(of(PELUQUEROS.map((p) => ({ ...p })))),
     reemplazarComisiones: vi.fn().mockReturnValue(of([])),
@@ -74,6 +85,7 @@ function setup(svc: Partial<Record<keyof PeluqueroService, unknown>> = {}, autoI
     imports: [Peluqueros],
     providers: [
       { provide: PeluqueroService, useValue: { ...base, ...svc } },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of(SERVICIOS)) } },
       {
         provide: UsuarioService,
@@ -180,6 +192,35 @@ describe('Peluqueros', () => {
       { servicioId: 3, servicioNombre: 'Tinte', porcentaje: 10 },
     ]);
     expect(c.formOpen()).toBe(false);
+  });
+
+  // ---- El módulo de comisiones ----
+
+  it('sin comisiones la ficha se guarda sin porcentaje y sin tocar las excepciones', () => {
+    // El backend responde 409 a quien intente ponerle un porcentaje a alguien, así que no
+    // se manda: lo que desaparece es el dinero, no la ficha.
+    const actualizar = vi.fn().mockReturnValue(of({ ...PELUQUEROS[0], nombre: 'Lalo Segovia' }));
+    const reemplazarComisiones = vi.fn().mockReturnValue(of([]));
+    const { c } = setup({ actualizar, reemplazarComisiones }, true, ['COMISIONES']);
+
+    c.abrirEditar(PELUQUEROS[0]);
+    c.form.controls.nombre.setValue('Lalo Segovia');
+    c.guardar();
+
+    expect(actualizar).toHaveBeenCalledWith(1, {
+      nombre: 'Lalo Segovia',
+      orden: 0,
+      activo: true,
+      usuarioId: 7,
+    });
+    expect(reemplazarComisiones).not.toHaveBeenCalled();
+    expect(c.formOpen()).toBe(false);
+  });
+
+  it('sin comisiones la tabla no enseña la columna', () => {
+    const { fixture } = setup({}, true, ['COMISIONES']);
+
+    expect(fixture.nativeElement.textContent).not.toContain('Comisión');
   });
 
   it('dejar la cuenta en «Sin cuenta» desvincula en vez de no tocar nada', () => {

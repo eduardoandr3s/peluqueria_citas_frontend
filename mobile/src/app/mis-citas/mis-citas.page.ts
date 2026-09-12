@@ -24,7 +24,13 @@ import {
 import { addIcons } from 'ionicons';
 import { addOutline, documentTextOutline } from 'ionicons/icons';
 import {
-  ETIQUETA_ESTADO, CitaService, Cita, EstadoCita, PagoService } from '@peluqueria/core';
+  Cita,
+  CitaService,
+  ETIQUETA_ESTADO,
+  EstadoCita,
+  ModuloService,
+  PagoService,
+} from '@peluqueria/core';
 import { FicheroService } from '../core/fichero.service';
 
 @Component({
@@ -42,6 +48,13 @@ import { FicheroService } from '../core/fichero.service';
 export class MisCitasPage {
   private readonly citaService = inject(CitaService);
   private readonly pagoService = inject(PagoService);
+  private readonly modulos = inject(ModuloService);
+
+  /**
+   * Si este negocio cobra por la app. Apagado no hay boton de pagar ni pantalla de pago:
+   * la ruta tambien la cierra su guard, porque la URL se puede escribir a mano.
+   */
+  readonly conPagos = this.modulos.activo('PAGOS');
   private readonly fichero = inject(FicheroService);
   private readonly router = inject(Router);
   private readonly alertCtrl = inject(AlertController);

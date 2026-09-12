@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import {
   AuthService,
+  ClaveModulo,
+  ModuloService,
   Peluquero,
   PeluqueroService,
   Produccion,
@@ -19,6 +21,7 @@ const PRODUCCION: Produccion = {
   serviciosRealizados: 12,
   importeVendido: 300,
   comision: 60,
+  exigeCobro: true,
   serviciosSinCobrar: 1,
   importeSinCobrar: 30,
   porServicio: [{ etiqueta: 'Corte', servicios: 10, importe: 150, comision: 30 }],
@@ -38,10 +41,24 @@ const PELUQUEROS: Peluquero[] = [
 /** Los tres métodos del servicio, como mocks: varios tests miran con qué se llamaron. */
 type Mocks = Record<'mia' | 'dePeluquero' | 'comparativa', ReturnType<typeof vi.fn>>;
 
+
+/**
+ * Todos los modulos encendidos, que es como nace un negocio. Los tests que apagan alguno lo
+ * dicen pasandolo aqui.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function setup(
   opts: {
     rol?: 'ADMIN' | 'PELUQUERO';
     svc?: Partial<Mocks>;
+    /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
+    modulosApagados?: ClaveModulo[];
   } = {},
 ) {
   // Hay tests que crean la página con los dos roles: sin reset, la segunda configuración
@@ -57,6 +74,7 @@ function setup(
   TestBed.configureTestingModule({
     providers: [
       { provide: ProduccionService, useValue: svc },
+      { provide: ModuloService, useValue: dobleModulos(opts.modulosApagados) },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of(PELUQUEROS)) } },
       { provide: AuthService, useValue: { isAdmin: signal(rol === 'ADMIN') } },
     ],
@@ -159,5 +177,31 @@ describe('ProduccionPage', () => {
   it('los importes salen en euros con coma decimal', () => {
     const { c } = setup();
     expect(c.euros(30.5)).toBe('30,50 €');
+  });
+
+  // ---- Los modulos del negocio ----
+
+  it('con las comisiones apagadas la pantalla no habla de comision', () => {
+    const { c } = setup({ modulosApagados: ['COMISIONES'] });
+
+    expect(c.conComision()).toBe(false);
+    // Y el backend la manda como null: formatearla no puede imprimir «NaN €».
+    expect(c.euros(null)).toContain('0,00');
+  });
+
+  it('la comision null de una fila no rompe el total de la comparativa', () => {
+    const { c } = setup({ rol: 'ADMIN', modulosApagados: ['COMISIONES'] });
+    c.comparativa.set([
+      { idPeluquero: 1, nombre: 'Lalo', serviciosRealizados: 3, importeVendido: 60, comision: null },
+    ]);
+
+    expect(c.totalComision()).toBe(0);
+    expect(c.totalVendido()).toBe(60);
+  });
+
+  it('sin pagos no se pinta el «realizado sin cobrar»', () => {
+    const { c } = setup({ modulosApagados: ['PAGOS'] });
+
+    expect(c.conPagos()).toBe(false);
   });
 });

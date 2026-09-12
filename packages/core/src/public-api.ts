@@ -20,6 +20,7 @@ export * from './models/asistente.model';
 export * from './models/galeria.model';
 export * from './models/produccion.model';
 export * from './models/permiso.model';
+export * from './models/modulo.model';
 
 // Servicios HTTP
 export * from './services/auth.service';
@@ -35,6 +36,7 @@ export * from './services/asistente.service';
 export * from './services/galeria.service';
 export * from './services/produccion.service';
 export * from './services/permiso.service';
+export * from './services/modulo.service';
 
 // Utilidades
 export * from './utils/fecha';
@@ -45,4 +47,5 @@ export * from './utils/ruta';
 
 // Guards e interceptor
 export * from './guards/auth.guard';
+export * from './guards/modulo.guard';
 export * from './interceptors/jwt.interceptor';

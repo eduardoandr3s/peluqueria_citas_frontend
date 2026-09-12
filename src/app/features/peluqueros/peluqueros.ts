@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   ComisionServicio,
+  ModuloService,
   PeluqueroCv,
   PeluqueroCvUpdate,
   PeluqueroGestion,
@@ -32,7 +33,8 @@ interface Feedback {
         <div>
           <h1 class="text-2xl font-bold text-main">Peluqueros</h1>
           <p class="text-sm text-muted">
-            Profesionales, su comisión y la cuenta con la que entran al panel.
+            Profesionales@if (conComision()) {, su comisión} y la cuenta con la que entran al
+            panel.
           </p>
         </div>
         <button
@@ -108,7 +110,9 @@ interface Feedback {
                 <tr>
                   <th class="px-5 py-3 font-medium">Nombre</th>
                   <th class="px-5 py-3 font-medium">Cuenta</th>
-                  <th class="px-5 py-3 text-right font-medium">Comisión</th>
+                  @if (conComision()) {
+                    <th class="px-5 py-3 text-right font-medium">Comisión</th>
+                  }
                   <th class="px-5 py-3 font-medium">Estado</th>
                   <th class="px-5 py-3 text-right font-medium">Acciones</th>
                 </tr>
@@ -128,15 +132,17 @@ interface Feedback {
                         </span>
                       }
                     </td>
-                    <td class="px-5 py-3 text-right">
-                      <span class="font-medium text-main">{{ p.comisionPorcentaje }}%</span>
-                      @if (p.comisionesPorServicio.length > 0) {
-                        <p class="text-xs text-muted">
-                          {{ p.comisionesPorServicio.length }}
-                          {{ p.comisionesPorServicio.length === 1 ? 'excepción' : 'excepciones' }}
-                        </p>
-                      }
-                    </td>
+                    @if (conComision()) {
+                      <td class="px-5 py-3 text-right">
+                        <span class="font-medium text-main">{{ p.comisionPorcentaje }}%</span>
+                        @if (p.comisionesPorServicio.length > 0) {
+                          <p class="text-xs text-muted">
+                            {{ p.comisionesPorServicio.length }}
+                            {{ p.comisionesPorServicio.length === 1 ? 'excepción' : 'excepciones' }}
+                          </p>
+                        }
+                      </td>
+                    }
                     <td class="px-5 py-3">
                       <span
                         class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -252,6 +258,7 @@ interface Feedback {
             </div>
 
             @if (editandoId()) {
+              @if (conComision()) {
               <div>
                 <label class="mb-1.5 block text-sm font-medium text-main">Comisión por defecto (%)</label>
                 <input
@@ -270,6 +277,7 @@ interface Feedback {
                   copia en la cita al cerrarla, así que cambiarlo no toca lo ya liquidado.
                 </p>
               </div>
+              }
 
               <div>
                 <label class="mb-1.5 block text-sm font-medium text-main">
@@ -319,6 +327,7 @@ interface Feedback {
               </div>
 
               <!-- Excepciones de comisión por servicio -->
+              @if (conComision()) {
               <div class="rounded-lg border border-line p-3">
                 <p class="text-sm font-medium text-main">Comisión por servicio</p>
                 <p class="mt-0.5 text-xs text-muted">
@@ -380,6 +389,7 @@ interface Feedback {
                   </div>
                 }
               </div>
+              }
             }
           </div>
 
@@ -440,6 +450,14 @@ export class Peluqueros implements OnInit {
   private readonly peluqueroService = inject(PeluqueroService);
   private readonly usuarioService = inject(UsuarioService);
   private readonly servicioService = inject(ServicioService);
+  private readonly modulos = inject(ModuloService);
+
+  /**
+   * Si este negocio comisiona. Apagado, la ficha deja de hablar de dinero: desaparecen la
+   * columna, el porcentaje y las excepciones, y no se manda ninguna de las dos cosas al
+   * guardar, que el backend responde 409.
+   */
+  protected readonly conComision = this.modulos.activo('COMISIONES');
   private readonly fb = inject(FormBuilder);
 
   // La ficha de gestión, no la lista pública: trae comisión, cuenta vinculada y también
@@ -628,20 +646,21 @@ export class Peluqueros implements OnInit {
     this.peluqueroService
       .actualizar(id, {
         nombre: v.nombre!.trim(),
-        comisionPorcentaje: Number(v.comisionPorcentaje ?? 0),
+        // Con el módulo de comisiones apagado no viaja ninguna de las dos cosas: el
+        // backend responde 409 a quien intente ponerle un porcentaje a alguien.
+        ...(this.conComision() ? { comisionPorcentaje: Number(v.comisionPorcentaje ?? 0) } : {}),
         orden: Number(v.orden ?? 0),
         activo: v.activo ?? true,
         ...(v.usuarioId != null ? { usuarioId: v.usuarioId } : { desvincularUsuario: true }),
       })
       .subscribe({
         next: () => {
+          if (!this.conComision()) {
+            this.exitoAlGuardar(v.nombre!.trim());
+            return;
+          }
           this.peluqueroService.reemplazarComisiones(id, this.excepciones()).subscribe({
-            next: () => {
-              this.saving.set(false);
-              this.formOpen.set(false);
-              this.feedback.set({ type: 'success', text: `«${v.nombre!.trim()}» actualizado.` });
-              this.cargar();
-            },
+            next: () => this.exitoAlGuardar(v.nombre!.trim()),
             error: (err: HttpErrorResponse) => {
               // La ficha sí se guardó: decirlo evita que reintente el cambio entero.
               this.saving.set(false);
@@ -657,6 +676,13 @@ export class Peluqueros implements OnInit {
         },
         error: (err: HttpErrorResponse) => this.falloAlGuardar(err),
       });
+  }
+
+  private exitoAlGuardar(nombre: string): void {
+    this.saving.set(false);
+    this.formOpen.set(false);
+    this.feedback.set({ type: 'success', text: `«${nombre}» actualizado.` });
+    this.cargar();
   }
 
   private falloAlGuardar(err: HttpErrorResponse): void {

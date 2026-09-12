@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { moduloGuard } from '@peluqueria/core';
 import {
   mobileAuthGuard,
   adminGuard,
@@ -127,7 +128,10 @@ export const routes: Routes = [
     loadComponent: () => import('./equipo/equipo.page').then((m) => m.EquipoPage),
   },
   {
+    // Si este negocio no cobra por la app, esta pantalla no existe para nadie: ocultar el
+    // boton no basta, porque la URL se puede escribir a mano o llegar por un enlace viejo.
     path: 'pago/:citaId',
+    canActivate: [moduloGuard('PAGOS')],
     loadComponent: () => import('./pago/pago.page').then((m) => m.PagoPage),
   },
   { path: '**', redirectTo: '/auth/login' },

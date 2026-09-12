@@ -4,7 +4,8 @@ export interface LineaProduccion {
   etiqueta: string;
   servicios: number;
   importe: number;
-  comision: number;
+  /** `null` si el módulo de comisiones está apagado. No es cero: es «aquí no se comisiona». */
+  comision: number | null;
 }
 
 /**
@@ -13,6 +14,10 @@ export interface LineaProduccion {
  * Solo suma las citas completadas **y cobradas**: el dinero se cuenta cuando ha entrado,
  * y el efectivo entra registrando el pago manual. Lo realizado y aún sin cobrar viaja
  * aparte para que no desaparezca de la pantalla.
+ *
+ * Salvo que el negocio no cobre por la aplicación: con el módulo `PAGOS` apagado nada
+ * llegaría nunca a pagado y todo sería cero, así que ahí cuenta lo realizado a secas. Eso
+ * es lo que dice {@link Produccion.exigeCobro}.
  */
 export interface Produccion {
   idPeluquero: number;
@@ -21,7 +26,10 @@ export interface Produccion {
   hasta: string; // ISO date
   serviciosRealizados: number;
   importeVendido: number;
-  comision: number;
+  /** `null` si el módulo de comisiones está apagado. */
+  comision: number | null;
+  /** Si para sumar hace falta que la cita esté cobrada. Sale del módulo `PAGOS`. */
+  exigeCobro: boolean;
   serviciosSinCobrar: number;
   importeSinCobrar: number;
   porServicio: LineaProduccion[];
@@ -34,5 +42,6 @@ export interface ProduccionPeluquero {
   nombre: string;
   serviciosRealizados: number;
   importeVendido: number;
-  comision: number;
+  /** `null` si el módulo de comisiones está apagado. */
+  comision: number | null;
 }

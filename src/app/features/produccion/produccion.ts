@@ -1,15 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  AuthService,
-  Peluquero,
-  PeluqueroService,
-  Produccion,
-  ProduccionPeluquero,
-  ProduccionService,
-  formatearEuros,
-} from '@peluqueria/core';
+import { AuthService, ModuloService, Peluquero, PeluqueroService, Produccion, ProduccionPeluquero, ProduccionService, formatearEuros } from '@peluqueria/core';
 
 /** Atajos de rango. El mes es la unidad en la que se liquida, así que es el de por defecto. */
 type Atajo = 'mes' | 'mesAnterior' | 'anio';
@@ -24,8 +16,16 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
           {{ esAdmin() ? 'Producción' : 'Mi producción' }}
         </h1>
         <p class="text-sm text-muted">
-          Servicios realizados y cobrados, con su comisión. Lo realizado y aún sin cobrar se
-          muestra aparte: no suma hasta que el pago está registrado.
+          @if (exigeCobro()) {
+            Servicios realizados y cobrados. Lo realizado y aún sin cobrar se muestra
+            aparte: no suma hasta que el pago está registrado.
+          } @else {
+            Servicios realizados. Este negocio no registra cobros, así que cuenta el
+            trabajo hecho aunque no conste ningún pago.
+          }
+          @if (conComision()) {
+            La comisión sale del porcentaje que quedó congelado al cerrar cada cita.
+          }
         </p>
       </div>
 
@@ -114,7 +114,9 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
                     <th class="px-5 py-3 font-medium">Peluquero</th>
                     <th class="px-5 py-3 text-right font-medium">Servicios</th>
                     <th class="px-5 py-3 text-right font-medium">Vendido</th>
-                    <th class="px-5 py-3 text-right font-medium">Comisión</th>
+                    @if (conComision()) {
+                      <th class="px-5 py-3 text-right font-medium">Comisión</th>
+                    }
                     <th class="px-5 py-3 text-right font-medium"></th>
                   </tr>
                 </thead>
@@ -126,7 +128,9 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
                       <td class="px-5 py-3 text-right font-semibold text-main">
                         {{ euros(f.importeVendido) }}
                       </td>
-                      <td class="px-5 py-3 text-right text-main">{{ euros(f.comision) }}</td>
+                      @if (conComision()) {
+                        <td class="px-5 py-3 text-right text-main">{{ euros(f.comision) }}</td>
+                      }
                       <td class="px-5 py-3 text-right">
                         <button
                           type="button"
@@ -144,7 +148,9 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
                     <td class="px-5 py-3">Total</td>
                     <td class="px-5 py-3 text-right">{{ totalServicios() }}</td>
                     <td class="px-5 py-3 text-right">{{ euros(totalVendido()) }}</td>
-                    <td class="px-5 py-3 text-right">{{ euros(totalComision()) }}</td>
+                    @if (conComision()) {
+                      <td class="px-5 py-3 text-right">{{ euros(totalComision()) }}</td>
+                    }
                     <td></td>
                   </tr>
                 </tfoot>
@@ -163,10 +169,13 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
             <p class="text-xs font-medium uppercase tracking-wide text-muted">Vendido</p>
             <p class="mt-2 text-3xl font-bold text-main">{{ euros(p.importeVendido) }}</p>
           </div>
-          <div class="rounded-xl bg-surface p-5 shadow-sm ring-1 ring-line">
-            <p class="text-xs font-medium uppercase tracking-wide text-muted">Comisión</p>
-            <p class="mt-2 text-3xl font-bold text-primary">{{ euros(p.comision) }}</p>
-          </div>
+          @if (conComision()) {
+            <div class="rounded-xl bg-surface p-5 shadow-sm ring-1 ring-line">
+              <p class="text-xs font-medium uppercase tracking-wide text-muted">Comisión</p>
+              <p class="mt-2 text-3xl font-bold text-primary">{{ euros(p.comision) }}</p>
+            </div>
+          }
+          @if (p.exigeCobro) {
           <div
             class="rounded-xl p-5 shadow-sm ring-1"
             [class]="
@@ -185,6 +194,7 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
               </p>
             }
           </div>
+          }
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
@@ -200,7 +210,9 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
                       <td class="px-5 py-2.5 text-main">{{ l.etiqueta }}</td>
                       <td class="px-5 py-2.5 text-right text-muted">{{ l.servicios }}</td>
                       <td class="px-5 py-2.5 text-right font-medium text-main">{{ euros(l.importe) }}</td>
-                      <td class="px-5 py-2.5 text-right text-primary">{{ euros(l.comision) }}</td>
+                      @if (conComision()) {
+                        <td class="px-5 py-2.5 text-right text-primary">{{ euros(l.comision) }}</td>
+                      }
                     </tr>
                   }
                 </tbody>
@@ -220,7 +232,9 @@ type Atajo = 'mes' | 'mesAnterior' | 'anio';
                       <td class="px-5 py-2.5 text-main">{{ mes(l.etiqueta) }}</td>
                       <td class="px-5 py-2.5 text-right text-muted">{{ l.servicios }}</td>
                       <td class="px-5 py-2.5 text-right font-medium text-main">{{ euros(l.importe) }}</td>
-                      <td class="px-5 py-2.5 text-right text-primary">{{ euros(l.comision) }}</td>
+                      @if (conComision()) {
+                        <td class="px-5 py-2.5 text-right text-primary">{{ euros(l.comision) }}</td>
+                      }
                     </tr>
                   }
                 </tbody>
@@ -236,8 +250,17 @@ export class ProduccionPagina implements OnInit {
   private readonly produccionService = inject(ProduccionService);
   private readonly peluqueroService = inject(PeluqueroService);
   private readonly auth = inject(AuthService);
+  private readonly modulos = inject(ModuloService);
 
   protected readonly esAdmin = this.auth.isAdmin;
+  /** Si este negocio comisiona. Apagado, la columna entera desaparece para todos. */
+  protected readonly conComision = this.modulos.activo('COMISIONES');
+  /**
+   * Si para sumar hace falta que la cita esté cobrada. Es el mismo criterio que viaja en
+   * `exigeCobro` de la respuesta; aquí hace falta como señal, porque la cabecera se pinta
+   * antes de que haya datos.
+   */
+  protected readonly exigeCobro = this.modulos.activo('PAGOS');
   protected readonly loading = signal(true);
   protected readonly feedback = signal<string | null>(null);
 
@@ -265,7 +288,7 @@ export class ProduccionPagina implements OnInit {
     (this.comparativa() ?? []).reduce((suma, f) => suma + f.importeVendido, 0),
   );
   protected readonly totalComision = computed(() =>
-    (this.comparativa() ?? []).reduce((suma, f) => suma + f.comision, 0),
+    (this.comparativa() ?? []).reduce((suma, f) => suma + (f.comision ?? 0), 0),
   );
 
   ngOnInit(): void {
@@ -336,8 +359,12 @@ export class ProduccionPagina implements OnInit {
     this.cargar();
   }
 
-  protected euros(valor: number): string {
-    return formatearEuros(valor);
+  /**
+   * Un `null` solo llega con el módulo de comisiones apagado, y ahí la plantilla ya no
+   * pinta la columna. Se acepta igualmente para que un descuido no imprima «NaN €».
+   */
+  protected euros(valor: number | null): string {
+    return formatearEuros(valor ?? 0);
   }
 
   /** `2026-08` → `agosto 2026`. */

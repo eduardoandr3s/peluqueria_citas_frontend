@@ -36,7 +36,7 @@
               }
             </div>
           </ion-label>
-          @if (cita.estado === 'PENDIENTE' && (!cita.estadoPago || cita.estadoPago === 'PENDIENTE')) {
+          @if (conPagos() && cita.estado === 'PENDIENTE' && (!cita.estadoPago || cita.estadoPago === 'PENDIENTE')) {
             <ion-button
               slot="end"
               fill="solid"

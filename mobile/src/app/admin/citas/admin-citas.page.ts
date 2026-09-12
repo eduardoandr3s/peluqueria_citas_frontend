@@ -39,22 +39,23 @@ import {
   Cita,
   CitaCierre,
   CitaRequest,
+  CitaService,
   CitaUpdate,
+  DiaCerrado,
   ETIQUETA_ESTADO,
   EstadoCita,
-  Peluquero,
-  Servicio,
-  Usuario,
-  CitaService,
+  ModuloService,
   PagoService,
+  Peluquero,
   PeluqueroService,
   PermisoService,
+  Servicio,
   ServicioService,
+  Usuario,
   UsuarioService,
-  DiaCerrado,
   formatearEuros,
-  importeACobrar,
   hoyIso,
+  importeACobrar,
   sumarMeses,
 } from '@peluqueria/core';
 
@@ -106,7 +107,23 @@ export class AdminCitasPage {
    * PAGADO a la vez.
    */
   private readonly cobrarPorPermiso = this.permisos.puede('PAGO_MANUAL_REGISTRAR');
-  readonly puedeCobrar = computed(() => this.esAdmin() || this.cobrarPorPermiso());
+
+  /**
+   * Y antes que el rol y que el permiso va el modulo: si este negocio no registra cobros,
+   * no cobra nadie, tampoco un ADMIN. Cada medio se mira aparte porque el caso realista es
+   * quitar la pasarela y seguir cobrando en el local.
+   */
+  private readonly modulos = inject(ModuloService);
+  readonly conEfectivo = this.modulos.activo('PAGO_EFECTIVO');
+  readonly conTransferencia = this.modulos.activo('PAGO_TRANSFERENCIA');
+  /** Si hay cobros en absoluto: es lo que decide si «sin cobrar» significa algo. */
+  readonly conPagos = this.modulos.activo('PAGOS');
+
+  readonly puedeCobrar = computed(
+    () =>
+      (this.conEfectivo() || this.conTransferencia()) &&
+      (this.esAdmin() || this.cobrarPorPermiso()),
+  );
 
   readonly citas = signal<Cita[]>([]);
   readonly usuarios = signal<Usuario[]>([]);
@@ -473,9 +490,12 @@ export class AdminCitasPage {
 
   private mensajeCierre(c: Cita, estado: EstadoCita): string {
     if (estado === 'COMPLETADA') {
-      return c.estadoPago === 'PAGADO'
-        ? `El servicio de ${c.usuario.nombre} contará en la producción.`
-        : `Esta cita no tiene el pago registrado: se marcará como realizada, pero no sumará en la producción hasta que se cobre.`;
+      // Sin cobros, una cita realizada cuenta ya: avisar de que «no sumará hasta que se
+      // cobre» sería mentirle a quien no puede cobrar en ningún sitio.
+      if (!this.conPagos() || c.estadoPago === 'PAGADO') {
+        return `El servicio de ${c.usuario.nombre} contará en la producción.`;
+      }
+      return `Esta cita no tiene el pago registrado: se marcará como realizada, pero no sumará en la producción hasta que se cobre.`;
     }
     if (estado === 'NO_ASISTIO') {
       return `${c.usuario.nombre} no vino. No genera producción ni comisión.`;
@@ -506,6 +526,18 @@ export class AdminCitasPage {
     return c.estadoPago !== 'PAGADO' && c.estadoPago !== 'REEMBOLSADO';
   }
 
+  /** Los radios del cobro: uno por medio encendido, con el primero marcado. */
+  private mediosDePago(): object[] {
+    const medios: object[] = [];
+    if (this.conEfectivo()) {
+      medios.push({ name: 'metodo', type: 'radio', label: 'Efectivo', value: 'EFECTIVO' });
+    }
+    if (this.conTransferencia()) {
+      medios.push({ name: 'metodo', type: 'radio', label: 'Transferencia', value: 'TRANSFERENCIA' });
+    }
+    return medios.map((m, i) => (i === 0 ? { ...m, checked: true } : m));
+  }
+
   /**
    * Cobro en el local. El metodo se elige con radios en vez de dar por hecho el efectivo:
    * una transferencia mal registrada como efectivo descuadra la caja del dia.
@@ -514,15 +546,15 @@ export class AdminCitasPage {
     const alert = await this.alertCtrl.create({
       header: 'Cobrar la cita',
       message: `${c.usuario.nombre} — ${c.servicio.nombre} (${formatearEuros(importeACobrar(c))})`,
-      inputs: [
-        { name: 'metodo', type: 'radio', label: 'Efectivo', value: 'EFECTIVO', checked: true },
-        { name: 'metodo', type: 'radio', label: 'Transferencia', value: 'TRANSFERENCIA' },
-      ] as never,
+      // Solo los medios que este negocio acepta, y el primero marcado: dejar «Efectivo»
+      // por defecto donde no se cobra en efectivo es ofrecer un 409.
+      inputs: this.mediosDePago() as never,
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
         {
           text: 'Confirmar cobro',
-          handler: (metodo: string) => this.registrarPagoManual(c, metodo || 'EFECTIVO'),
+          handler: (metodo: string) =>
+            this.registrarPagoManual(c, metodo || (this.conEfectivo() ? 'EFECTIVO' : 'TRANSFERENCIA')),
         },
       ],
     });

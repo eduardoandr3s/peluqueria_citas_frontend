@@ -19,6 +19,7 @@ import {
 } from '@ionic/angular/standalone';
 import {
   AuthService,
+  ModuloService,
   Peluquero,
   PeluqueroService,
   Produccion,
@@ -67,8 +68,14 @@ export class ProduccionPage {
   readonly totalVendido = computed(() =>
     (this.comparativa() ?? []).reduce((suma, f) => suma + f.importeVendido, 0),
   );
+  private readonly modulos = inject(ModuloService);
+  /** Si este negocio comisiona. Apagado, la comision desaparece de la pantalla entera. */
+  readonly conComision = this.modulos.activo('COMISIONES');
+  /** Si para sumar hace falta cobrar. Apagado, no existe el «realizado sin cobrar». */
+  readonly conPagos = this.modulos.activo('PAGOS');
+
   readonly totalComision = computed(() =>
-    (this.comparativa() ?? []).reduce((suma, f) => suma + f.comision, 0),
+    (this.comparativa() ?? []).reduce((suma, f) => suma + (f.comision ?? 0), 0),
   );
 
   ionViewWillEnter(): void {
@@ -136,8 +143,9 @@ export class ProduccionPage {
     this.cargar();
   }
 
-  euros(valor: number): string {
-    return formatearEuros(valor);
+  /** Un null solo llega con las comisiones apagadas, y ahi la plantilla no lo pinta. */
+  euros(valor: number | null): string {
+    return formatearEuros(valor ?? 0);
   }
 
   /** `2026-08` → `agosto 2026`. */

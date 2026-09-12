@@ -304,6 +304,13 @@ export class AdminLayout {
           icon: 'M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z',
         },
         {
+          label: 'Módulos',
+          path: '/modulos',
+          soloAdmin: true,
+          // Cubos apilados: qué partes del producto usa este negocio.
+          icon: 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
+        },
+        {
           label: 'Permisos',
           path: '/permisos',
           soloAdmin: true,

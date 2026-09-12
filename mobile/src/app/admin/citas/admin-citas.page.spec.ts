@@ -5,7 +5,9 @@ import {
   AuthService,
   Cita,
   CitaService,
+  ClaveModulo,
   EstadoCita,
+  ModuloService,
   PagoService,
   PeluqueroService,
   PermisoService,
@@ -36,6 +38,18 @@ const CITAS = [
   cita(3, '2026-07-03T12:00:00', 'ANULADA'),
 ];
 
+
+/**
+ * Todos los modulos encendidos, que es como nace un negocio. Los tests que apagan alguno lo
+ * dicen pasandolo aqui.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function setup(
   overrides: {
     cita?: Partial<Record<keyof CitaService, unknown>>;
@@ -45,6 +59,8 @@ function setup(
     /** Permisos configurables concedidos a la sesión (ver la matriz de «Permisos»). */
     permisos?: string[];
     pago?: Partial<Record<keyof PagoService, unknown>>;
+    /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
+    modulosApagados?: ClaveModulo[];
   } = {},
 ) {
   const toast = { create: vi.fn().mockResolvedValue({ present: vi.fn() }) };
@@ -75,6 +91,7 @@ function setup(
       { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([SERVICIO])) } },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
       { provide: PagoService, useValue: pagoSvc },
+      { provide: ModuloService, useValue: dobleModulos(overrides.modulosApagados) },
       { provide: ActionSheetController, useValue: actionSheet },
       { provide: AlertController, useValue: alertCtrl },
       { provide: ToastController, useValue: toast },
@@ -555,5 +572,49 @@ describe('AdminCitasPage', () => {
     expect(c.colorEstado('NO_ASISTIO')).toBe('danger');
     expect(c.estaCerrada('CONFIRMADA')).toBe(false);
     expect(c.estaCerrada('NO_ASISTIO')).toBe(true);
+  });
+
+  // ---- Los modulos del negocio ----
+
+  it('sin ningun medio de cobro no hay «Cobrar» NI PARA UN ADMIN', async () => {
+    // Es lo que separa un modulo de un permiso: el ADMIN los tiene todos por rol y aun asi
+    // aqui no cobra, porque este negocio no registra cobros.
+    const { c, actionSheet } = setup({
+      rol: 'ADMIN',
+      modulosApagados: ['PAGOS', 'PAGO_EFECTIVO', 'PAGO_TRANSFERENCIA'],
+    });
+
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).not.toContain('Cobrar');
+  });
+
+  it('con un medio apagado y otro encendido se sigue cobrando', async () => {
+    const { c, actionSheet } = setup({ rol: 'ADMIN', modulosApagados: ['PAGO_EFECTIVO'] });
+
+    await c.abrirAcciones(CITAS[0]);
+
+    expect(opciones(actionSheet)).toContain('Cobrar');
+  });
+
+  it('los radios del cobro son solo los medios que este negocio acepta', async () => {
+    const { c, alertCtrl } = setup({ rol: 'ADMIN', modulosApagados: ['PAGO_EFECTIVO'] });
+
+    await c.pedirPagoManual(CITAS[0]);
+
+    const alerta = alertCtrl.create.mock.calls.at(-1)![0];
+    expect(alerta.inputs.map((i: { value: string }) => i.value)).toEqual(['TRANSFERENCIA']);
+    // Y el primero viene marcado: sin marcar, confirmar sin tocar nada no manda metodo.
+    expect(alerta.inputs[0].checked).toBe(true);
+  });
+
+  it('sin pagos, cerrar una cita no avisa de que no sumara: suma igual', async () => {
+    const { c, alertCtrl } = setup({ rol: 'ADMIN', modulosApagados: ['PAGOS'] });
+
+    await c.pedirCierre(CITAS[0], 'COMPLETADA');
+
+    const alerta = alertCtrl.create.mock.calls.at(-1)![0];
+    expect(alerta.message).toContain('contará en la producción');
+    expect(alerta.message).not.toContain('hasta que se cobre');
   });
 });

@@ -22,6 +22,7 @@ import {
   PagoService,
   PeluqueroService,
   PermisoService,
+  ModuloService,
   hoyIso,
   sumarMeses,
   formatearImporte,
@@ -439,22 +440,26 @@ interface Feedback {
           <div class="mt-4 space-y-3">
             <label class="mb-1.5 block text-sm font-medium text-main">Método de pago</label>
             <div class="flex gap-3">
-              <button
-                type="button"
-                (click)="metodoPagoManual.set('EFECTIVO')"
-                class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
-                [class]="metodoPagoManual() === 'EFECTIVO' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
-              >
-                Efectivo
-              </button>
-              <button
-                type="button"
-                (click)="metodoPagoManual.set('TRANSFERENCIA')"
-                class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
-                [class]="metodoPagoManual() === 'TRANSFERENCIA' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
-              >
-                Transferencia
-              </button>
+              @if (conEfectivo()) {
+                <button
+                  type="button"
+                  (click)="metodoPagoManual.set('EFECTIVO')"
+                  class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
+                  [class]="metodoPagoManual() === 'EFECTIVO' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
+                >
+                  Efectivo
+                </button>
+              }
+              @if (conTransferencia()) {
+                <button
+                  type="button"
+                  (click)="metodoPagoManual.set('TRANSFERENCIA')"
+                  class="flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition"
+                  [class]="metodoPagoManual() === 'TRANSFERENCIA' ? 'border-primary bg-primary/10 text-primary' : 'border-line text-main hover:bg-elevated'"
+                >
+                  Transferencia
+                </button>
+              }
             </div>
           </div>
           @if (pagoManualError()) {
@@ -520,7 +525,7 @@ interface Feedback {
             }
           </div>
 
-          @if (estadoCierre() === 'COMPLETADA' && !puedeContarEnProduccion(c)) {
+          @if (conPagos() && estadoCierre() === 'COMPLETADA' && !puedeContarEnProduccion(c)) {
             <p class="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-xs text-main">
               Esta cita no tiene el pago registrado, así que se marcará como realizada pero
               <strong>no sumará en la producción</strong> hasta que se cobre.
@@ -710,8 +715,22 @@ export class Citas implements OnInit {
   private readonly permisos = inject(PermisoService);
   private readonly puedePagoManualPorPermiso = this.permisos.puede('PAGO_MANUAL_REGISTRAR');
   private readonly puedeReprogramarPorPermiso = this.permisos.puede('CITA_REPROGRAMAR');
+
+  /**
+   * Antes que el rol y antes que el permiso va el módulo: si este negocio no registra
+   * cobros no cobra nadie, tampoco un ADMIN. Y cada medio se mira por separado, porque el
+   * caso realista es quitar la pasarela y seguir cobrando en el local.
+   */
+  private readonly modulos = inject(ModuloService);
+  protected readonly conEfectivo = this.modulos.activo('PAGO_EFECTIVO');
+  protected readonly conTransferencia = this.modulos.activo('PAGO_TRANSFERENCIA');
+  /** Si hay cobros en absoluto. Es lo que decide si «sin cobrar» significa algo. */
+  protected readonly conPagos = this.modulos.activo('PAGOS');
+
   protected readonly puedeCobrar = computed(
-    () => this.esAdmin() || this.puedePagoManualPorPermiso(),
+    () =>
+      (this.conEfectivo() || this.conTransferencia()) &&
+      (this.esAdmin() || this.puedePagoManualPorPermiso()),
   );
   protected readonly puedeReprogramar = computed(
     () => this.esAdmin() || this.puedeReprogramarPorPermiso(),
@@ -878,7 +897,9 @@ export class Citas implements OnInit {
 
   protected abrirPagoManual(c: Cita): void {
     this.pendingPagoManual.set(c);
-    this.metodoPagoManual.set('EFECTIVO');
+    // El método marcado por defecto tiene que ser uno que este negocio acepte: dejar
+    // «Efectivo» donde no se cobra en efectivo es ofrecer un 409.
+    this.metodoPagoManual.set(this.conEfectivo() ? 'EFECTIVO' : 'TRANSFERENCIA');
     this.pagoManualError.set(null);
   }
 

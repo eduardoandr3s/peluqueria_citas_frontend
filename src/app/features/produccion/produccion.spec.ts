@@ -1,13 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import {
-  AuthService,
-  Peluquero,
-  PeluqueroService,
-  Produccion,
-  ProduccionPeluquero,
-  ProduccionService,
-} from '@peluqueria/core';
+import { AuthService, ClaveModulo, ModuloService, Peluquero, PeluqueroService, Produccion, ProduccionPeluquero, ProduccionService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { ProduccionPagina } from './produccion';
 
@@ -19,6 +12,7 @@ const PRODUCCION: Produccion = {
   serviciosRealizados: 12,
   importeVendido: 300,
   comision: 60,
+  exigeCobro: true,
   serviciosSinCobrar: 2,
   importeSinCobrar: 45.5,
   porServicio: [{ etiqueta: 'Corte', servicios: 10, importe: 150, comision: 30 }],
@@ -35,13 +29,28 @@ const PELUQUEROS: Peluquero[] = [
   { idPeluquero: 2, nombre: 'Pepe', activo: true },
 ];
 
+
+/**
+ * Todos los módulos encendidos, que es como nace un negocio. Los tests que apagan alguno
+ * lo dicen pasándolo aquí.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function setup(
   opts: {
     rol?: 'ADMIN' | 'PELUQUERO';
     svc?: Partial<Record<keyof ProduccionService, unknown>>;
+    /** Módulos que este negocio NO tiene. Por defecto los tiene todos. */
+    modulosApagados?: ClaveModulo[];
   } = {},
 ) {
   const rol = opts.rol ?? 'PELUQUERO';
+  const modulosApagados = opts.modulosApagados ?? [];
   const svc = {
     mia: vi.fn().mockReturnValue(of(PRODUCCION)),
     dePeluquero: vi.fn().mockReturnValue(of(PRODUCCION)),
@@ -52,6 +61,7 @@ function setup(
     imports: [ProduccionPagina],
     providers: [
       { provide: ProduccionService, useValue: svc },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of(PELUQUEROS)) } },
       {
         provide: AuthService,
@@ -164,5 +174,32 @@ describe('ProduccionPagina', () => {
     expect(c.mes('2026-08')).toBe('agosto 2026');
     // Una etiqueta que no sea un mes se deja como está en vez de reventar.
     expect(c.mes('raro')).toBe('raro');
+  });
+
+  // ---- Los módulos del negocio ----
+
+  it('sin comisiones no se pinta la comisión en ningún sitio', () => {
+    // El backend la manda como null (que no es cero) y la columna entera desaparece,
+    // también para el ADMIN: eso es lo que separa un módulo de un permiso.
+    const { fixture } = setup({ modulosApagados: ['COMISIONES'] });
+
+    expect(fixture.nativeElement.textContent).not.toContain('Comisión');
+  });
+
+  it('sin pagos no se pinta «realizado sin cobrar»', () => {
+    // Donde no se registran cobros no hay nada «sin cobrar»: esas citas ya cuentan arriba.
+    const { fixture } = setup({
+      modulosApagados: ['PAGOS'],
+      svc: { mia: vi.fn().mockReturnValue(of({ ...PRODUCCION, exigeCobro: false })) },
+    });
+
+    expect(fixture.nativeElement.textContent).not.toContain('Realizado sin cobrar');
+    expect(fixture.nativeElement.textContent).toContain('no registra cobros');
+  });
+
+  it('con pagos encendidos la cabecera sigue diciendo «realizados y cobrados»', () => {
+    const { fixture } = setup();
+    expect(fixture.nativeElement.textContent).toContain('realizados y cobrados');
+    expect(fixture.nativeElement.textContent).toContain('Realizado sin cobrar');
   });
 });

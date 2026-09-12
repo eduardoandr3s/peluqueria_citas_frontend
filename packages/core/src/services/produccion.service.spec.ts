@@ -15,6 +15,7 @@ const PRODUCCION: Produccion = {
   serviciosRealizados: 12,
   importeVendido: 300,
   comision: 60,
+  exigeCobro: true,
   serviciosSinCobrar: 1,
   importeSinCobrar: 30,
   porServicio: [{ etiqueta: 'Corte', servicios: 10, importe: 150, comision: 30 }],

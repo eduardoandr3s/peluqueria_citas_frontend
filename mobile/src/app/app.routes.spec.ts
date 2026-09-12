@@ -149,3 +149,24 @@ describe('ruta pública del asistente', () => {
     expect(posicionAsistente).toBeLessThan(posicionComodin);
   });
 });
+
+/**
+ * La pantalla de pago es la unica ruta que un modulo apagado hace desaparecer entera: si
+ * este negocio no cobra por la app, ahi no hay nada que hacer. Ocultar el boton de «Pagar»
+ * no basta, porque la URL se puede escribir a mano o llegar por un enlace viejo.
+ */
+describe('ruta de pago', () => {
+  const pago = routes.find((r) => r.path === 'pago/:citaId');
+
+  it('existe y esta cerrada por un guard', () => {
+    expect(pago).toBeDefined();
+    expect(pago?.canActivate).toHaveLength(1);
+  });
+
+  it('esta declarada antes del comodin, o nunca se alcanzaria', () => {
+    const posicionPago = routes.findIndex((r) => r.path === 'pago/:citaId');
+    const posicionComodin = routes.findIndex((r) => r.path === '**');
+    expect(posicionPago).toBeGreaterThanOrEqual(0);
+    expect(posicionPago).toBeLessThan(posicionComodin);
+  });
+});
