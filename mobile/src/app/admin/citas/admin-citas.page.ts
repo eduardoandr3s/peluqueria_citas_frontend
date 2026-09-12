@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import {
   IonHeader,
   IonToolbar,
@@ -32,7 +33,7 @@ import {
   ToastController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { addOutline, ellipsisVerticalOutline } from 'ionicons/icons';
+import { addOutline, ellipsisVerticalOutline, peopleOutline } from 'ionicons/icons';
 import { forkJoin, of } from 'rxjs';
 import {
   AuthService,
@@ -83,6 +84,7 @@ export class AdminCitasPage {
   private readonly actionSheet = inject(ActionSheetController);
   private readonly alertCtrl = inject(AlertController);
   private readonly toast = inject(ToastController);
+  private readonly router = inject(Router);
 
   /**
    * Un PELUQUERO usa esta misma pantalla con su agenda (el backend ya le devuelve solo sus
@@ -219,7 +221,7 @@ export class AdminCitasPage {
   });
 
   constructor() {
-    addIcons({ addOutline, ellipsisVerticalOutline });
+    addIcons({ addOutline, ellipsisVerticalOutline, peopleOutline });
   }
 
   ionViewWillEnter(): void {
@@ -519,6 +521,16 @@ export class AdminCitasPage {
         this.notificar(mensaje ?? 'No se pudo cerrar la cita.', 'danger');
       },
     });
+  }
+
+  /**
+   * El equipo, para mirar como se ve un CV publico desde el propio movil.
+   *
+   * Va a `/equipo`, la ruta de fuera de `/tabs`: la de dentro la rebota el clientGuard, que
+   * manda al personal a su area, asi que desde aqui seria un viaje de ida y vuelta.
+   */
+  verEquipo(): void {
+    this.router.navigate(['/equipo']);
   }
 
   /** Una cita ya cobrada o reembolsada no se vuelve a cobrar; el backend tambien lo corta. */

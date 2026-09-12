@@ -22,6 +22,8 @@ function setup(
   listarPublicos = vi.fn().mockReturnValue(of([...EQUIPO])),
   queryParams: Record<string, string> = {},
   conSesion = true,
+  /** El personal del negocio entra aqui desde su area de trabajo, a mirar. */
+  esStaff = false,
 ) {
   // Router de verdad y no un doble: el `returnUrl` se monta con `createUrlTree`, asi que un
   // doble con solo `navigate` no comprobaria la URL que de verdad se genera.
@@ -29,7 +31,7 @@ function setup(
     providers: [
       provideRouter([]),
       { provide: PeluqueroService, useValue: { listarPublicos } },
-      { provide: AuthService, useValue: { isAuthenticated: () => conSesion } },
+      { provide: AuthService, useValue: { isAuthenticated: () => conSesion, isStaff: () => esStaff } },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -189,6 +191,27 @@ describe('EquipoPage', () => {
 
     expect(c.volverA()).toBe('/tabs/agendar');
     expect(c.textoVolver()).toBe('Agendar');
+  });
+
+  it('el personal vuelve a su area, no a agendar', () => {
+    // Agendar vive en /tabs y el clientGuard rebota ahi al personal: mandarlos seria un
+    // viaje de ida y vuelta.
+    const { c } = setup(undefined, {}, true, true);
+
+    expect(c.volverA()).toBe('/admin');
+    expect(c.textoVolver()).toBe('Inicio');
+  });
+
+  it('al personal no se le ofrece pedir cita: esta pantalla es su escaparate', () => {
+    const { c } = setup(undefined, {}, true, true);
+
+    expect(c.puedeAgendar()).toBe(false);
+  });
+
+  it('a un cliente si, que es para lo que esta', () => {
+    const { c } = setup();
+
+    expect(c.puedeAgendar()).toBe(true);
   });
 
   it('el equipo se carga igual sin cuenta: el endpoint no pide token', () => {

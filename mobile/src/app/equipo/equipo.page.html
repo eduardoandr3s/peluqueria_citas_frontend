@@ -69,13 +69,15 @@
             <p class="equipo-presentacion">{{ p.presentacion }}</p>
           }
 
-          <ion-button expand="block" fill="outline" size="small" (click)="agendarCon(p)">
-            @if (conSesion()) {
-              Pedir cita con {{ p.nombre }}
-            } @else {
-              Entrar y pedir cita con {{ p.nombre }}
-            }
-          </ion-button>
+          @if (puedeAgendar()) {
+            <ion-button expand="block" fill="outline" size="small" (click)="agendarCon(p)">
+              @if (conSesion()) {
+                Pedir cita con {{ p.nombre }}
+              } @else {
+                Entrar y pedir cita con {{ p.nombre }}
+              }
+            </ion-button>
+          }
         </article>
       }
     </div>

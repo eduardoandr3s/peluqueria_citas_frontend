@@ -21,7 +21,7 @@ import {
   IonIcon,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { imagesOutline } from 'ionicons/icons';
+import { imagesOutline, peopleOutline } from 'ionicons/icons';
 import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
 
 @Component({
@@ -45,7 +45,7 @@ export class ServiciosPage implements OnInit {
   readonly busqueda = signal('');
 
   constructor() {
-    addIcons({ imagesOutline });
+    addIcons({ imagesOutline, peopleOutline });
   }
 
   /**
@@ -102,6 +102,15 @@ export class ServiciosPage implements OnInit {
 
   verGaleria(): void {
     this.router.navigate(['/tabs/galeria']);
+  }
+
+  /**
+   * El equipo, con el CV de cada profesional. Entra por la cabecera y no solo desde
+   * agendar: es escaparate, igual que la galeria, y ahi dentro solo se llegaba despues de
+   * elegir un servicio y pulsar «Reservar», que es tarde para lo que sirve.
+   */
+  verEquipo(): void {
+    this.router.navigate(['/tabs/equipo']);
   }
 
   agendar(servicio: Servicio): void {

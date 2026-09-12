@@ -59,11 +59,31 @@ export class EquipoPage implements OnInit {
   readonly conSesion = computed(() => this.auth.isAuthenticated());
 
   /**
-   * A donde vuelve la flecha de la cabecera. Sin sesion NO puede ser agendar: esa ruta esta
-   * bajo los guards y el visitante acabaria en el login sin entender por que.
+   * El personal del negocio tambien entra aqui, desde su area de trabajo, a mirar como
+   * queda un CV. Para ellos esta pantalla es solo lectura: agendar vive en `/tabs`, que el
+   * clientGuard les rebota, asi que ofrecerles pedir cita seria mandarlos a un viaje de ida
+   * y vuelta.
    */
-  readonly volverA = computed(() => (this.conSesion() ? '/tabs/agendar' : '/auth/login'));
-  readonly textoVolver = computed(() => (this.conSesion() ? 'Agendar' : 'Entrar'));
+  readonly esStaff = computed(() => this.auth.isStaff());
+  readonly puedeAgendar = computed(() => !this.esStaff());
+
+  /**
+   * A donde vuelve la flecha de la cabecera: cada uno a su sitio. Sin sesion NO puede ser
+   * agendar, que esta bajo los guards y el visitante acabaria en el login sin entender por
+   * que; y al personal hay que devolverlo a su area por lo mismo.
+   */
+  readonly volverA = computed(() => {
+    if (!this.conSesion()) {
+      return '/auth/login';
+    }
+    return this.esStaff() ? '/admin' : '/tabs/agendar';
+  });
+  readonly textoVolver = computed(() => {
+    if (!this.conSesion()) {
+      return 'Entrar';
+    }
+    return this.esStaff() ? 'Inicio' : 'Agendar';
+  });
 
   /**
    * Servicio que se estaba eligiendo al venir de agendar, si venia de ahi. Se arrastra de

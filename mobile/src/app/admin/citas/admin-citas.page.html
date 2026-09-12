@@ -1,6 +1,16 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>{{ esAdmin() ? 'Citas' : 'Mi agenda' }}</ion-title>
+    <!--
+      El equipo tambien desde el area de trabajo: se entra a la ruta publica (/equipo, fuera
+      de /tabs) porque el area de cliente la rebota el clientGuard. Es el mismo escaparate,
+      en solo lectura, y es como se comprueba desde el movil que un CV quedo bien.
+    -->
+    <ion-buttons slot="end">
+      <ion-button (click)="verEquipo()" aria-label="Ver el equipo">
+        <ion-icon slot="icon-only" name="people-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
   <ion-toolbar>
     <ion-segment
