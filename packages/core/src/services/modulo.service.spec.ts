@@ -89,6 +89,35 @@ describe('ModuloService', () => {
     expect(pagos()).toBe(false);
   });
 
+  // ---- Volver a preguntar al volver a primer plano ----
+
+  /** Simula que la app o la pestaña se va a segundo plano y vuelve. */
+  function volverAPrimerPlano(estado: DocumentVisibilityState = 'visible') {
+    Object.defineProperty(document, 'visibilityState', { value: estado, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  it('al volver a primer plano vuelve a preguntar', async () => {
+    // En el móvil la app no se cierra, se queda en segundo plano: sin esto, un módulo
+    // apagado desde el panel no llegaba al teléfono hasta que alguien mataba la app. Pasó
+    // de verdad.
+    const promesa = service.cargar();
+    http.expectOne(`${API}/modulos/activos`).flush({ modulos: [] });
+    await promesa;
+    expect(service.estaActivo('PAGOS')).toBe(false);
+
+    volverAPrimerPlano();
+
+    http.expectOne(`${API}/modulos/activos`).flush({ modulos: ['PAGOS'] });
+    expect(service.estaActivo('PAGOS')).toBe(true);
+  });
+
+  it('irse a segundo plano no pregunta nada', () => {
+    volverAPrimerPlano('hidden');
+
+    http.expectNone(`${API}/modulos/activos`);
+  });
+
   it('guardar actualiza los activos con lo EFECTIVO de la respuesta', () => {
     // No con lo que se marcó: un hijo encendido bajo un padre apagado sigue sin aplicar, y
     // un padre sin ningún hijo encendido tampoco.

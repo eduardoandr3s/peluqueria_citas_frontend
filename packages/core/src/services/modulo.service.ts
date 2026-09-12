@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { API_URL } from '../api.config';
 import { CLAVES_MODULO, CambioModulo, ClaveModulo, Modulo, ModulosActivos } from '../models/modulo.model';
@@ -35,6 +35,27 @@ export class ModuloService {
 
   /** Claves encendidas en este negocio. */
   readonly activos = this._activos.asReadonly();
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() {
+    // Preguntar solo al arrancar no basta: en el móvil la app **no se cierra**, se queda en
+    // segundo plano, así que ese arranque puede ser de hace semanas y un módulo apagado
+    // desde el panel no llegaría nunca. En el panel pasa lo mismo con una pestaña abierta
+    // desde ayer. Se vuelve a preguntar cada vez que la página vuelve a primer plano.
+    //
+    // Con `visibilitychange` y no con `@capacitor/app`: hace lo mismo dentro del WebView,
+    // vale igual para el panel, y no añade una dependencia nativa por un evento que ya
+    // existe. Y vive aquí, y no en el componente raíz de cada app, para no tener dos copias
+    // que un día divergirían.
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') {
+        void this.cargar();
+      }
+    };
+    document.addEventListener('visibilitychange', alVolver);
+    this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', alVolver));
+  }
 
   /**
    * Carga inicial, pensada para el arranque de la app: se espera antes de pintar nada para que
