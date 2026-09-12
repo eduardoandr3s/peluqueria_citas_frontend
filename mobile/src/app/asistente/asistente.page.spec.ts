@@ -1,6 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { AsistenteRespuesta, AsistenteService, MensajeAsistente } from '@peluqueria/core';
+import { ActivatedRoute, provideRouter } from '@angular/router';
+import {
+  AsistenteRespuesta,
+  AsistenteService,
+  AuthService,
+  MensajeAsistente,
+} from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { AsistentePage } from './asistente.page';
 
@@ -10,10 +16,40 @@ const RESPUESTA: AsistenteRespuesta = {
   tokensSalida: 40,
 };
 
-function setup(preguntar = vi.fn().mockReturnValue(of(RESPUESTA))) {
-  TestBed.configureTestingModule({
-    providers: [{ provide: AsistenteService, useValue: { preguntar } }],
-  });
+type Sesion = null | 'cliente' | 'staff';
+
+/**
+ * Por defecto, el caso que se rompio: la ruta publica `/asistente`, fuera de `/tabs` y sin
+ * sesion, que es como se llega desde el enlace del login.
+ */
+function providers(
+  preguntar = vi.fn().mockReturnValue(of(RESPUESTA)),
+  dentroDeTabs = false,
+  sesion: Sesion = null,
+) {
+  return [
+    provideRouter([]),
+    { provide: AsistenteService, useValue: { preguntar } },
+    {
+      provide: ActivatedRoute,
+      useValue: { parent: { routeConfig: dentroDeTabs ? { path: 'tabs' } : null } },
+    },
+    {
+      provide: AuthService,
+      useValue: {
+        isAuthenticated: () => sesion !== null,
+        isStaff: () => sesion === 'staff',
+      },
+    },
+  ];
+}
+
+function setup(
+  preguntar = vi.fn().mockReturnValue(of(RESPUESTA)),
+  dentroDeTabs = false,
+  sesion: Sesion = null,
+) {
+  TestBed.configureTestingModule({ providers: providers(preguntar, dentroDeTabs, sesion) });
   const c = TestBed.runInInjectionContext(() => new AsistentePage()) as any;
   return { c, preguntar };
 }
@@ -170,5 +206,45 @@ describe('AsistentePage', () => {
     c.enviar();
 
     expect(c.error()).toBe('');
+  });
+});
+
+/**
+ * Entrar al asistente sin cuenta y no poder salir era un callejon sin salida: la pantalla
+ * vive fuera de `/tabs`, asi que no hay barra de pestanas, y envuelta en Capacitor tampoco
+ * hay boton «atras» del navegador. Habia que matar la app.
+ *
+ * La flecha se comprueba **sobre la plantilla** porque la flecha *es* el arreglo: borrarla
+ * no rompe el compilador ni ningun otro test, y el callejon volveria tal cual.
+ */
+describe('salida de la pantalla', () => {
+  function render(dentroDeTabs = false, sesion: Sesion = null) {
+    TestBed.configureTestingModule({ providers: providers(undefined, dentroDeTabs, sesion) });
+    const fixture = TestBed.createComponent(AsistentePage);
+    fixture.detectChanges();
+    return fixture.nativeElement.querySelector('ion-back-button');
+  }
+
+  it('sin cuenta hay flecha y lleva al login', () => {
+    const flecha = render();
+
+    expect(flecha).not.toBeNull();
+    expect(flecha.defaultHref).toBe('/auth/login');
+    expect(flecha.text).toBe('Entrar');
+  });
+
+  it('un cliente con sesion vuelve a su area, no al login', () => {
+    // Abrir `/asistente` por enlace directo teniendo sesion: echarlo al login seria pedirle
+    // que vuelva a entrar cuando ya esta dentro.
+    expect(render(false, 'cliente').defaultHref).toBe('/tabs');
+  });
+
+  it('el personal del negocio vuelve a /admin, que es donde no le rebota el guard', () => {
+    // `/tabs` tiene `clientGuard`: mandar ahi a un peluquero seria un rebote seguro.
+    expect(render(false, 'staff').defaultHref).toBe('/admin');
+  });
+
+  it('dentro de las pestanas no se pinta flecha: la salida ya es la barra de abajo', () => {
+    expect(render(true, 'cliente')).toBeNull();
   });
 });

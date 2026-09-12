@@ -1,5 +1,10 @@
 <ion-header>
   <ion-toolbar>
+    @if (fueraDeTabs) {
+      <ion-buttons slot="start">
+        <ion-back-button [defaultHref]="volverA()" [text]="textoVolver()"></ion-back-button>
+      </ion-buttons>
+    }
     <ion-title>Asistente</ion-title>
   </ion-toolbar>
 </ion-header>

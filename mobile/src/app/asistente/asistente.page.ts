@@ -1,12 +1,15 @@
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import {
   IonHeader,
   IonToolbar,
   IonTitle,
   IonContent,
   IonFooter,
+  IonButtons,
+  IonBackButton,
   IonItem,
   IonInput,
   IonButton,
@@ -18,7 +21,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { sendOutline, sparklesOutline } from 'ionicons/icons';
-import { AsistenteService, MensajeAsistente } from '@peluqueria/core';
+import { AsistenteService, AuthService, MensajeAsistente } from '@peluqueria/core';
 
 /**
  * Chat con el asistente del salon. Responde sobre servicios, precios, horario y huecos
@@ -36,6 +39,7 @@ import { AsistenteService, MensajeAsistente } from '@peluqueria/core';
   imports: [
     FormsModule,
     IonHeader, IonToolbar, IonTitle, IonContent, IonFooter,
+    IonButtons, IonBackButton,
     IonItem, IonInput, IonButton, IonIcon, IonSpinner, IonNote,
     IonChip, IonLabel,
   ],
@@ -45,7 +49,20 @@ export class AsistentePage {
   static readonly MAX_CARACTERES = 500;
 
   private readonly asistenteService = inject(AsistenteService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
   private readonly contenido = viewChild<IonContent>('contenido');
+
+  /**
+   * Esta pantalla vive en dos rutas: `/tabs/asistente`, que es una pestaña, y `/asistente`,
+   * publica y fuera de `/tabs` para quien todavia no tiene cuenta.
+   *
+   * Dentro de las pestanas la salida ya es la barra de abajo y una flecha sobraria. **Fuera
+   * no hay ni barra ni flecha**, y envuelta en Capacitor tampoco hay boton «atras» del
+   * navegador: sin esto se entra al asistente sin cuenta y hay que matar la app. Se mira la
+   * ruta padre y no la sesion porque lo que decide es donde esta pintada la pantalla.
+   */
+  readonly fueraDeTabs = this.route.parent?.routeConfig?.path !== 'tabs';
 
   readonly mensajes = signal<MensajeAsistente[]>([]);
   readonly borrador = signal('');
@@ -62,6 +79,22 @@ export class AsistentePage {
   ];
 
   readonly conversacionVacia = computed(() => this.mensajes().length === 0);
+
+  /**
+   * A donde lleva la flecha, con la misma regla que `sessionRedirectGuard`: cada uno a su
+   * sitio. No puede apuntar siempre a `/tabs` porque esa area tiene guards y al personal del
+   * negocio lo rebotaria, ni siempre al login porque echaria a quien si tiene sesion.
+   *
+   * `defaultHref` funciona tambien sin historial, que es el caso de abrir por enlace directo.
+   */
+  readonly volverA = computed(() => {
+    if (!this.auth.isAuthenticated()) {
+      return '/auth/login';
+    }
+    return this.auth.isStaff() ? '/admin' : '/tabs';
+  });
+
+  readonly textoVolver = computed(() => (this.auth.isAuthenticated() ? 'Inicio' : 'Entrar'));
 
   readonly puedeEnviar = computed(() => {
     const texto = this.borrador().trim();
