@@ -1,6 +1,14 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { CitaService, PeluqueroService, Servicio, ServicioService } from '@peluqueria/core';
+import {
+  CitaService,
+  ClaveModulo,
+  ModuloService,
+  PeluqueroService,
+  Servicio,
+  ServicioService,
+} from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { AgendarPage } from './agendar.page';
 
@@ -8,11 +16,25 @@ const S1: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30,
 const S2: Servicio = { idServicio: 2, nombre: 'Tinte', precio: 40, duracion: 90, activo: true };
 const INACTIVO: Servicio = { idServicio: 9, nombre: 'Viejo', precio: 5, duracion: 15, activo: false };
 
+
+/**
+ * Todos los modulos encendidos, que es como nace un negocio. Los tests que apagan alguno lo
+ * dicen pasandolo aqui.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function setup(opts: {
   servicioIdQuery?: string | null;
   peluqueroIdQuery?: string | null;
   cita?: Partial<Record<keyof CitaService, unknown>>;
   listar?: ReturnType<typeof vi.fn>;
+  /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
+  modulosApagados?: ClaveModulo[];
 } = {}) {
   const citaSvc = {
     disponibilidad: vi.fn().mockReturnValue(of(['09:00', '09:30'])),
@@ -24,6 +46,7 @@ function setup(opts: {
     providers: [
       provideRouter([]),
       { provide: CitaService, useValue: citaSvc },
+      { provide: ModuloService, useValue: dobleModulos(opts.modulosApagados) },
       { provide: ServicioService, useValue: { listar: opts.listar ?? vi.fn().mockReturnValue(of([S1, S2, INACTIVO])) } },
       { provide: PeluqueroService, useValue: { listar: vi.fn().mockReturnValue(of([])) } },
       {
@@ -192,5 +215,14 @@ describe('AgendarPage', () => {
     c.verEquipo();
 
     expect(navigate).toHaveBeenCalledWith(['/tabs/equipo'], { queryParams: {} });
+  });
+
+  it('sin el modulo del equipo no se ofrece verlo antes de elegir', () => {
+    // El selector de peluquero sigue: lo que se apaga es presentar a la gente, no la agenda.
+    expect(setup({ modulosApagados: ['EQUIPO_CV'] }).c.conEquipo()).toBe(false);
+  });
+
+  it('con el modulo encendido si', () => {
+    expect(setup().c.conEquipo()).toBe(true);
   });
 });

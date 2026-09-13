@@ -46,6 +46,7 @@ export const routes: Routes = [
       },
       {
         path: 'produccion',
+        canActivate: [moduloGuard('PRODUCCION')],
         loadComponent: () =>
           import('./admin/produccion/produccion.page').then((m) => m.ProduccionPage),
       },
@@ -79,10 +80,12 @@ export const routes: Routes = [
       },
       {
         path: 'galeria',
+        canActivate: [moduloGuard('GALERIA')],
         loadComponent: () => import('./galeria/galeria.page').then((m) => m.GaleriaPage),
       },
       {
         path: 'equipo',
+        canActivate: [moduloGuard('EQUIPO_CV')],
         loadComponent: () => import('./equipo/equipo.page').then((m) => m.EquipoPage),
       },
       {
@@ -125,6 +128,7 @@ export const routes: Routes = [
   // flujo de agendar le interesa no perder la barra de pestanas.
   {
     path: 'equipo',
+    canActivate: [moduloGuard('EQUIPO_CV')],
     loadComponent: () => import('./equipo/equipo.page').then((m) => m.EquipoPage),
   },
   {

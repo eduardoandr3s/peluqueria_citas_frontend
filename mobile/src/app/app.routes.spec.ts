@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, Routes, provideRouter } from '@angular/router';
 import { AuthService } from '@peluqueria/core';
 import { routes } from './app.routes';
+import { clientGuard, mobileAuthGuard } from './guards/auth.guard';
 
 @Component({ template: '' })
 class DestinoStub {}
@@ -101,12 +102,18 @@ describe('el equipo', () => {
     expect(hijas.some((r) => r.path === 'equipo')).toBe(true);
   });
 
-  it('/equipo existe también fuera de /tabs y sin guards', () => {
+  it('/equipo existe también fuera de /tabs y no exige sesión', () => {
     // Su endpoint (GET /api/peluqueros/publicos) es público a propósito; si esta ruta cayera
-    // dentro de los guards, el CV solo lo vería quien ya está registrado.
+    // bajo los guards de sesión, el CV solo lo vería quien ya está registrado.
+    //
+    // Lleva un guard, y es el del módulo, no el de la sesión: si el negocio no presenta a su
+    // equipo, esta pantalla no existe para nadie. Los dos guards de sesión (`mobileAuthGuard`
+    // y `clientGuard`) viven en `/tabs` y aquí no están.
     const equipo = routes.find((r) => r.path === 'equipo');
     expect(equipo).toBeDefined();
-    expect(equipo?.canActivate).toBeUndefined();
+    expect(equipo?.canActivate).toHaveLength(1);
+    expect(equipo?.canActivate?.[0]).not.toBe(mobileAuthGuard);
+    expect(equipo?.canActivate?.[0]).not.toBe(clientGuard);
   });
 
   it('la pública está declarada antes del comodín, o nunca se alcanzaría', () => {

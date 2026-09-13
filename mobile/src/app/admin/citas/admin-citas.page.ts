@@ -120,6 +120,8 @@ export class AdminCitasPage {
   readonly conTransferencia = this.modulos.activo('PAGO_TRANSFERENCIA');
   /** Si hay cobros en absoluto: es lo que decide si «sin cobrar» significa algo. */
   readonly conPagos = this.modulos.activo('PAGOS');
+  /** El escaparate del equipo: si el negocio no presenta a nadie, no hay nada que mirar. */
+  readonly conEquipo = this.modulos.activo('EQUIPO_CV');
 
   readonly puedeCobrar = computed(
     () =>

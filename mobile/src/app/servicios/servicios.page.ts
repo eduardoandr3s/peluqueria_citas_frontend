@@ -22,7 +22,12 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { imagesOutline, peopleOutline } from 'ionicons/icons';
-import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
+import {
+  ModuloService,
+  Servicio,
+  ServicioService,
+  formatearEuros,
+} from '@peluqueria/core';
 
 @Component({
   selector: 'app-servicios',
@@ -39,6 +44,11 @@ import { ServicioService, Servicio, formatearEuros } from '@peluqueria/core';
 export class ServiciosPage implements OnInit {
   private readonly servicioService = inject(ServicioService);
   private readonly router = inject(Router);
+  private readonly modulos = inject(ModuloService);
+
+  /** Los dos escaparates del negocio. Apagados, sus iconos no estan y su ruta esta cerrada. */
+  readonly conGaleria = this.modulos.activo('GALERIA');
+  readonly conEquipo = this.modulos.activo('EQUIPO_CV');
 
   readonly servicios = signal<Servicio[]>([]);
   readonly loading = signal(true);

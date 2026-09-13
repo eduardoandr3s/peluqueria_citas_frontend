@@ -14,7 +14,7 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { fingerPrint } from 'ionicons/icons';
-import { AuthService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
+import { AuthService, ModuloService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
 import { BiometricService, UnlockResult } from '../../core/biometric.service';
 
 /** Por qué el arranque acabó en el login, en palabras para el usuario. */
@@ -38,6 +38,14 @@ export class LoginPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
   private readonly biometric = inject(BiometricService);
+  private readonly modulos = inject(ModuloService);
+
+  /**
+   * La salida al equipo solo existe si el negocio presenta a su gente. El enlace **es** el
+   * mecanismo —sin el, esa ruta no se alcanza desde ningun sitio—, asi que tambien es lo
+   * unico que hay que quitar cuando el modulo se apaga.
+   */
+  readonly conEquipo = this.modulos.activo('EQUIPO_CV');
 
   /**
    * A dónde volver después de entrar, si quien manda al login lo pide. Lo usan «El equipo»

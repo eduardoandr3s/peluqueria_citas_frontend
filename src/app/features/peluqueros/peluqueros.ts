@@ -209,18 +209,20 @@ interface Feedback {
               >
                 Ficha
               </button>
-              <button
-                type="button"
-                (click)="pestana.set('cv')"
-                class="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition"
-                [class]="
-                  pestana() === 'cv'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted hover:text-main'
-                "
-              >
-                CV público
-              </button>
+              @if (conCv()) {
+                <button
+                  type="button"
+                  (click)="pestana.set('cv')"
+                  class="-mb-px border-b-2 px-3 py-2 text-sm font-medium transition"
+                  [class]="
+                    pestana() === 'cv'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted hover:text-main'
+                  "
+                >
+                  CV público
+                </button>
+              }
             </div>
           }
 
@@ -458,6 +460,11 @@ export class Peluqueros implements OnInit {
    * guardar, que el backend responde 409.
    */
   protected readonly conComision = this.modulos.activo('COMISIONES');
+  /**
+   * Si el negocio publica fichas del equipo. Apagado, la pestaña del CV no existe: el
+   * backend ya manda el bloque a null, y ofrecer una pestaña vacía sería peor que no tenerla.
+   */
+  protected readonly conCv = this.modulos.activo('EQUIPO_CV');
   private readonly fb = inject(FormBuilder);
 
   // La ficha de gestión, no la lista pública: trae comisión, cuenta vinculada y también

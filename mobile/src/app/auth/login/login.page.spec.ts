@@ -1,11 +1,29 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { AuthService, rutaInternaSegura } from '@peluqueria/core';
+import {
+  AuthService,
+  ClaveModulo,
+  ModuloService,
+  rutaInternaSegura,
+} from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { BiometricService, UnlockResult } from '../../core/biometric.service';
 import { LoginPage } from './login.page';
 
 /** Doble del servicio de biometría: por defecto, un móvil sin huella enrolada. */
+
+/**
+ * Todos los modulos encendidos, que es como nace un negocio. Los tests que apagan alguno lo
+ * dicen pasandolo aqui.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function dobleBiometrico(overrides: Record<string, unknown> = {}) {
   return {
     isEnabled: vi.fn(() => false),
@@ -20,6 +38,8 @@ function setup(
   auth: Partial<Record<keyof AuthService, unknown>>,
   biometric: Record<string, unknown> = {},
   returnUrl: string | null = null,
+  /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
+  modulosApagados: ClaveModulo[] = [],
 ) {
   const bio = dobleBiometrico(biometric);
   // Los tests de aqui son o un ADMIN o un cliente, asi que `isStaff` se deriva de `isAdmin`
@@ -33,6 +53,7 @@ function setup(
       provideRouter([]),
       { provide: AuthService, useValue: dobleAuth },
       { provide: BiometricService, useValue: bio },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -186,12 +207,13 @@ describe('LoginPage · botón de huella', () => {
    * compilador ni ningun otro test.
    */
   describe('salidas sin cuenta', () => {
-    function render() {
+    function render(apagados: ClaveModulo[] = []) {
       TestBed.configureTestingModule({
         providers: [
           provideRouter([]),
           { provide: AuthService, useValue: { login: vi.fn(), isAdmin: vi.fn(() => false) } },
           { provide: BiometricService, useValue: dobleBiometrico() },
+          { provide: ModuloService, useValue: dobleModulos(apagados) },
         ],
       });
       const fixture = TestBed.createComponent(LoginPage);
@@ -205,6 +227,15 @@ describe('LoginPage · botón de huella', () => {
       const hrefs = render();
 
       expect(hrefs).toContain('/equipo');
+      expect(hrefs).toContain('/asistente');
+    });
+
+    it('sin el modulo del equipo se cae SOLO ese enlace', () => {
+      // El enlace ES el mecanismo: es el unico camino a /equipo para quien no tiene cuenta.
+      // Por eso es tambien lo unico que hay que quitar cuando el negocio no presenta a nadie.
+      const hrefs = render(['EQUIPO_CV']);
+
+      expect(hrefs).not.toContain('/equipo');
       expect(hrefs).toContain('/asistente');
     });
 

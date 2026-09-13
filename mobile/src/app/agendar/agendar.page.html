@@ -52,11 +52,13 @@
 
     <!-- Quien es quien: el CV publico de cada profesional, para elegir con criterio y no
          por un nombre en un desplegable. Se vuelve de ahi con la persona ya elegida. -->
-    <ion-item lines="none">
-      <ion-button fill="clear" size="small" (click)="verEquipo()">
-        Ver el equipo y elegir
-      </ion-button>
-    </ion-item>
+    @if (conEquipo()) {
+      <ion-item lines="none">
+        <ion-button fill="clear" size="small" (click)="verEquipo()">
+          Ver el equipo y elegir
+        </ion-button>
+      </ion-item>
+    }
 
     <!-- Selector de fecha: los domingos y festivos salen deshabilitados -->
     <ion-item lines="none">

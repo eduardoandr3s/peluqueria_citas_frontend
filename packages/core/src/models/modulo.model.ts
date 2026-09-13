@@ -4,7 +4,11 @@ export type ClaveModulo =
   | 'PAGOS'
   | 'PAGO_TARJETA'
   | 'PAGO_EFECTIVO'
-  | 'PAGO_TRANSFERENCIA';
+  | 'PAGO_TRANSFERENCIA'
+  | 'GALERIA'
+  | 'EQUIPO_CV'
+  | 'PRODUCCION'
+  | 'RECORDATORIOS_EMAIL';
 
 /**
  * Todas las claves, en el orden en que se presentan.
@@ -19,6 +23,10 @@ export const CLAVES_MODULO: readonly ClaveModulo[] = [
   'PAGO_TARJETA',
   'PAGO_EFECTIVO',
   'PAGO_TRANSFERENCIA',
+  'GALERIA',
+  'EQUIPO_CV',
+  'PRODUCCION',
+  'RECORDATORIOS_EMAIL',
 ];
 
 /**

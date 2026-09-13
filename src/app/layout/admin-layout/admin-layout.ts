@@ -1,6 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AuthService, ClavePermiso, PermisoService, UsuarioService } from '@peluqueria/core';
+import {
+  AuthService,
+  ClaveModulo,
+  ClavePermiso,
+  ModuloService,
+  PermisoService,
+  UsuarioService,
+} from '@peluqueria/core';
 
 interface NavItem {
   label: string;
@@ -18,6 +25,12 @@ interface NavItem {
    * permisos apagados no habría nada que hacer dentro.
    */
   requiereAlgunPermiso?: ClavePermiso[];
+  /**
+   * La entrada solo existe si el negocio tiene ese módulo. **Se comprueba también para un
+   * ADMIN**, al contrario que todo lo de arriba: un módulo apagado no es «tú no puedes»,
+   * es que aquí eso no existe. Es exactamente lo que separa un módulo de un permiso.
+   */
+  requiereModulo?: ClaveModulo;
 }
 
 @Component({
@@ -226,6 +239,7 @@ export class AdminLayout {
   protected readonly nombre = computed(() => this.auth.user()?.nombre ?? 'Administrador');
   protected readonly esAdmin = this.auth.isAdmin;
   private readonly permisos = inject(PermisoService);
+  private readonly modulos = inject(ModuloService);
   /** El logo lleva al inicio de cada rol: un peluquero no puede entrar al dashboard. */
   protected readonly rutaInicio = computed(() => (this.auth.isAdmin() ? '/dashboard' : '/citas'));
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
@@ -259,6 +273,7 @@ export class AdminLayout {
       label: 'Producción',
       labelPeluquero: 'Mi producción',
       path: '/produccion',
+      requiereModulo: 'PRODUCCION',
       // Gráfico de barras ascendente.
       icon: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
     },
@@ -289,6 +304,7 @@ export class AdminLayout {
         {
           label: 'Galería',
           path: '/galeria',
+          requiereModulo: 'GALERIA',
           requiereAlgunPermiso: [
             'GALERIA_SUBIR',
             'GALERIA_EDITAR_PROPIA',
@@ -335,6 +351,9 @@ export class AdminLayout {
     const esAdmin = this.auth.isAdmin();
     const mios = this.permisos.mios();
     const visible = (item: NavItem) => {
+      // El módulo va ANTES que el rol y alcanza al ADMIN: si el negocio no hace eso, la
+      // entrada no existe para nadie. Los permisos, en cambio, nunca le aplican a un admin.
+      if (item.requiereModulo && !this.modulos.estaActivo(item.requiereModulo)) return false;
       if (esAdmin) return true;
       if (item.soloAdmin) return false;
       return !item.requiereAlgunPermiso || item.requiereAlgunPermiso.some((c) => mios.includes(c));

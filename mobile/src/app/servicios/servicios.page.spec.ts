@@ -1,15 +1,41 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { Servicio, ServicioService } from '@peluqueria/core';
+import {
+  ClaveModulo,
+  ModuloService,
+  Servicio,
+  ServicioService,
+} from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { ServiciosPage } from './servicios.page';
 
 const ACTIVO: Servicio = { idServicio: 1, nombre: 'Corte', precio: 15, duracion: 30, activo: true };
 const INACTIVO: Servicio = { idServicio: 2, nombre: 'Viejo', precio: 10, duracion: 45, activo: false };
 
-function setup(listar = vi.fn().mockReturnValue(of([ACTIVO, INACTIVO]))) {
+
+/**
+ * Todos los modulos encendidos, que es como nace un negocio. Los tests que apagan alguno lo
+ * dicen pasandolo aqui.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
+function setup(
+  listar = vi.fn().mockReturnValue(of([ACTIVO, INACTIVO])),
+  /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
+  modulosApagados: ClaveModulo[] = [],
+) {
   TestBed.configureTestingModule({
-    providers: [provideRouter([]), { provide: ServicioService, useValue: { listar } }],
+    providers: [
+      provideRouter([]),
+      { provide: ServicioService, useValue: { listar } },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+    ],
   });
   const router = TestBed.inject(Router);
   const nav = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -116,5 +142,42 @@ describe('ServiciosPage', () => {
     // Al pulsar la X del searchbar el valor llega a null.
     c.onBuscar({ detail: { value: null } } as CustomEvent);
     expect(ids(c)).toEqual([1, 2, 3]);
+  });
+
+  /**
+   * Los dos iconos de la cabecera se comprueban SOBRE LA PLANTILLA porque son el unico
+   * camino a esas dos pantallas desde el area de cliente: borrarlos no rompe el compilador
+   * ni ningun otro test, y la galeria y el equipo se quedarian inalcanzables.
+   */
+  describe('escaparates de la cabecera', () => {
+    function etiquetas(modulosApagados: ClaveModulo[] = []) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([ACTIVO])) } },
+          { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+        ],
+      });
+      const fixture = TestBed.createComponent(ServiciosPage);
+      fixture.detectChanges();
+      // Por el icono y no por el aria-label: Ionic se lleva los aria-* al boton nativo de
+      // dentro y los quita del host, asi que ahi ya no estan.
+      return Array.from(fixture.nativeElement.querySelectorAll('ion-header ion-button ion-icon')).map(
+        (i) => (i as HTMLElement).getAttribute('name'),
+      );
+    }
+
+    it('con los dos modulos encendidos estan los dos iconos', () => {
+      expect(etiquetas()).toEqual(['people-outline', 'images-outline']);
+    });
+
+    it('sin galeria se cae su icono y el del equipo se queda', () => {
+      expect(etiquetas(['GALERIA'])).toEqual(['people-outline']);
+    });
+
+    it('sin el equipo se cae el suyo', () => {
+      expect(etiquetas(['EQUIPO_CV'])).toEqual(['images-outline']);
+    });
   });
 });

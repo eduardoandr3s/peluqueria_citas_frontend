@@ -5,10 +5,12 @@
       <ion-label>Citas</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="produccion" href="/admin/produccion">
-      <ion-icon name="bar-chart-outline"></ion-icon>
-      <ion-label>{{ esAdmin() ? 'Producción' : 'Mi producción' }}</ion-label>
-    </ion-tab-button>
+    @if (conProduccion()) {
+      <ion-tab-button tab="produccion" href="/admin/produccion">
+        <ion-icon name="bar-chart-outline"></ion-icon>
+        <ion-label>{{ esAdmin() ? 'Producción' : 'Mi producción' }}</ion-label>
+      </ion-tab-button>
+    }
 
     @if (esAdmin()) {
       <ion-tab-button tab="servicios" href="/admin/servicios">

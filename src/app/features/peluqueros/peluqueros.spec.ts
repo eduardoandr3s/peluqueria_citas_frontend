@@ -446,4 +446,14 @@ describe('Peluqueros', () => {
 
     expect(actualizar.mock.calls[0][1].orden).toBe(5);
   });
+
+  it('sin el módulo del equipo no hay pestaña de CV público', () => {
+    // El backend ya manda el bloque a null: una pestaña que abre en vacío es peor que no
+    // tenerla.
+    const { fixture, c } = setup({}, true, ['EQUIPO_CV']);
+    c.abrirEditar(PELUQUEROS[0]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).not.toContain('CV público');
+  });
 });

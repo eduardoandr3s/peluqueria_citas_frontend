@@ -14,7 +14,7 @@ import {
   peopleOutline,
   personOutline,
 } from 'ionicons/icons';
-import { AuthService } from '@peluqueria/core';
+import { AuthService, ModuloService } from '@peluqueria/core';
 
 @Component({
   selector: 'app-admin-tabs',
@@ -29,6 +29,12 @@ export class AdminTabsPage {
    * pestañas: sus rutas lo devolverían aquí, y una pestaña que rebota es peor que ninguna.
    */
   readonly esAdmin = this.auth.isAdmin;
+
+  /**
+   * Si el negocio lleva produccion. Apagado se cae la pestana, que ademas es la unica que
+   * un PELUQUERO tiene aparte de sus citas y su perfil.
+   */
+  readonly conProduccion = inject(ModuloService).activo('PRODUCCION');
 
   constructor() {
     addIcons({ barChartOutline, calendarOutline, cutOutline, peopleOutline, personOutline });

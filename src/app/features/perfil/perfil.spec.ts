@@ -1,7 +1,10 @@
+import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import {
   AuthService,
+  ClaveModulo,
+  ModuloService,
   PeluqueroCv,
   PeluqueroService,
   PermisoService,
@@ -34,11 +37,25 @@ const MI_CV: PeluqueroCv = {
   instagram: null,
 };
 
+
+/**
+ * Todos los módulos encendidos, que es como nace un negocio. Los tests que apagan alguno
+ * lo dicen pasándolo aquí.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
+
 function setup(
   svc: Partial<Record<keyof UsuarioService, unknown>> = {},
   opciones: {
     peluquero?: Partial<Record<keyof PeluqueroService, unknown>>;
     permisos?: string[];
+    /** Módulos que este negocio NO tiene. Por defecto los tiene todos. */
+    modulosApagados?: ClaveModulo[];
   } = {},
 ) {
   const base = { me: vi.fn().mockReturnValue(of({ ...YO })) };
@@ -58,6 +75,7 @@ function setup(
       { provide: UsuarioService, useValue: { ...base, ...svc } },
       { provide: AuthService, useValue: { setAvatarUrl } },
       { provide: PeluqueroService, useValue: peluquero },
+      { provide: ModuloService, useValue: dobleModulos(opciones.modulosApagados) },
       {
         provide: PermisoService,
         useValue: { puede: (clave: string) => () => (opciones.permisos ?? []).includes(clave) },
@@ -262,5 +280,15 @@ describe('Perfil', () => {
 
     expect(borrarFoto).toHaveBeenCalledWith(3);
     expect(setAvatarUrl).not.toHaveBeenCalled();
+  });
+
+  it('sin el módulo del equipo no se pide el CV ni se pinta el bloque', () => {
+    // El endpoint responde 409 con el módulo apagado: mejor no preguntar que tragarse un
+    // error para acabar escondiendo el bloque igual.
+    const miCv = vi.fn();
+    const { fixture } = setup({}, { peluquero: { miCv }, modulosApagados: ['EQUIPO_CV'] });
+
+    expect(miCv).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).not.toContain('Mi CV público');
   });
 });

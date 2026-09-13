@@ -6,12 +6,16 @@
       una sexta se aprieta en pantallas pequenas.
     -->
     <ion-buttons slot="end">
-      <ion-button (click)="verEquipo()" aria-label="Conoce al equipo">
-        <ion-icon slot="icon-only" name="people-outline"></ion-icon>
-      </ion-button>
-      <ion-button (click)="verGaleria()" aria-label="Ver nuestros trabajos">
-        <ion-icon slot="icon-only" name="images-outline"></ion-icon>
-      </ion-button>
+      @if (conEquipo()) {
+        <ion-button (click)="verEquipo()" aria-label="Conoce al equipo">
+          <ion-icon slot="icon-only" name="people-outline"></ion-icon>
+        </ion-button>
+      }
+      @if (conGaleria()) {
+        <ion-button (click)="verGaleria()" aria-label="Ver nuestros trabajos">
+          <ion-icon slot="icon-only" name="images-outline"></ion-icon>
+        </ion-button>
+      }
     </ion-buttons>
   </ion-toolbar>
   <!-- Sin catalogo cargado no hay nada que buscar, asi que la barra no aparece. -->

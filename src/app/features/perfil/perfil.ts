@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AuthService,
+  ModuloService,
   PeluqueroCv,
   PeluqueroCvUpdate,
   PeluqueroService,
@@ -188,6 +189,7 @@ export class Perfil implements OnInit {
   private readonly usuarioService = inject(UsuarioService);
   private readonly auth = inject(AuthService);
   private readonly peluqueroService = inject(PeluqueroService);
+  private readonly modulos = inject(ModuloService);
   private readonly permisos = inject(PermisoService);
 
   protected readonly usuario = signal<Usuario | null>(null);
@@ -222,6 +224,12 @@ export class Perfil implements OnInit {
    * entonces el bloque entero no se pinta.
    */
   private cargarCv(): void {
+    // Si el negocio no publica fichas del equipo, aquí no hay CV que rellenar y el endpoint
+    // responde 409: mejor no preguntar que tragarse un error.
+    if (!this.modulos.estaActivo('EQUIPO_CV')) {
+      this.cv.set(null);
+      return;
+    }
     this.peluqueroService.miCv().subscribe({
       next: (cv) => this.cv.set(cv),
       error: () => this.cv.set(null),

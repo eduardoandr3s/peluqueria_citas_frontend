@@ -1,9 +1,27 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { AuthService, PermisoService, UsuarioService } from '@peluqueria/core';
+import {
+  AuthService,
+  ClaveModulo,
+  ModuloService,
+  PermisoService,
+  UsuarioService,
+} from '@peluqueria/core';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminLayout } from './admin-layout';
+
+
+/**
+ * Todos los módulos encendidos, que es como nace un negocio. Los tests que apagan alguno
+ * lo dicen pasándolo aquí.
+ */
+function dobleModulos(apagados: ClaveModulo[] = []) {
+  return {
+    activo: (clave: ClaveModulo) => signal(!apagados.includes(clave)),
+    estaActivo: (clave: ClaveModulo) => !apagados.includes(clave),
+  };
+}
 
 function setup(
   opts: {
@@ -11,8 +29,11 @@ function setup(
     meFalla?: boolean;
     rol?: 'ADMIN' | 'PELUQUERO';
     permisos?: string[];
+    /** Módulos que este negocio NO tiene. Por defecto los tiene todos. */
+    modulosApagados?: ClaveModulo[];
   } = {},
 ) {
+  const modulosApagados = opts.modulosApagados ?? [];
   const rol = opts.rol ?? 'ADMIN';
   // Señal real (no un vi.fn suelto) para poder comprobar que la cabecera reacciona
   // a la URL que publica el layout tras pedir /usuarios/me.
@@ -44,6 +65,7 @@ function setup(
         },
       },
       { provide: UsuarioService, useValue: { me } },
+      { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
       {
         // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aquí
         // no hay HttpClient.
@@ -206,5 +228,36 @@ describe('AdminLayout', () => {
 
     expect(fixture.nativeElement.querySelector('header img')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Ana Ruiz');
+  });
+
+  // ---- Los módulos del negocio ----
+
+  it('sin el módulo de producción, esa entrada no existe NI PARA UN ADMIN', () => {
+    // Es lo que separa un módulo de un permiso: un ADMIN ve todo el menú por rol, y aun así
+    // esta entrada desaparece, porque el negocio no hace eso.
+    const { fixture } = setup({ rol: 'ADMIN', modulosApagados: ['PRODUCCION'] });
+
+    expect(enlace(fixture, '/produccion')).toBeUndefined();
+    // Y el resto del menú sigue en pie: apagar uno no arrastra a los demás.
+    expect(enlace(fixture, '/citas')).toBeTruthy();
+  });
+
+  it('sin el módulo de galería, su entrada desaparece del grupo', () => {
+    const { fixture } = setup({ rol: 'ADMIN', modulosApagados: ['GALERIA'] });
+
+    boton(fixture, 'Configuración')!.click();
+    fixture.detectChanges();
+
+    expect(enlace(fixture, '/galeria')).toBeUndefined();
+    expect(enlace(fixture, '/bloqueos')).toBeTruthy();
+  });
+
+  it('con los módulos encendidos las dos entradas están', () => {
+    const { fixture } = setup({ rol: 'ADMIN' });
+
+    expect(enlace(fixture, '/produccion')).toBeTruthy();
+    boton(fixture, 'Configuración')!.click();
+    fixture.detectChanges();
+    expect(enlace(fixture, '/galeria')).toBeTruthy();
   });
 });

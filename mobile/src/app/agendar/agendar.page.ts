@@ -20,11 +20,12 @@ import {
 } from '@ionic/angular/standalone';
 import {
   CitaService,
-  ServicioService,
-  Servicio,
-  PeluqueroService,
-  Peluquero,
   DiaCerrado,
+  ModuloService,
+  Peluquero,
+  PeluqueroService,
+  Servicio,
+  ServicioService,
   hoyIso,
   sumarMeses,
 } from '@peluqueria/core';
@@ -43,6 +44,10 @@ import {
 export class AgendarPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly modulos = inject(ModuloService);
+
+  /** Si el negocio presenta a su equipo. Apagado, aqui solo se elige un nombre. */
+  readonly conEquipo = this.modulos.activo('EQUIPO_CV');
   private readonly citaService = inject(CitaService);
   private readonly servicioService = inject(ServicioService);
   private readonly peluqueroService = inject(PeluqueroService);

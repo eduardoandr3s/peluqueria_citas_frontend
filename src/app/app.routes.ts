@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard, staffGuard } from '@peluqueria/core';
+import { adminGuard, moduloGuard, staffGuard } from '@peluqueria/core';
 
 export const routes: Routes = [
   {
@@ -43,6 +43,7 @@ export const routes: Routes = [
       },
       {
         path: 'produccion',
+        canActivate: [moduloGuard('PRODUCCION')],
         loadComponent: () =>
           import('./features/produccion/produccion').then((m) => m.ProduccionPagina),
       },
@@ -67,8 +68,9 @@ export const routes: Routes = [
       {
         path: 'galeria',
         // La galería la comparte la plantilla: un peluquero entra a las suyas y lo que
-        // puede hacer dentro lo dicen sus permisos, no la ruta.
-        canActivate: [staffGuard],
+        // puede hacer dentro lo dicen sus permisos, no la ruta. Y si el negocio no tiene
+        // escaparate, la pantalla no existe para nadie: eso lo dice el módulo.
+        canActivate: [staffGuard, moduloGuard('GALERIA')],
         loadComponent: () => import('./features/galeria/galeria').then((m) => m.Galeria),
       },
       {

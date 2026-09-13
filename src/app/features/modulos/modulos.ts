@@ -16,6 +16,14 @@ const CONSECUENCIAS: Record<ClaveModulo, string> = {
   PAGO_TARJETA: 'Se cae el cobro online con Stripe. El cobro en el local sigue en pie.',
   PAGO_EFECTIVO: 'No se podrán registrar cobros en efectivo.',
   PAGO_TRANSFERENCIA: 'No se podrán registrar cobros por transferencia.',
+  GALERIA:
+    'Desaparecen la pantalla de galería, la entrada en Servicios de la app y el listado público. Las fotos que ya estén subidas se quedan y vuelven al encenderlo.',
+  EQUIPO_CV:
+    'Desaparecen «El equipo» de la app y el CV de cada ficha. El cliente seguirá pudiendo elegir con quién agendar, pero sin ver quién es quién.',
+  PRODUCCION:
+    'Desaparecen las pantallas de producción, la comparativa de la plantilla y sus endpoints. No se borra ningún dato.',
+  RECORDATORIOS_EMAIL:
+    'Deja de enviarse el aviso automático antes de la cita. Los correos de confirmación y de anulación siguen saliendo.',
 };
 
 @Component({
@@ -76,6 +84,19 @@ const CONSECUENCIAS: Record<ClaveModulo, string> = {
             </div>
           }
         </div>
+
+        <!--
+          El asistente no es un modulo y no debe serlo: se apaga por configuracion del
+          despliegue (clave de API y cuota), o sea coste de infraestructura y no una
+          decision de producto. Meterlo aqui pondria una factura dentro de una pantalla de
+          negocio. Se dice, porque si no la pregunta vuelve cada vez que alguien mira esta
+          lista y no lo encuentra.
+        -->
+        <p class="rounded-lg bg-elevated px-4 py-3 text-xs text-muted">
+          El <strong>asistente</strong> no está en esta lista a propósito: se enciende y se
+          apaga en la configuración del servidor, porque consume cuota de una API de pago.
+          No es una decisión de negocio como las de aquí.
+        </p>
 
         <div class="flex items-center gap-3">
           <button
