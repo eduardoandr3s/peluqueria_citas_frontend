@@ -1,6 +1,6 @@
 <ion-content class="ion-padding login-content">
   <div class="logo-area">
-    <img src="assets/logo.png" alt="Peluquería Lalo Segovia" class="logo-img" />
+    <img src="assets/logo.png" [alt]="nombreNegocio()" class="logo-img" />
   </div>
 
   <form [formGroup]="form" (ngSubmit)="login()">

@@ -5,6 +5,7 @@ import {
   AuthService,
   ClaveModulo,
   ModuloService,
+  NegocioService,
   rutaInternaSegura,
 } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
@@ -54,6 +55,9 @@ function setup(
       { provide: AuthService, useValue: dobleAuth },
       { provide: BiometricService, useValue: bio },
       { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+      // El logo lleva el nombre del negocio: sin doble, el servicio de verdad pediria
+      // /api/negocio al construirse y aqui no hay HttpClient.
+      { provide: NegocioService, useValue: { nombre: signal('Peluqueria de Prueba') } },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -214,6 +218,7 @@ describe('LoginPage · botón de huella', () => {
           { provide: AuthService, useValue: { login: vi.fn(), isAdmin: vi.fn(() => false) } },
           { provide: BiometricService, useValue: dobleBiometrico() },
           { provide: ModuloService, useValue: dobleModulos(apagados) },
+          { provide: NegocioService, useValue: { nombre: signal('Peluqueria de Prueba') } },
         ],
       });
       const fixture = TestBed.createComponent(LoginPage);

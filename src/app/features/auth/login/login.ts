@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { AuthService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
+import { AuthService, NegocioService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
 
 @Component({
   selector: 'app-login',
@@ -13,7 +13,7 @@ import { AuthService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
         <div class="mb-8 text-center">
           <img
             src="logo.png"
-            alt="Peluquería Lalo Segovia"
+            [alt]="nombreNegocio()"
             class="mx-auto mb-3 h-auto w-60 max-w-full object-contain"
           />
           <p class="text-sm text-muted">Panel de administración</p>
@@ -110,6 +110,8 @@ import { AuthService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
 export class Login {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  /** El nombre sale de la ficha del negocio: el logo es el mismo fichero en cada instalación. */
+  protected readonly nombreNegocio = inject(NegocioService).nombre;
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 

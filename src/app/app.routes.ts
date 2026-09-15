@@ -79,6 +79,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/modulos/modulos').then((m) => m.Modulos),
       },
       {
+        path: 'negocio',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/negocio/negocio').then((m) => m.Negocio),
+      },
+      {
         path: 'permisos',
         canActivate: [adminGuard],
         loadComponent: () =>

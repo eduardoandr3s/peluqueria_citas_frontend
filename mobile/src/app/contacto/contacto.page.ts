@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import {
   IonHeader,
   IonToolbar,
@@ -11,12 +11,15 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { callOutline, locationOutline, mailOutline } from 'ionicons/icons';
+import { NegocioService } from '@peluqueria/core';
 
 /**
- * Datos de contacto del salon. Van escritos aqui a proposito y no vienen del
- * backend: son fijos, no hay pantalla de administracion que los edite y no
- * justifican una peticion mas al arrancar. Si algun dia se configuran desde el
- * panel, este es el unico sitio que hay que cambiar.
+ * Datos de contacto del salón. **Vienen del backend**, no escritos aquí.
+ *
+ * Estuvieron escritos en esta clase hasta que existió la tabla `negocio`, y eso significaba
+ * que cambiar un teléfono era recompilar y reinstalar la APK. Ahora se editan desde el
+ * panel. Los campos que el negocio no tenga rellenos no se pintan: una fila «Teléfono»
+ * vacía es peor que no tener fila.
  */
 @Component({
   selector: 'app-contacto',
@@ -28,18 +31,27 @@ import { callOutline, locationOutline, mailOutline } from 'ionicons/icons';
   ],
 })
 export class ContactoPage {
-  readonly nombreSalon = 'Lalo Segovia · Peluquería';
-  readonly calle = 'Carrer de Colón, 42';
-  readonly ciudad = '46004 València, España';
-  readonly telefono = '+34 963 12 34 56';
-  readonly email = 'hola@lalosegovia.es';
+  private readonly negocio = inject(NegocioService);
+
+  readonly nombreSalon = this.negocio.nombre;
+  readonly calle = computed(() => this.negocio.ficha().direccion);
+  readonly ciudad = computed(() => this.negocio.ficha().localidad);
+  readonly telefono = computed(() => this.negocio.ficha().telefono);
+  readonly email = computed(() => this.negocio.ficha().email);
 
   /**
-   * El href de `tel:` no admite espacios: con ellos el marcador se abre vacio.
-   * Se deriva del numero visible para que no puedan quedar desincronizados.
+   * El href de `tel:` no admite espacios: con ellos el marcador se abre vacío. Se deriva del
+   * número visible para que no puedan quedar desincronizados.
    */
-  readonly telefonoEnlace = `tel:${this.telefono.replace(/\s/g, '')}`;
-  readonly emailEnlace = `mailto:${this.email}`;
+  readonly telefonoEnlace = computed(() => {
+    const numero = this.telefono();
+    return numero ? `tel:${numero.replace(/\s/g, '')}` : null;
+  });
+
+  readonly emailEnlace = computed(() => {
+    const correo = this.email();
+    return correo ? `mailto:${correo}` : null;
+  });
 
   constructor() {
     addIcons({ callOutline, locationOutline, mailOutline });

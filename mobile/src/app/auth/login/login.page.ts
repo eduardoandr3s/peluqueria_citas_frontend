@@ -14,7 +14,13 @@ import {
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { fingerPrint } from 'ionicons/icons';
-import { AuthService, ModuloService, esAreaAjena, rutaInternaSegura } from '@peluqueria/core';
+import {
+  AuthService,
+  ModuloService,
+  NegocioService,
+  esAreaAjena,
+  rutaInternaSegura,
+} from '@peluqueria/core';
 import { BiometricService, UnlockResult } from '../../core/biometric.service';
 
 /** Por qué el arranque acabó en el login, en palabras para el usuario. */
@@ -39,6 +45,8 @@ export class LoginPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly biometric = inject(BiometricService);
   private readonly modulos = inject(ModuloService);
+  /** El nombre del negocio, para el logo: el fichero es el mismo en cada instalación. */
+  protected readonly nombreNegocio = inject(NegocioService).nombre;
 
   /**
    * La salida al equipo solo existe si el negocio presenta a su gente. El enlace **es** el

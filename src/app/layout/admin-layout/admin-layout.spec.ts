@@ -4,6 +4,7 @@ import {
   AuthService,
   ClaveModulo,
   ModuloService,
+  NegocioService,
   PermisoService,
   UsuarioService,
 } from '@peluqueria/core';
@@ -66,6 +67,7 @@ function setup(
       },
       { provide: UsuarioService, useValue: { me } },
       { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+      { provide: NegocioService, useValue: { nombre: signal('Peluqueria de Prueba') } },
       {
         // Mockeado y no real: el de verdad pide /api/permisos/mios al construirse y aquí
         // no hay HttpClient.
@@ -93,10 +95,12 @@ function boton(fixture: ComponentFixture<AdminLayout>, texto: string): HTMLButto
 }
 
 describe('AdminLayout', () => {
+  // El logo se busca por su enlace y no por el `alt`: el alt lleva el nombre del negocio,
+  // que sale de la base de datos y es distinto en cada instalacion.
   it('el logo lleva al inicio', () => {
     const { fixture } = setup();
 
-    const logo = fixture.nativeElement.querySelector('img[alt*="Panel Admin"]') as HTMLImageElement;
+    const logo = fixture.nativeElement.querySelector('a[aria-label="Ir al inicio"] img') as HTMLImageElement;
     expect(logo.closest('a')?.getAttribute('href')).toBe('/dashboard');
   });
 
@@ -218,7 +222,7 @@ describe('AdminLayout', () => {
   it('el logo de un PELUQUERO lleva a su agenda y no al dashboard', () => {
     const { fixture } = setup({ rol: 'PELUQUERO' });
 
-    const logo = fixture.nativeElement.querySelector('img[alt*="Panel Admin"]') as HTMLImageElement;
+    const logo = fixture.nativeElement.querySelector('a[aria-label="Ir al inicio"] img') as HTMLImageElement;
     expect(logo.closest('a')?.getAttribute('href')).toBe('/citas');
   });
 

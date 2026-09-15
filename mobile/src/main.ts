@@ -5,7 +5,14 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { RouteReuseStrategy, provideRouter, withPreloading, PreloadAllModules } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
-import { API_URL, AuthService, ModuloService, TOKEN_STORAGE, jwtInterceptor } from '@peluqueria/core';
+import {
+  API_URL,
+  AuthService,
+  ModuloService,
+  NegocioService,
+  TOKEN_STORAGE,
+  jwtInterceptor,
+} from '@peluqueria/core';
 
 import { routes } from './app/app.routes';
 import { AppComponent } from './app/app.component';
@@ -34,15 +41,17 @@ bootstrapApplication(AppComponent, {
       const auth = inject(AuthService);
       const biometric = inject(BiometricService);
       const modulos = inject(ModuloService);
+      const negocio = inject(NegocioService);
       await storage.init();
       if (biometric.isEnabled()) {
         await biometric.unlock();
       } else {
         auth.restoreSession();
       }
-      // Qué hace este negocio se pregunta sin token y antes de pintar: la app tiene
-      // pantallas que se ven sin cuenta y las pestañas se montan en el arranque.
-      await modulos.cargar();
+      // Qué hace este negocio y quién es se preguntan sin token y antes de pintar: la
+      // app tiene pantallas que se ven sin cuenta y las pestañas se montan en el arranque.
+      // En paralelo, que son dos peticiones independientes y el backend puede estar dormido.
+      await Promise.all([modulos.cargar(), negocio.cargar()]);
     }),
   ],
 });

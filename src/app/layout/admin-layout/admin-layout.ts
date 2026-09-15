@@ -5,6 +5,7 @@ import {
   ClaveModulo,
   ClavePermiso,
   ModuloService,
+  NegocioService,
   PermisoService,
   UsuarioService,
 } from '@peluqueria/core';
@@ -60,7 +61,7 @@ interface NavItem {
           >
             <img
               src="logo.png"
-              alt="Lalo Segovia · Panel Admin"
+              [alt]="nombreNegocio()"
               class="h-12 w-auto max-w-full object-contain"
             />
           </a>
@@ -240,6 +241,8 @@ export class AdminLayout {
   protected readonly esAdmin = this.auth.isAdmin;
   private readonly permisos = inject(PermisoService);
   private readonly modulos = inject(ModuloService);
+  /** El nombre del negocio, para el logo de la cabecera. */
+  protected readonly nombreNegocio = inject(NegocioService).nombre;
   /** El logo lleva al inicio de cada rol: un peluquero no puede entrar al dashboard. */
   protected readonly rutaInicio = computed(() => (this.auth.isAdmin() ? '/dashboard' : '/citas'));
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
@@ -318,6 +321,13 @@ export class AdminLayout {
           path: '/bloqueos',
           soloAdmin: true,
           icon: 'M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z',
+        },
+        {
+          label: 'El negocio',
+          path: '/negocio',
+          soloAdmin: true,
+          // Escaparate: quién es esta peluquería (nombre, contacto, marca y horario).
+          icon: 'M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z',
         },
         {
           label: 'Módulos',

@@ -1,6 +1,7 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { AuthService } from '@peluqueria/core';
+import { AuthService, NegocioService } from '@peluqueria/core';
 import { of, throwError } from 'rxjs';
 import { Login } from './login';
 
@@ -19,6 +20,9 @@ function setup(
     providers: [
       provideRouter([]),
       { provide: AuthService, useValue: dobleAuth },
+      // El logo lleva el nombre del negocio: sin este doble, el servicio de verdad
+      // pediria /api/negocio al construirse y aqui no hay HttpClient.
+      { provide: NegocioService, useValue: { nombre: signal('Peluqueria de Prueba') } },
       {
         provide: ActivatedRoute,
         useValue: {
