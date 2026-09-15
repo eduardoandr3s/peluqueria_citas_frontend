@@ -1,6 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CambioModulo, ClaveModulo, Modulo, ModuloService } from '@peluqueria/core';
+import {
+  CambioModulo,
+  ClaveModulo,
+  Modulo,
+  ModuloService,
+  PerfilArranque,
+} from '@peluqueria/core';
 
 /**
  * Lo que se pierde al apagar cada módulo. Va escrito aquí y no en el backend porque habla
@@ -37,6 +43,82 @@ const CONSECUENCIAS: Record<ClaveModulo, string> = {
           administradores incluidos: no es un permiso. No borra nada, así que volver a
           encenderlo deja las cosas como estaban.
         </p>
+      </div>
+
+      <!--
+        Los perfiles van arriba y plegados: lo normal es venir aqui a cambiar un modulo, no
+        a reiniciarlos todos. Abierto de entrada, un boton que apaga ocho cosas de golpe
+        estaria delante del que solo queria apagar una.
+      -->
+      <div class="overflow-hidden rounded-xl bg-surface shadow-sm ring-1 ring-line">
+        <button
+          type="button"
+          (click)="perfilesAbiertos.set(!perfilesAbiertos())"
+          class="flex w-full items-center justify-between px-5 py-4 text-left hover:bg-elevated"
+        >
+          <span>
+            <span class="font-medium text-main">Empezar con un perfil</span>
+            <span class="mt-0.5 block text-sm text-muted">
+              Deja preparado el juego de módulos de una peluquería que acaba de entrar, en vez
+              de ir apagando uno a uno.
+            </span>
+          </span>
+          <span class="text-muted">{{ perfilesAbiertos() ? '▲' : '▼' }}</span>
+        </button>
+
+        @if (perfilesAbiertos()) {
+          <div class="divide-y divide-line border-t border-line">
+            @for (p of perfiles(); track p.clave) {
+              <div class="px-5 py-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <span>
+                    <span class="font-medium text-main">{{ p.nombre }}</span>
+                    <span class="mt-0.5 block text-sm text-muted">{{ p.descripcion }}</span>
+                  </span>
+                  <button
+                    type="button"
+                    (click)="pedirConfirmacion(p)"
+                    [disabled]="guardando()"
+                    class="rounded-lg bg-elevated px-3 py-1.5 text-sm font-medium text-main ring-1 ring-line hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+
+                @if (confirmando()?.clave === p.clave) {
+                  <div class="mt-3 rounded-lg bg-error/10 px-4 py-3 text-sm">
+                    <p class="text-main">
+                      Se <strong>apagará</strong> todo lo que no esté en el perfil. No se borra
+                      nada: lo apagado vuelve tal cual al encenderlo otra vez.
+                    </p>
+                    @if (nombresApagados(p); as apagados) {
+                      @if (apagados.length > 0) {
+                        <p class="mt-2 text-muted">Se apagan: {{ apagados.join(', ') }}.</p>
+                      }
+                    }
+                    <div class="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        (click)="aplicar(p)"
+                        [disabled]="guardando()"
+                        class="rounded-lg bg-error px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {{ guardando() ? 'Aplicando…' : 'Sí, aplicar el perfil' }}
+                      </button>
+                      <button
+                        type="button"
+                        (click)="confirmando.set(null)"
+                        class="text-sm font-medium text-muted hover:text-main"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
 
       @if (feedback(); as fb) {
@@ -144,6 +226,15 @@ export class Modulos implements OnInit {
 
   protected readonly modulos = this.guardado.asReadonly();
 
+  protected readonly perfiles = signal<PerfilArranque[]>([]);
+  protected readonly perfilesAbiertos = signal(false);
+
+  /**
+   * El perfil cuya confirmación está pedida. Aplicar uno apaga varios módulos de golpe, y
+   * eso no puede quedar a un solo clic: la pantalla enseña antes la lista de lo que apaga.
+   */
+  protected readonly confirmando = signal<PerfilArranque | null>(null);
+
   protected readonly pendientes = computed<CambioModulo[]>(() => {
     const original = this.guardado();
     return [...this.cambios().entries()]
@@ -154,6 +245,47 @@ export class Modulos implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    // Si falla, la sección de perfiles se queda vacía y la pantalla sigue sirviendo para lo
+    // que se viene a hacer casi siempre, que es cambiar un módulo. Por eso el error se
+    // traga en vez de ocupar el aviso de arriba, que es para lo que sí impide trabajar.
+    this.moduloService.perfiles().subscribe({
+      next: (ps) => this.perfiles.set(ps),
+      error: () => this.perfiles.set([]),
+    });
+  }
+
+  protected pedirConfirmacion(perfil: PerfilArranque): void {
+    this.confirmando.set(this.confirmando()?.clave === perfil.clave ? null : perfil);
+  }
+
+  /** Los nombres de lo que el perfil deja apagado y ahora mismo está encendido. */
+  protected nombresApagados(perfil: PerfilArranque): string[] {
+    return this.guardado()
+      .filter((m) => m.efectivo && perfil.apaga.includes(m.clave))
+      .map((m) => m.nombre);
+  }
+
+  protected aplicar(perfil: PerfilArranque): void {
+    this.guardando.set(true);
+    this.feedback.set(null);
+    this.moduloService.aplicarPerfil(perfil.clave).subscribe({
+      next: (catalogo) => {
+        this.guardado.set(catalogo);
+        // Las casillas movidas y sin guardar dejan de tener sentido: el perfil acaba de
+        // reescribir el estado de todas.
+        this.cambios.set(new Map());
+        this.confirmando.set(null);
+        this.guardando.set(false);
+        this.feedback.set({ texto: `Perfil «${perfil.nombre}» aplicado.`, error: false });
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardando.set(false);
+        this.feedback.set({
+          texto: this.extraerError(err) ?? 'No se pudo aplicar el perfil.',
+          error: true,
+        });
+      },
+    });
   }
 
   protected estado(modulo: Modulo): boolean {

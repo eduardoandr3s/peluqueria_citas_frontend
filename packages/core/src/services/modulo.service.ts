@@ -2,7 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { API_URL } from '../api.config';
-import { CLAVES_MODULO, CambioModulo, ClaveModulo, Modulo, ModulosActivos } from '../models/modulo.model';
+import {
+  CLAVES_MODULO,
+  CambioModulo,
+  ClaveModulo,
+  Modulo,
+  ModulosActivos,
+  PerfilArranque,
+} from '../models/modulo.model';
 import { alVolverAPrimerPlano } from '../utils/primer-plano';
 
 /**
@@ -98,9 +105,31 @@ export class ModuloService {
    */
   guardar(cambios: CambioModulo[]): Observable<Modulo[]> {
     return this.http.put<Modulo[]>(this.apiUrl, { cambios }).pipe(
-      tap((catalogo) =>
-        this._activos.set(catalogo.filter((m) => m.efectivo).map((m) => m.clave)),
-      ),
+      tap((catalogo) => this.refrescarActivos(catalogo)),
     );
+  }
+
+  /** Los perfiles de arranque, con lo que enciende y lo que apaga cada uno (solo ADMIN). */
+  perfiles(): Observable<PerfilArranque[]> {
+    return this.http.get<PerfilArranque[]>(`${this.apiUrl}/perfiles`);
+  }
+
+  /**
+   * Aplica un perfil: enciende su juego de módulos y **apaga todos los demás**. Es un atajo
+   * para dar de alta una peluquería nueva, no un estado que quede guardado: después se le
+   * cambia cualquier módulo sin salir de nada.
+   */
+  aplicarPerfil(clave: string): Observable<Modulo[]> {
+    return this.http
+      .post<Modulo[]>(`${this.apiUrl}/perfiles/${clave}`, {})
+      .pipe(tap((catalogo) => this.refrescarActivos(catalogo)));
+  }
+
+  /**
+   * La respuesta de escribir trae el catálogo entero ya recalculado, así que de ahí salen
+   * los activos sin una segunda petición: lo que vale es `efectivo`, no lo que se marcó.
+   */
+  private refrescarActivos(catalogo: Modulo[]): void {
+    this._activos.set(catalogo.filter((m) => m.efectivo).map((m) => m.clave));
   }
 }

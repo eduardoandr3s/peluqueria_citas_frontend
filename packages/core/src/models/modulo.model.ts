@@ -56,3 +56,22 @@ export interface CambioModulo {
   clave: ClaveModulo;
   activo: boolean;
 }
+
+/**
+ * Un juego de módulos preparado para dar de alta una peluquería nueva.
+ *
+ * Existe porque los módulos **nacen todos encendidos**, que es lo correcto para un negocio
+ * que ya venía funcionando —desplegar un módulo nuevo no le quita nada— y justo lo contrario
+ * de lo que quiere uno que acaba de entrar: a ese se le enseña de golpe el producto entero.
+ *
+ * Aplicarlo no deja al negocio «en» ningún perfil: escribe el estado de todos los módulos y
+ * después se le cambia cualquiera. Por eso `enciende` y `apaga` vienen resueltos del
+ * backend, para poder avisar de lo que se pierde sin recalcularlo aquí y discrepar.
+ */
+export interface PerfilArranque {
+  clave: string;
+  nombre: string;
+  descripcion: string;
+  enciende: ClaveModulo[];
+  apaga: ClaveModulo[];
+}
