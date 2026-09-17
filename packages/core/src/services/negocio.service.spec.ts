@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api.config';
 import { Negocio } from '../models/negocio.model';
+import { restaurarVisibilidad, volverAPrimerPlano } from '../testing/visibilidad';
 import { NegocioService } from './negocio.service';
 
 const API = 'http://test/api';
@@ -37,7 +38,10 @@ describe('NegocioService', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    restaurarVisibilidad();
+  });
 
   it('antes de cargar nada no se inventa el nombre de ninguna peluqueria', () => {
     // Un nombre de reserva volvería a incrustar en el código lo que esta tabla viene a
@@ -81,7 +85,7 @@ describe('NegocioService', () => {
     http.expectOne(`${API}/negocio`).flush(FICHA);
     await promesa;
 
-    document.dispatchEvent(new Event('visibilitychange'));
+    volverAPrimerPlano();
 
     http.expectOne(`${API}/negocio`).flush({ ...FICHA, nombre: 'Nombre Nuevo' });
     expect(service.nombre()).toBe('Nombre Nuevo');

@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api.config';
 import { Modulo } from '../models/modulo.model';
+import { restaurarVisibilidad, volverAPrimerPlano } from '../testing/visibilidad';
 import { ModuloService } from './modulo.service';
 
 const API = 'http://test/api';
@@ -30,7 +31,10 @@ describe('ModuloService', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    restaurarVisibilidad();
+  });
 
   it('antes de cargar nada da todo por encendido', () => {
     // Es el valor por defecto del backend y el comportamiento de siempre: el estado seguro
@@ -90,12 +94,6 @@ describe('ModuloService', () => {
   });
 
   // ---- Volver a preguntar al volver a primer plano ----
-
-  /** Simula que la app o la pestaña se va a segundo plano y vuelve. */
-  function volverAPrimerPlano(estado: DocumentVisibilityState = 'visible') {
-    Object.defineProperty(document, 'visibilityState', { value: estado, configurable: true });
-    document.dispatchEvent(new Event('visibilitychange'));
-  }
 
   it('al volver a primer plano vuelve a preguntar', async () => {
     // En el móvil la app no se cierra, se queda en segundo plano: sin esto, un módulo
