@@ -23,6 +23,7 @@ import {
 import { addIcons } from 'ionicons';
 import { imagesOutline, peopleOutline } from 'ionicons/icons';
 import {
+  AuthService,
   ModuloService,
   Servicio,
   ServicioService,
@@ -45,6 +46,16 @@ export class ServiciosPage implements OnInit {
   private readonly servicioService = inject(ServicioService);
   private readonly router = inject(Router);
   private readonly modulos = inject(ModuloService);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * Esta pantalla sirve a las dos areas: el cliente la tiene en `/tabs` y el personal la
+   * abre desde su barra, en `/admin/catalogo`, para consultar precios y descripciones tal
+   * como los ve un cliente. Para el personal es solo lectura: lo que lleve al area de
+   * cliente (agendar, la galeria, el equipo de `/tabs`) va dentro de `@if (!esStaff())`,
+   * porque el clientGuard se lo rebotaria.
+   */
+  readonly esStaff = computed(() => this.auth.isStaff());
 
   /** Los dos escaparates del negocio. Apagados, sus iconos no estan y su ruta esta cerrada. */
   readonly conGaleria = this.modulos.activo('GALERIA');

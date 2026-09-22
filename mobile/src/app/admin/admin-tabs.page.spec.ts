@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideIonicAngular } from '@ionic/angular/standalone';
 import {
   AuthService,
   ClaveModulo,
@@ -42,9 +44,71 @@ describe('AdminTabsPage', () => {
   });
 
   it('sin el modulo de produccion se cae esa pestana, tambien para un ADMIN', () => {
-    // Para un PELUQUERO es la unica pestana aparte de sus citas y su perfil, asi que el
-    // negocio que no lleva produccion le deja el movil con lo justo, que es lo que se pide.
+    // A un PELUQUERO le quedan sus citas, el catalogo y su perfil: el negocio que no lleva
+    // produccion le deja el movil con lo justo, que es lo que se pide.
     expect(setup('ADMIN', ['PRODUCCION']).conProduccion()).toBe(false);
     expect(setup('ADMIN').conProduccion()).toBe(true);
+  });
+
+  /**
+   * Sobre la plantilla, porque la pestana es el UNICO camino del personal a su catalogo:
+   * borrarla no rompe el compilador ni ningun otro test, y la pantalla se quedaria
+   * inalcanzable.
+   */
+  describe('la barra', () => {
+    /**
+     * El texto de una pestana. `ion-label` es un componente web de Ionic que trae su propio
+     * `textContent` y `childNodes`, y en el test devuelven vacio aunque el texto este pintado.
+     * Una copia dentro de un `<template>` no se convierte en componente y se lee normal.
+     */
+    function etiqueta(boton: Element): string {
+      const copia = document.createElement('template');
+      copia.innerHTML = boton.outerHTML;
+      return copia.content.querySelector('ion-label')?.textContent?.trim() ?? '';
+    }
+
+    function barra(rol: 'ADMIN' | 'PELUQUERO', modulosApagados: ClaveModulo[] = []) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          provideIonicAngular(),
+          { provide: AuthService, useValue: { isAdmin: signal(rol === 'ADMIN') } },
+          { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+        ],
+      });
+      const fixture = TestBed.createComponent(AdminTabsPage);
+      fixture.detectChanges();
+      return Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('ion-tab-button'),
+      ).map((b) => `${etiqueta(b)} ${b.getAttribute('href')}`);
+    }
+
+    it('un PELUQUERO tiene el catalogo entre su produccion y su perfil', () => {
+      expect(barra('PELUQUERO')).toEqual([
+        'Citas /admin/citas',
+        'Mi producción /admin/produccion',
+        'Servicios /admin/catalogo',
+        'Perfil /admin/perfil',
+      ]);
+    });
+
+    it('sin el modulo de produccion el catalogo sigue ahi: no depende de ningun modulo', () => {
+      expect(barra('PELUQUERO', ['PRODUCCION'])).toEqual([
+        'Citas /admin/citas',
+        'Servicios /admin/catalogo',
+        'Perfil /admin/perfil',
+      ]);
+    });
+
+    it('la barra de un ADMIN no cambia y su unico «Servicios» es la gestion', () => {
+      expect(barra('ADMIN')).toEqual([
+        'Citas /admin/citas',
+        'Producción /admin/produccion',
+        'Servicios /admin/servicios',
+        'Usuarios /admin/usuarios',
+        'Perfil /admin/perfil',
+      ]);
+    });
   });
 });

@@ -4,19 +4,24 @@
     <!--
       La galeria entra por aqui y no como pestana nueva: la barra ya tiene cinco y
       una sexta se aprieta en pantallas pequenas.
+
+      Al personal no se le pintan: las dos rutas son de /tabs y el clientGuard lo rebotaria.
+      El equipo lo tiene ya desde su agenda.
     -->
-    <ion-buttons slot="end">
-      @if (conEquipo()) {
-        <ion-button (click)="verEquipo()" aria-label="Conoce al equipo">
-          <ion-icon slot="icon-only" name="people-outline"></ion-icon>
-        </ion-button>
-      }
-      @if (conGaleria()) {
-        <ion-button (click)="verGaleria()" aria-label="Ver nuestros trabajos">
-          <ion-icon slot="icon-only" name="images-outline"></ion-icon>
-        </ion-button>
-      }
-    </ion-buttons>
+    @if (!esStaff()) {
+      <ion-buttons slot="end">
+        @if (conEquipo()) {
+          <ion-button (click)="verEquipo()" aria-label="Conoce al equipo">
+            <ion-icon slot="icon-only" name="people-outline"></ion-icon>
+          </ion-button>
+        }
+        @if (conGaleria()) {
+          <ion-button (click)="verGaleria()" aria-label="Ver nuestros trabajos">
+            <ion-icon slot="icon-only" name="images-outline"></ion-icon>
+          </ion-button>
+        }
+      </ion-buttons>
+    }
   </ion-toolbar>
   <!-- Sin catalogo cargado no hay nada que buscar, asi que la barra no aparece. -->
   @if (!loading() && servicios().length > 0) {
@@ -68,9 +73,12 @@
               <span class="precio">{{ formatPrecio(servicio.precio) }}</span>
               <span class="duracion">⏱ {{ formatDuracion(servicio.duracion) }}</span>
             </div>
-            <ion-button expand="block" (click)="agendar(servicio)">
-              Agendar
-            </ion-button>
+            <!-- El personal consulta el catalogo, no agenda: esa ruta es de /tabs. -->
+            @if (!esStaff()) {
+              <ion-button expand="block" (click)="agendar(servicio)">
+                Agendar
+              </ion-button>
+            }
           </ion-card-content>
         </ion-card>
       }

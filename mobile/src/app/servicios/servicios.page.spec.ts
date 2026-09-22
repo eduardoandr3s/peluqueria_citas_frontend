@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import {
+  AuthService,
   ClaveModulo,
   ModuloService,
   Servicio,
@@ -25,16 +26,26 @@ function dobleModulos(apagados: ClaveModulo[] = []) {
   };
 }
 
+/**
+ * La sesion, que es lo que decide si la pantalla se abre en el area de cliente o en la de
+ * trabajo. Por defecto es un cliente, que es para quien se hizo la pantalla.
+ */
+function dobleAuth(esStaff = false) {
+  return { isStaff: signal(esStaff) };
+}
+
 function setup(
   listar = vi.fn().mockReturnValue(of([ACTIVO, INACTIVO])),
   /** Modulos que este negocio NO tiene. Por defecto los tiene todos. */
   modulosApagados: ClaveModulo[] = [],
+  esStaff = false,
 ) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
       { provide: ServicioService, useValue: { listar } },
       { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+      { provide: AuthService, useValue: dobleAuth(esStaff) },
     ],
   });
   const router = TestBed.inject(Router);
@@ -150,13 +161,14 @@ describe('ServiciosPage', () => {
    * ni ningun otro test, y la galeria y el equipo se quedarian inalcanzables.
    */
   describe('escaparates de la cabecera', () => {
-    function etiquetas(modulosApagados: ClaveModulo[] = []) {
+    function etiquetas(modulosApagados: ClaveModulo[] = [], esStaff = false) {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [
           provideRouter([]),
           { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([ACTIVO])) } },
           { provide: ModuloService, useValue: dobleModulos(modulosApagados) },
+          { provide: AuthService, useValue: dobleAuth(esStaff) },
         ],
       });
       const fixture = TestBed.createComponent(ServiciosPage);
@@ -178,6 +190,61 @@ describe('ServiciosPage', () => {
 
     it('sin el equipo se cae el suyo', () => {
       expect(etiquetas(['EQUIPO_CV'])).toEqual(['images-outline']);
+    });
+
+    it('al personal no se le pinta ninguno, aunque los dos modulos esten encendidos', () => {
+      // Las dos rutas son de /tabs y el clientGuard lo rebotaria.
+      expect(etiquetas([], true)).toEqual([]);
+    });
+  });
+
+  /**
+   * La misma pantalla abierta por el personal desde su barra, para consultar el catalogo tal
+   * como lo ve un cliente. Se comprueba SOBRE LA PLANTILLA porque lo que cambia entre las dos
+   * areas es solo lo que se pinta: la logica del componente es la misma para los dos.
+   */
+  describe('en el area de trabajo', () => {
+    function pintar(esStaff: boolean): HTMLElement {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          { provide: ServicioService, useValue: { listar: vi.fn().mockReturnValue(of([...CATALOGO, INACTIVO])) } },
+          { provide: ModuloService, useValue: dobleModulos() },
+          { provide: AuthService, useValue: dobleAuth(esStaff) },
+        ],
+      });
+      const fixture = TestBed.createComponent(ServiciosPage);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    const textos = (raiz: HTMLElement, selector: string) =>
+      Array.from(raiz.querySelectorAll(selector)).map((e) => e.textContent?.trim());
+
+    it('al personal no se le ofrece agendar ningun servicio', () => {
+      const raiz = pintar(true);
+      // Que haya tarjetas es lo que hace que la ausencia del boton signifique algo.
+      expect(raiz.querySelectorAll('ion-card').length).toBe(3);
+      expect(textos(raiz, 'ion-card ion-button')).not.toContain('Agendar');
+    });
+
+    it('al cliente se le sigue ofreciendo agendar cada servicio', () => {
+      expect(textos(pintar(false), 'ion-card ion-button')).toEqual(['Agendar', 'Agendar', 'Agendar']);
+    });
+
+    it('el personal ve cada servicio con los mismos datos que un cliente', () => {
+      const raiz = pintar(true);
+      expect(textos(raiz, 'ion-card-title')).toEqual(['Corte de caballero', 'Tinte', 'Peinado']);
+      expect(textos(raiz, 'ion-card-subtitle')).toEqual(['Coloración completa']);
+      expect(textos(raiz, '.precio').map((p) => p?.replace(/\s/g, ' '))).toEqual([
+        '15,00 €',
+        '40,00 €',
+        '12,00 €',
+      ]);
+      expect(textos(raiz, '.duracion')).toEqual(['⏱ 30 min', '⏱ 1h 30min', '⏱ 20 min']);
+      // Y el mismo buscador: el filtrado ya se prueba arriba, aqui que se le pinta.
+      expect(raiz.querySelector('ion-searchbar')).not.toBeNull();
     });
   });
 });

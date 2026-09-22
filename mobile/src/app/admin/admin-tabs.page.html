@@ -22,6 +22,16 @@
         <ion-icon name="people-outline"></ion-icon>
         <ion-label>Usuarios</ion-label>
       </ion-tab-button>
+    } @else {
+      <!--
+        El catalogo tal como lo ve un cliente, para consultar precios y descripciones. El ADMIN
+        no la tiene: su «Servicios» ya es la gestion, y una sexta pestana se aprieta en
+        pantallas pequenas.
+      -->
+      <ion-tab-button tab="catalogo" href="/admin/catalogo">
+        <ion-icon name="cut-outline"></ion-icon>
+        <ion-label>Servicios</ion-label>
+      </ion-tab-button>
     }
 
     <ion-tab-button tab="perfil" href="/admin/perfil">

@@ -25,14 +25,15 @@ export class AdminTabsPage {
   private readonly auth = inject(AuthService);
 
   /**
-   * Servicios y usuarios son de administración. A un PELUQUERO no se le pintan las
-   * pestañas: sus rutas lo devolverían aquí, y una pestaña que rebota es peor que ninguna.
+   * La gestión de servicios y la de usuarios son de administración. A un PELUQUERO no se le
+   * pintan esas pestañas: sus rutas lo devolverían aquí, y una pestaña que rebota es peor que
+   * ninguna. En su lugar tiene «Servicios» de solo consulta, que es otra ruta.
    */
   readonly esAdmin = this.auth.isAdmin;
 
   /**
-   * Si el negocio lleva produccion. Apagado se cae la pestana, que ademas es la unica que
-   * un PELUQUERO tiene aparte de sus citas y su perfil.
+   * Si el negocio lleva produccion. Apagado se cae la pestana, y a un PELUQUERO le quedan sus
+   * citas, el catalogo y su perfil.
    */
   readonly conProduccion = inject(ModuloService).activo('PRODUCCION');
 

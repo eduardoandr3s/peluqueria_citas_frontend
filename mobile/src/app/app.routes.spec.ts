@@ -3,7 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router, Routes, provideRouter } from '@angular/router';
 import { AuthService } from '@peluqueria/core';
 import { routes } from './app.routes';
-import { clientGuard, mobileAuthGuard } from './guards/auth.guard';
+import { adminGuard, clientGuard, mobileAuthGuard } from './guards/auth.guard';
+import { ServiciosPage } from './servicios/servicios.page';
 
 @Component({ template: '' })
 class DestinoStub {}
@@ -175,5 +176,36 @@ describe('ruta de pago', () => {
     const posicionComodin = routes.findIndex((r) => r.path === '**');
     expect(posicionPago).toBeGreaterThanOrEqual(0);
     expect(posicionPago).toBeLessThan(posicionComodin);
+  });
+});
+
+/**
+ * El personal consulta el catalogo desde su propia barra. La pestana navega por href, asi que
+ * sin la ruta detras se veria el boton y al pulsarlo la app se iria al login.
+ */
+describe('el catalogo del personal', () => {
+  const hijasAdmin = routes.find((r) => r.path === 'admin')?.children ?? [];
+  const catalogo = hijasAdmin.find((r) => r.path === 'catalogo');
+
+  it('/admin/catalogo tiene ruta', () => {
+    expect(catalogo).toBeDefined();
+  });
+
+  it('no lleva adminGuard: la puerta es la del area, que ya deja pasar a un PELUQUERO', () => {
+    expect(catalogo?.canActivate ?? []).not.toContain(adminGuard);
+  });
+
+  it('carga la misma pantalla que ve el cliente, no una copia', async () => {
+    // Es lo que hace que «lo ve como un cliente» siga siendo verdad cuando esa pantalla cambie.
+    const enTabs = (routes.find((r) => r.path === 'tabs')?.children ?? []).find(
+      (r) => r.path === 'servicios',
+    );
+    expect(await catalogo?.loadComponent?.()).toBe(ServiciosPage);
+    expect(await enTabs?.loadComponent?.()).toBe(ServiciosPage);
+  });
+
+  it('la gestion del catalogo sigue cerrada al personal', () => {
+    const gestion = hijasAdmin.find((r) => r.path === 'servicios');
+    expect(gestion?.canActivate).toContain(adminGuard);
   });
 });

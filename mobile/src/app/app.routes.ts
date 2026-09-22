@@ -57,6 +57,14 @@ export const routes: Routes = [
           import('./admin/servicios/admin-servicios.page').then((m) => m.AdminServiciosPage),
       },
       {
+        // El catalogo tal como lo ve un cliente, para que el personal consulte precios y
+        // descripciones. No es /admin/servicios, que es la gestion y lleva adminGuard, ni
+        // /tabs/servicios, porque el clientGuard esta para que el personal no caiga en el area
+        // de cliente. La puerta del area (staffGuard) es la que le corresponde, y basta.
+        path: 'catalogo',
+        loadComponent: () => import('./servicios/servicios.page').then((m) => m.ServiciosPage),
+      },
+      {
         path: 'usuarios',
         canActivate: [adminGuard],
         loadComponent: () =>
