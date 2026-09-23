@@ -11,8 +11,12 @@
   </div>
 
   <ion-list inset="true">
+    <!--
+      La dirección no va por href como el teléfono y el email: si el móvil no tuviera app
+      de mapas, el enlace no haría nada y no habría forma de enterarse. MapaService decide.
+    -->
     @if (calle() || ciudad()) {
-      <ion-item lines="full">
+      <ion-item lines="full" button detail="false" (click)="abrirMapa()">
         <ion-icon slot="start" name="location-outline" aria-hidden="true"></ion-icon>
         <ion-label class="ion-text-wrap">
           <p>Dirección</p>

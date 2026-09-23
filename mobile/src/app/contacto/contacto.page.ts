@@ -12,6 +12,7 @@ import {
 import { addIcons } from 'ionicons';
 import { callOutline, locationOutline, mailOutline } from 'ionicons/icons';
 import { NegocioService } from '@peluqueria/core';
+import { MapaService } from '../core/mapa.service';
 
 /**
  * Datos de contacto del salón. **Vienen del backend**, no escritos aquí.
@@ -32,6 +33,7 @@ import { NegocioService } from '@peluqueria/core';
 })
 export class ContactoPage {
   private readonly negocio = inject(NegocioService);
+  private readonly mapa = inject(MapaService);
 
   readonly nombreSalon = this.negocio.nombre;
   readonly calle = computed(() => this.negocio.ficha().direccion);
@@ -52,6 +54,18 @@ export class ContactoPage {
     const correo = this.email();
     return correo ? `mailto:${correo}` : null;
   });
+
+  /**
+   * Lo que se busca en el mapa sale de las mismas señales que pinta la plantilla, para que no
+   * pueda buscarse una dirección distinta de la que se ve.
+   */
+  readonly direccionMapa = computed(() =>
+    [this.calle(), this.ciudad()].filter(Boolean).join(', '),
+  );
+
+  abrirMapa(): void {
+    void this.mapa.abrir(this.direccionMapa());
+  }
 
   constructor() {
     addIcons({ callOutline, locationOutline, mailOutline });
